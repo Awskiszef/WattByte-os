@@ -97,11 +97,11 @@ page is ISR (the Eurostat price is fetched with `revalidate: 86400`), so prerend
 cache live in the Workers KV namespace `wattbyte-web-cache` (binding `NEXT_INC_CACHE_KV`).
 
 ```bash
-pnpm --filter @wattbyte/web preview   # OpenNext build + wrangler dev on http://localhost:8787 (Workers runtime)
+pnpm --filter @wattbyte/web run preview   # OpenNext build + wrangler dev on http://localhost:8787 (Workers runtime)
 ```
 
 ```bash
-pnpm --filter @wattbyte/web deploy    # OpenNext build + upload + KV cache population
+pnpm --filter @wattbyte/web run deploy    # OpenNext build + upload + KV cache population (`run` matters: `pnpm deploy` is pnpm's own command)
 ```
 
 Both need a port, so run them outside any sandbox. `deploy` needs a logged-in Wrangler
@@ -141,7 +141,7 @@ because those requests are answered by the asset layer, not by the Worker code. 
 First production deploy: 2026-10-20 (Worker version `18eb6351`), account `atlashc`; both custom domains
 were created by that deploy, and `wattbyte-web-cache` was populated with the prerendered pages. Note that
 `opennextjs-cloudflare deploy` on its own uploads the existing `.open-next/` build; always run the `deploy`
-package script (build + deploy) after a code change.
+package script with `pnpm run deploy` (build + deploy) after a code change.
 
 ### Checklist after a deploy
 
