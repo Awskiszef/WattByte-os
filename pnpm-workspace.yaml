@@ -1,6 +1,7 @@
 packages:
   - apps/api
   - apps/ai
+  - apps/web
   - packages/contracts
   - packages/device-specs
 # apps/mobile is a Flutter project and is not part of the pnpm workspace.
@@ -8,3 +9,5 @@ packages:
 # esbuild's postinstall only validates its platform binary; allow it so vitest/tsx work.
 allowBuilds:
   esbuild: true
+  # eslint-config-next's resolver ships prebuilt binaries; its postinstall is only a fallback.
+  unrs-resolver: false

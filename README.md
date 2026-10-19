@@ -8,6 +8,7 @@ wattbyte/
 ├── apps/
 │   ├── mobile/        Flutter app (Android + iOS) + local plugin packages/wattbyte_system
 │   ├── api/           TypeScript REST API (Fastify, PostgreSQL, Zod, OpenAPI)
+│   ├── web/           Marketing website wattbyte.app (Next.js, Tailwind; see apps/web/README.md)
 │   └── ai/            AI Gateway library (OpenAI / Anthropic / Google / xAI: routing, retry, fallback, spend limits)
 ├── packages/
 │   └── contracts/     Zod contracts shared by the API + generated openapi/openapi.json
