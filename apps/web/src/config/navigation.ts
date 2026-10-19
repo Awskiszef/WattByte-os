@@ -36,7 +36,7 @@ export const footerColumns: ReadonlyArray<{ title: string; links: readonly NavLi
   {
     title: 'Company',
     links: [
-      { label: 'About', comingSoon: true },
+      { label: 'About', href: '/about' },
       { label: 'Contact', href: '/contact' },
     ],
   },
@@ -61,6 +61,7 @@ export const footerColumns: ReadonlyArray<{ title: string; links: readonly NavLi
 export const routes = [
   '/',
   '/features',
+  '/about',
   '/ai',
   '/pricing',
   '/privacy',

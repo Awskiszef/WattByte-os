@@ -1,8 +1,8 @@
-import Link from 'next/link';
 import { footerColumns } from '@/config/navigation';
 import { site } from '@/config/site';
 import { ComingSoon } from '@/components/ui/badge';
 import { companyLine } from '@/components/ui/company-details';
+import { FooterLink } from './footer-link';
 import { Logo } from './logo';
 
 export function Footer() {
@@ -27,9 +27,7 @@ export function Footer() {
                         <ComingSoon />
                       </span>
                     ) : (
-                      <Link href={link.href} className="text-fg-muted transition-colors hover:text-fg">
-                        {link.label}
-                      </Link>
+                      <FooterLink href={link.href}>{link.label}</FooterLink>
                     )}
                   </li>
                 ))}

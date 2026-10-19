@@ -56,6 +56,10 @@ Scores are Performance / Accessibility / Best Practices / SEO.
 `/contact` and `/privacy`, measured the same day after the company details were added, score 100 in every
 category on mobile and desktop.
 
+`/about` (added 2026-10-20): mobile 98–99 / 100 / 100 / 100 across three warm runs (LCP 2.0–2.5 s, TBT 10 ms,
+CLS 0), desktop 100 / 100 / 100 / 100. Its first run scored 92 on Accessibility because the mission and
+building cards wrapped each `<li>` in the reveal `<div>`; the reveal now lives inside the `<li>`.
+
 ¹ First run of the session (cold browser and server): TBT 770 ms. Three warm re-runs of the same build
 scored 93 with TBT 10–20 ms and LCP 3.2 s, so the real "before" for `/` on mobile is 93.
 

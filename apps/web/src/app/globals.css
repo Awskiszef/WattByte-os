@@ -215,6 +215,12 @@ body {
     transform: none;
     transition: none;
   }
+  .motion-flow animateMotion {
+    display: none;
+  }
+  .motion-flow circle {
+    display: none;
+  }
   *,
   ::before,
   ::after {

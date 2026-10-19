@@ -5,6 +5,7 @@ import { site } from '@/config/site';
 const priorities: Partial<Record<(typeof routes)[number], number>> = {
   '/': 1,
   '/features': 0.9,
+  '/about': 0.8,
   '/ai': 0.8,
   '/download': 0.9,
   '/pricing': 0.7,
