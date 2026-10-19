@@ -1,0 +1,10 @@
+# Copy to android/key.properties (git-ignored) and fill in. NEVER commit real values.
+# Alternatively export WATTBYTE_KEYSTORE_FILE, WATTBYTE_KEYSTORE_PASSWORD,
+# WATTBYTE_KEY_ALIAS and WATTBYTE_KEY_PASSWORD (CI secrets).
+#
+# Create a keystore once and keep it (and its passwords) outside the repository:
+#   keytool -genkey -v -keystore ~/wattbyte-upload.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+storeFile=/absolute/path/to/wattbyte-upload.jks
+storePassword=CHANGE_ME
+keyAlias=upload
+keyPassword=CHANGE_ME

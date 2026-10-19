@@ -1,0 +1,9 @@
+include: package:flutter_lints/flutter.yaml
+analyzer:
+  exclude:
+    - lib/l10n/generated/**
+    # OpenAPI-generated client (pnpm dart-client); regenerated, never edited.
+    - lib/generated/**
+    - build/**
+    - android/**
+    - ios/**

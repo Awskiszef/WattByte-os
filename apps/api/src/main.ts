@@ -1,0 +1,81 @@
+import { AI_PROVIDER_IDS, MockProvider, providersFromEnv, type AIProvider } from '@wattbyte/ai';
+import type { FastifyBaseLogger } from 'fastify';
+
+import { buildApp } from './app.js';
+import { envWarnings, loadEnv } from './config/env.js';
+import { PostgresRepositories } from './database/postgres.js';
+import { buildGateway } from './modules/ai/gateway.js';
+
+async function main(): Promise<void> {
+  const env = loadEnv();
+  if (!env.DATABASE_URL) {
+    console.error('DATABASE_URL is required (see .env.example)');
+    process.exit(1);
+  }
+  // The pool is created before the app (the app needs it), so its error handler reaches the logger through this holder.
+  const logger: { current?: FastifyBaseLogger } = {};
+  const repos = new PostgresRepositories(env.DATABASE_URL, {
+    ssl: env.DATABASE_SSL === '1' ? { rejectUnauthorized: true } : undefined,
+    // An idle client dropped by the server or a proxy. Only the error class and SQLSTATE: the message can carry connection details.
+    onError: (e) => {
+      if (logger.current) logger.current.error({ err: e }, 'postgres pool error');
+      else console.error('postgres pool error');
+    },
+  });
+
+  const providers: AIProvider[] = env.AI_MOCK === '1' ? AI_PROVIDER_IDS.map((id) => new MockProvider(id)) : providersFromEnv(env);
+  if (providers.length === 0) console.warn('No AI provider configured: /api/v1/ai/* will answer 503');
+  // Per-attempt telemetry (provider, model, latency, tokens, status - never prompt/answer text) goes to the app logger,
+  // which exists only after the gateway (the app needs the gateway), hence the late binding.
+  const gatewayLogger = {
+    info: (entry: Record<string, unknown>, message?: string) => (logger.current ?? console).info(entry, message),
+    warn: (entry: Record<string, unknown>, message?: string) => (logger.current ?? console).warn(entry, message),
+  };
+  const gateway = buildGateway(env, repos, providers, gatewayLogger);
+
+  const app = await buildApp({ env, repos, gateway, providerIds: providers.map((p) => p.id) });
+  logger.current = app.log;
+  for (const warning of envWarnings(env)) app.log.warn({ appEnv: env.APP_ENV }, warning);
+  // What the AI layer will do, in one line: providers, never keys or model names.
+  const ai = gateway.status();
+  app.log.info(
+    {
+      ai: {
+        providers: ai.providers.filter((p) => p.configured).map((p) => p.id),
+        defaultProvider: ai.defaultProvider,
+        fallback: ai.fallbackEnabled,
+        maxRetries: ai.maxRetries,
+        attemptTimeoutMs: ai.attemptTimeoutMs,
+        requestTimeoutMs: ai.requestTimeoutMs,
+        budgetEnforced: ai.budgetEnforced,
+      },
+    },
+    'ai configuration',
+  );
+
+  const shutdown = async (signal: string): Promise<void> => {
+    app.log.info({ signal }, 'shutting down');
+    await app.close();
+    await repos.close();
+    process.exit(0);
+  };
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
+  process.on('SIGINT', () => void shutdown('SIGINT'));
+
+  // The server starts even when PostgreSQL is down: /health stays 200 (the process is alive), /ready answers
+  // 503 until `SELECT 1` works, so a load balancer sends no traffic to an instance that cannot serve it, and
+  // a database outage does not turn into a restart loop. Migrations are a separate step (`pnpm migrate`).
+  await app.listen({ port: env.PORT, host: env.HOST });
+  const databaseUp = await repos.ping();
+  if (databaseUp) app.log.info({ appEnv: env.APP_ENV, features: featureSummary(env) }, 'database reachable at boot');
+  else app.log.warn({ appEnv: env.APP_ENV }, 'database NOT reachable at boot; /ready answers 503 until it is');
+}
+
+function featureSummary(env: ReturnType<typeof loadEnv>): Record<string, boolean> {
+  return { ai: env.FEATURE_AI === '1', subscriptions: env.FEATURE_SUBSCRIPTIONS === '1', cloudSync: env.FEATURE_CLOUD_SYNC === '1' };
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

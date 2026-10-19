@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launch window before Android 12 (minSdk is 29): the theme's page background with the mark at the size of the
+     in-app splash (96 dp). Android 12+ shows the system splash configured in values-v31 / values-night-v31. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/launch_background" />
+    <item
+        android:width="96dp"
+        android:height="96dp"
+        android:gravity="center"
+        android:drawable="@drawable/launch_logo" />
+</layer-list>

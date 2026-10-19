@@ -1,0 +1,37 @@
+# Local PostgreSQL for apps/api.
+#
+#   docker compose -f infrastructure/docker/docker-compose.yml up -d --wait   # or: pnpm db:up
+#   pnpm db:migrate
+#
+# `--wait` returns only once the healthcheck below reports "healthy", so the next
+# command (migrations, tests) never races a database that is still starting.
+#
+# The host port is configurable: WB_PG_PORT (default 5432). Use another one when
+# a PostgreSQL is already running on the machine, e.g. WB_PG_PORT=55432.
+# The port is published on the loopback interface only: the credentials below are
+# documented local-development defaults and must never be reachable from the LAN.
+# These credentials are for this throw-away container only; production secrets come
+# from the deployment environment, never from this file.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: wattbyte
+      POSTGRES_PASSWORD: wattbyte
+      POSTGRES_DB: wattbyte
+    ports:
+      - "127.0.0.1:${WB_PG_PORT:-5432}:5432"
+    volumes:
+      - wattbyte-pg:/var/lib/postgresql/data
+    healthcheck:
+      # pg_isready with the real user and database: it only succeeds once the server
+      # accepts connections for them (not just once the postmaster process exists).
+      test: ["CMD-SHELL", "pg_isready -U wattbyte -d wattbyte"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      # Failures during the first initdb (about 5-10 s) do not count against `retries`.
+      start_period: 15s
+
+volumes:
+  wattbyte-pg:

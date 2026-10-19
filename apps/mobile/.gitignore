@@ -1,0 +1,73 @@
+# Flutter app (apps/mobile). The repository root .gitignore holds the cross-cutting
+# rules (secrets, signing material, OS junk); this file adds the Flutter ones.
+
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
+
+# IntelliJ / editors
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Flutter / Pub
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+# pubspec.lock is tracked: this is an application, builds must be reproducible.
+
+# Generated localisations: `flutter pub get` / `flutter gen-l10n` (generate: true) recreate them
+# from lib/l10n/*.arb. The generated Dart API client in lib/generated/api IS tracked.
+lib/l10n/generated/
+
+# Symbolication / obfuscation
+app.*.symbols
+app.*.map.json
+
+# Android (see android/.gitignore)
+android/.gradle/
+android/.kotlin/
+android/local.properties
+android/key.properties
+android/app/.cxx/
+android/app/C:/
+android/app/debug
+android/app/profile
+android/app/release
+
+# iOS (see ios/.gitignore)
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.podspec
+ios/Flutter/ephemeral/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/Local.xcconfig
+ios/Runner.xcworkspace/xcuserdata/
+
+# Tool lock written by tool/arb_add.py
+tool/.arb.lock
+
+# Local plugin packages: build output of the Kotlin JVM tests and of the plugin
+packages/**/.gradle/
+packages/**/.kotlin/
+packages/**/build/
+packages/**/.dart_tool/
+
+# Real per-environment build configuration (API_BASE_URL, PRIVACY_POLICY_URL...); only the *.example.json templates are tracked.
+/config/*.json
+!/config/*.example.json

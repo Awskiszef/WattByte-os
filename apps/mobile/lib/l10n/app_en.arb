@@ -1,0 +1,510 @@
+{
+  "@@locale": "en",
+  "appName": "WattByte",
+  "today": "Today",
+  "yesterday": "Yesterday",
+  "tabDashboard": "Dashboard",
+  "tabHistory": "History",
+  "tabInsights": "Insights",
+  "tabSettings": "Settings",
+  "statistics": "Statistics",
+  "estimated": "Estimated",
+  "measured": "Measured",
+  "inProgress": "In progress",
+  "chargingNow": "Charging now",
+  "since": "since {time}",
+  "@since": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "dataUsed": "Data Used",
+  "mobile": "Mobile",
+  "wifi": "Wi-Fi",
+  "totalData": "Total",
+  "download": "Download",
+  "upload": "Upload",
+  "energyAdded": "Energy Added",
+  "electricityCost": "Electricity Cost",
+  "batteryCharged": "Battery Charged",
+  "dataUsage": "Data Usage",
+  "energyUsage": "Energy Usage",
+  "dataByApp": "Data by App",
+  "usageAccessTitle": "Allow usage access",
+  "usageAccessBody": "Android shares data totals only with apps you allow under Usage access. WattByte reads totals on this device and never uploads them.",
+  "usageAccessButton": "Open settings",
+  "usageAccessUnavailable": "This device does not expose data usage statistics to apps, so data totals cannot be shown here.",
+  "setCapacityHint": "Battery capacity unknown. Enter it under Settings > Device to estimate mAh.",
+  "noDataYet": "No data yet",
+  "noDataBody": "WattByte starts collecting as soon as it has access. Check back in a little while.",
+  "noSessionsYet": "No charging sessions yet",
+  "iosDataNote": "On iOS, data totals are sampled while WattByte runs or refreshes in the background, so they are estimates.",
+  "iosChargingNote": "On iOS, charging is tracked while WattByte is open or refreshed in the background.",
+  "periodToday": "Today",
+  "periodYesterday": "Yesterday",
+  "periodLast7Days": "Last 7 Days",
+  "periodLast30Days": "Last 30 Days",
+  "periodThisWeek": "This Week",
+  "periodThisMonth": "This Month",
+  "periodLastMonth": "Previous Month",
+  "periodThisYear": "This Year",
+  "periodAllTime": "All Time",
+  "days7": "7D",
+  "days30": "30D",
+  "historyData": "Data",
+  "historyCharging": "Charging",
+  "historyEnergy": "Energy",
+  "sessionTitle": "Charging Session",
+  "batteryLabel": "Battery",
+  "added": "Added",
+  "charge": "Charge",
+  "energy": "Energy",
+  "batteryEnergy": "Battery Energy",
+  "wallEnergy": "Wall Energy Estimate",
+  "cost": "Cost",
+  "duration": "Duration",
+  "sparseNote": "Times are approximate: samples were far apart.",
+  "internet": "Internet",
+  "charging": "Charging",
+  "records": "Records",
+  "sessionsCount": "Charging sessions",
+  "avgDuration": "Average charging duration",
+  "avgAdded": "Average battery added",
+  "totalMah": "Total charge added",
+  "recordMostDataDay": "Most Data Used in One Day",
+  "recordLongestSession": "Longest Charging Session",
+  "recordMostEnergyDay": "Most Energy Used in One Day",
+  "recordLargestSession": "Largest Charging Session",
+  "recordMostExpensiveMonth": "Most Expensive Month",
+  "recordAvgDailyData": "Average Daily Data Usage",
+  "recordAvgMonthlyEnergy": "Average Monthly Energy Usage",
+  "noRecordsYet": "Records appear once there is some history.",
+  "insightsEmpty": "Insights appear after a few days of use.",
+  "insightMobileMore": "You used {percent}% more mobile data than last week.",
+  "@insightMobileMore": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "insightMobileLess": "You used {percent}% less mobile data than last week.",
+  "@insightMobileLess": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "insightCharges": "{count, plural, =1{You charged your phone once this week.} other{You charged your phone {count} times this week.}}",
+  "@insightCharges": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "insightEnergyMonth": "Your phone consumed approximately {kwh} of electricity this month.",
+  "@insightEnergyMonth": {
+    "placeholders": {
+      "kwh": {
+        "type": "String"
+      }
+    }
+  },
+  "insightCostMonth": "Your estimated charging cost this month is {cost}.",
+  "@insightCostMonth": {
+    "placeholders": {
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "insightWifiShare": "Wi-Fi represented {percent}% of your total data usage.",
+  "@insightWifiShare": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "insightAvgSession": "Your average charging session added {mah}.",
+  "@insightAvgSession": {
+    "placeholders": {
+      "mah": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsGeneral": "General",
+  "currency": "Currency",
+  "electricityPrice": "Electricity Price",
+  "chargingEfficiency": "Charging Efficiency",
+  "batteryCapacity": "Battery Capacity",
+  "units": "Units",
+  "unitsDecimal": "Decimal (1 GB = 1000 MB)",
+  "unitsBinary": "Binary (1 GiB = 1024 MiB)",
+  "appearance": "Appearance",
+  "themeSystem": "System",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "notifications": "Notifications",
+  "notifMobileThreshold": "Mobile data threshold",
+  "notifMobileThresholdBody": "Tell me when I pass {amount} in a day",
+  "@notifMobileThresholdBody": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "notifChargingDone": "Charging session completed",
+  "notifWeeklyEnergy": "Weekly energy summary",
+  "notifAboveAverage": "Above my weekly average",
+  "notificationsOptional": "All notifications are optional and generated on your device.",
+  "privacy": "Privacy",
+  "dataCollection": "Data Collection",
+  "dataCollectionBody": "Read usage and battery statistics from this device. Nothing is uploaded unless you turn on cloud sync.",
+  "exportData": "Export Data",
+  "exportCsv": "Export CSV",
+  "exportJson": "Export JSON",
+  "resetStatistics": "Reset Statistics",
+  "resetConfirmTitle": "Reset all statistics?",
+  "resetConfirmBody": "This deletes all stored data and charging history on this device. It cannot be undone.",
+  "cancel": "Cancel",
+  "reset": "Reset",
+  "save": "Save",
+  "aboutWattByte": "About WattByte",
+  "aboutBody": "WattByte shows how much data and energy your phone uses. Measurements stay on this device unless you create an account and turn on cloud sync, which uploads daily totals only. Values the system cannot measure directly are estimated and marked as such.",
+  "version": "Version {version}",
+  "@version": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "pricePerKwh": "{currency} / kWh",
+  "@pricePerKwh": {
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "efficiencyHint": "Share of wall energy that ends up in the battery. Typical phones: 80–90%.",
+  "capacityHint": "Nominal capacity in mAh. Detected from the device database; enter it only when WattByte could not.",
+  "estimatedFullChargeCapacity": "Estimated full charge capacity",
+  "estimatedFullChargeCapacityBody": "Estimated from the battery charge counter. Confidence: {confidence}",
+  "@estimatedFullChargeCapacityBody": {
+    "placeholders": {
+      "confidence": {
+        "type": "String"
+      }
+    }
+  },
+  "confidenceHigh": "high",
+  "confidenceMedium": "medium",
+  "confidenceLow": "low",
+  "notSet": "Not set",
+  "onboardingPermissionsBodyIos": "iOS shares no per-app data and no charging counters with apps. WattByte samples system counters while it runs and marks the results as estimates.",
+  "continueLabel": "Continue",
+  "getStarted": "Get started",
+  "enableNotifications": "Enable notifications",
+  "notifMobileTitle": "Mobile data",
+  "notifMobileBody": "You've used {amount} of mobile data today.",
+  "@notifMobileBody": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "notifChargingTitle": "Charging session completed",
+  "notifChargingBody": "Open WattByte to see how much energy was added.",
+  "notifWeeklyTitle": "Weekly energy",
+  "notifWeeklyBody": "This week your phone used approximately {kwh}.",
+  "@notifWeeklyBody": {
+    "placeholders": {
+      "kwh": {
+        "type": "String"
+      }
+    }
+  },
+  "notifAboveAvgTitle": "Mobile data",
+  "notifAboveAvgBody": "You've used {percent}% more mobile data than your weekly average.",
+  "@notifAboveAvgBody": {
+    "placeholders": {
+      "percent": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "widgetDataToday": "Data today",
+  "widgetEnergyToday": "Energy today",
+  "widgetCostToday": "Cost today",
+  "widgetMonthlyData": "Monthly data",
+  "widgetMonthlyCost": "Monthly cost",
+  "widgetData": "Data",
+  "widgetEnergy": "Energy",
+  "widgetCost": "Cost",
+  "account": "Account",
+  "accountUnavailableTitle": "Cloud features are off in this build",
+  "accountUnavailableBody": "This build is not connected to a WattByte server, so everything stays on your phone and nothing is uploaded.",
+  "cloudSyncNote": "Cloud sync uploads only daily totals (bytes, Wh, sessions, cost), never raw samples or per-app usage, and only if you turn it on.",
+  "signIn": "Sign in",
+  "signOut": "Sign out",
+  "authInvalidCredentials": "Wrong email or password.",
+  "authNetworkError": "No connection. Try again later.",
+  "authSessionExpired": "Your session expired. Please sign in again.",
+  "appOther": "Other apps",
+  "appSystem": "System",
+  "appTethering": "Tethering",
+  "appRemoved": "Removed apps",
+  "dataByAppEmpty": "No app usage recorded for this period.",
+  "signUp": "Create account",
+  "haveAccount": "I already have an account",
+  "noAccount": "Create a new account",
+  "email": "Email",
+  "password": "Password",
+  "passwordHint": "At least 8 characters",
+  "accountPlan": "Plan",
+  "planFree": "Free",
+  "planPremium": "Premium",
+  "accountOfflineNote": "Could not reach the server. You are shown as signed in with your last known session.",
+  "accountRestoring": "Restoring your session…",
+  "authEmailTaken": "An account with this email already exists.",
+  "authInvalidInput": "Check the email and use a password of at least 8 characters.",
+  "authRateLimited": "Too many attempts. Try again in a minute.",
+  "authServerError": "The server had a problem. Try again later.",
+  "cloudSyncTitle": "Cloud sync",
+  "cloudSyncBody": "Upload daily totals to your account.",
+  "syncNow": "Sync now",
+  "syncRetryFailed": "Retry failed days",
+  "syncCounts": "{pending} waiting · {synced} synced · {failed} failed",
+  "@syncCounts": {
+    "placeholders": {
+      "pending": {
+        "type": "int"
+      },
+      "synced": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "syncLast": "Last sync: {when}",
+  "@syncLast": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "syncNever": "Not synced yet",
+  "syncDone": "Synced {count} days.",
+  "@syncDone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "syncNothing": "Nothing to sync.",
+  "syncOffline": "Offline or server busy. Will retry automatically.",
+  "syncAuthRequired": "Sign in again to sync.",
+  "syncRejected": "The server rejected some days.",
+  "deleteAccount": "Delete account and cloud data",
+  "deleteAccountBody": "This permanently deletes your account and everything stored in the cloud. Data on this phone stays.",
+  "deleteAccountFailed": "Could not delete the account. Check your connection and try again.",
+  "aiTitle": "AI",
+  "aiGenerateInsight": "Generate insight",
+  "aiGenerateRoast": "Roast me",
+  "aiSignInHint": "Sign in to get AI insights. Only totals for this month are sent, never raw data.",
+  "aiNoData": "Collect some data first.",
+  "aiQuotaExceeded": "Daily AI limit reached. Try again tomorrow.",
+  "aiOffline": "No connection. Try again later.",
+  "aiUnavailable": "AI is unavailable right now.",
+  "aiError": "Could not generate this.",
+  "aiRemaining": "{count} left today",
+  "@aiRemaining": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiSent": "Sent to the AI: this month's totals only.",
+  "genericError": "Something went wrong. Pull down to refresh, or restart the app.",
+  "exportFailed": "Could not create the export. Try again.",
+  "welcomeTagline": "Understand what your phone actually consumes.",
+  "welcomePrivacyNote": "Measurements stay on your phone. An account keeps your settings and lets you sync daily totals if you choose to.",
+  "authCreateTitle": "Create your WattByte account",
+  "authSignInTitle": "Sign in to WattByte",
+  "authWhyAccount": "Your account comes first: after that WattByte sets everything up for you. Only daily totals can ever be uploaded, and only if you turn cloud sync on.",
+  "setupDetectingTitle": "Setting up WattByte…",
+  "setupDetectingBody": "Detecting your region, currency, device, battery and the average household electricity price.",
+  "setupReviewTitle": "Your setup",
+  "setupReviewBody": "Everything below was detected automatically. Tap a value to change it.",
+  "setupRegion": "Region",
+  "setupDevice": "Device",
+  "setupBattery": "Battery",
+  "setupElectricity": "Electricity",
+  "settingsDevice": "Device",
+  "edit": "Edit",
+  "detectedAutomatically": "Detected automatically",
+  "detectedFromNetwork": "Detected from your connection",
+  "detectedFromSpecs": "Detected from device specifications",
+  "detectedFromManufacturer": "From the manufacturer's specification",
+  "detectedFromCatalogOnline": "From the WattByte device database",
+  "sourceAccountSynced": "Synced from your account",
+  "regionManual": "Chosen manually",
+  "unknownValue": "Unknown",
+  "capacityUnavailable": "Battery capacity unavailable",
+  "capacityUnavailableBody": "This model is not in the device database.",
+  "enterManually": "Enter manually",
+  "specificationSource": "Source",
+  "detectAgain": "Detect again",
+  "countryCodeHint": "Two-letter country code, e.g. PL",
+  "currencyManualNote": "Chosen manually. An automatic price in another currency is not applied.",
+  "useDetectedCurrency": "Use detected currency ({code})",
+  "@useDetectedCurrency": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "householdAverage": "{country} household average",
+  "@householdAverage": {
+    "placeholders": {
+      "country": {
+        "type": "String"
+      }
+    }
+  },
+  "priceUnavailable": "Electricity price unavailable",
+  "priceUnavailableBody": "No public household price source covers {country}. Enter your tariff to see costs.",
+  "@priceUnavailableBody": {
+    "placeholders": {
+      "country": {
+        "type": "String"
+      }
+    }
+  },
+  "priceOfflineBody": "Electricity price will be updated when you're online.",
+  "priceSourceAutomatic": "Automatic",
+  "priceSourceManual": "Custom price",
+  "priceUpdated": "Updated: {date}",
+  "@priceUpdated": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "priceStaleNote": "The source could not be reached; this is the last known value.",
+  "useCustomPrice": "Use custom price",
+  "useAutomaticPrice": "Use automatic price",
+  "estimatedChargingCost": "Estimated cost",
+  "permissionsTitle": "Permissions",
+  "permissionsBody": "WattByte asks only for what it needs to measure. You can change these later in the system settings.",
+  "permUsageTitle": "Allow WattByte to read network usage",
+  "permUsageBody": "This lets WattByte calculate how much mobile data and Wi-Fi your phone uses. Your detailed usage stays on your device.",
+  "permIosTitle": "What iOS lets WattByte see",
+  "permNotificationsTitle": "Notifications",
+  "permNotificationsBody": "Optional: charging completed, weekly energy summary, data thresholds. All generated on your device.",
+  "granted": "Granted",
+  "notifChannelName": "Usage summaries",
+  "notifChannelDescription": "Optional notifications about mobile data and charging, generated on your device.",
+  "a11yLoading": "Loading",
+  "a11yChartPeriod": "Chart period",
+  "a11yChartSummary": "{title}, {period}: total {total}, highest {highest} on {highestDay}, lowest {lowest} on {lowestDay}.",
+  "@a11yChartSummary": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "period": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      },
+      "highest": {
+        "type": "String"
+      },
+      "highestDay": {
+        "type": "String"
+      },
+      "lowest": {
+        "type": "String"
+      },
+      "lowestDay": {
+        "type": "String"
+      }
+    }
+  },
+  "a11yChartEmpty": "{title}, {period}: no data yet.",
+  "@a11yChartEmpty": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "period": {
+        "type": "String"
+      }
+    }
+  },
+  "a11ySessionRow": "Charging from {start} to {end}, battery {startLevel}% to {endLevel}%, added {charge}, {energy}",
+  "@a11ySessionRow": {
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      },
+      "startLevel": {
+        "type": "int"
+      },
+      "endLevel": {
+        "type": "int"
+      },
+      "charge": {
+        "type": "String"
+      },
+      "energy": {
+        "type": "String"
+      }
+    }
+  },
+  "countryName": "{code, select, PL{Poland} US{United States} GB{United Kingdom} DE{Germany} FR{France} IT{Italy} ES{Spain} NL{Netherlands} BE{Belgium} AT{Austria} PT{Portugal} IE{Ireland} FI{Finland} GR{Greece} SK{Slovakia} SI{Slovenia} EE{Estonia} LV{Latvia} LT{Lithuania} LU{Luxembourg} MT{Malta} CY{Cyprus} HR{Croatia} CH{Switzerland} CZ{Czechia} HU{Hungary} RO{Romania} BG{Bulgaria} SE{Sweden} NO{Norway} DK{Denmark} IS{Iceland} UA{Ukraine} TR{Türkiye} CA{Canada} AU{Australia} NZ{New Zealand} JP{Japan} KR{South Korea} CN{China} IN{India} BR{Brazil} MX{Mexico} ZA{South Africa} other{{code}}}",
+  "@countryName": {
+    "description": "Country name for an ISO 3166-1 alpha-2 code; an unknown code is shown as it is.",
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "shareSubject": "WattByte export",
+  "warningLabel": "Warning",
+  "notifThresholdChange": "Change threshold",
+  "editorInvalidCountry": "Enter two letters, e.g. PL.",
+  "editorInvalidCurrency": "Enter three letters, e.g. PLN.",
+  "editorInvalidNumber": "Enter a valid number, at most {max}.",
+  "@editorInvalidNumber": {
+    "placeholders": {
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "authBusy": "Please wait…"
+}

@@ -1,0 +1,3 @@
+tags:
+  e2e:
+    description: "Needs a running API (WATTBYTE_E2E_API_URL); skipped otherwise."

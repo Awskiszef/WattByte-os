@@ -1,0 +1,2991 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "WattByte API",
+    "version": "0.1.0",
+    "description": "Accounts, device registration, per-day aggregate sync and AI summaries. Raw samples and per-app usage never leave the phone."
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false
+      },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok"
+            ]
+          },
+          "version": {
+            "type": "string"
+          },
+          "uptimeSec": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "status",
+          "version",
+          "uptimeSec"
+        ],
+        "additionalProperties": false
+      },
+      "ReadyResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "degraded"
+            ]
+          },
+          "database": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "unavailable"
+            ]
+          },
+          "aiProviders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "status",
+          "database",
+          "aiProviders"
+        ],
+        "additionalProperties": false
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 254
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 200
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60,
+            "nullable": true
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "additionalProperties": false
+      },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 254
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "additionalProperties": false
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "minLength": 20
+          }
+        },
+        "required": [
+          "refreshToken"
+        ],
+        "additionalProperties": false
+      },
+      "UserDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "free",
+              "premium"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "displayName",
+          "plan",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "TokenPair": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "refreshToken": {
+            "type": "string"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "exclusiveMinimum": true,
+            "minimum": 0
+          },
+          "tokenType": {
+            "type": "string",
+            "enum": [
+              "Bearer"
+            ]
+          }
+        },
+        "required": [
+          "accessToken",
+          "refreshToken",
+          "expiresIn",
+          "tokenType"
+        ],
+        "additionalProperties": false
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/UserDto"
+          },
+          "tokens": {
+            "$ref": "#/components/schemas/TokenPair"
+          }
+        },
+        "required": [
+          "user",
+          "tokens"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateMeRequest": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60,
+            "nullable": true
+          }
+        },
+        "required": [
+          "displayName"
+        ],
+        "additionalProperties": false
+      },
+      "DeviceRegisterRequest": {
+        "type": "object",
+        "properties": {
+          "installationId": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 64
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "android",
+              "ios"
+            ]
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 80,
+            "nullable": true
+          },
+          "modelIdentifier": {
+            "type": "string",
+            "maxLength": 64,
+            "nullable": true
+          },
+          "designCapacityMah": {
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 30000,
+            "nullable": true
+          },
+          "designCapacityWh": {
+            "type": "number",
+            "minimum": 0.001,
+            "maximum": 200,
+            "nullable": true
+          },
+          "designCapacitySource": {
+            "type": "string",
+            "enum": [
+              "manufacturerSpecification",
+              "localDeviceDatabase",
+              "backendDeviceDatabase",
+              "manual",
+              "unknown"
+            ],
+            "nullable": true
+          },
+          "estimatedFullChargeCapacityMah": {
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 30000,
+            "nullable": true
+          },
+          "estimatedFullChargeCapacityWh": {
+            "type": "number",
+            "minimum": 0.001,
+            "maximum": 200,
+            "nullable": true
+          },
+          "fullChargeCapacitySource": {
+            "type": "string",
+            "enum": [
+              "androidChargeCounter",
+              "unknown"
+            ],
+            "nullable": true
+          },
+          "fullChargeCapacityConfidence": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "nullable": true
+          }
+        },
+        "required": [
+          "installationId",
+          "platform"
+        ],
+        "additionalProperties": false
+      },
+      "DeviceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "installationId": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "android",
+              "ios"
+            ]
+          },
+          "model": {
+            "type": "string",
+            "nullable": true
+          },
+          "modelIdentifier": {
+            "type": "string",
+            "nullable": true
+          },
+          "designCapacityMah": {
+            "type": "number",
+            "nullable": true
+          },
+          "designCapacityWh": {
+            "type": "number",
+            "nullable": true
+          },
+          "designCapacitySource": {
+            "type": "string",
+            "enum": [
+              "manufacturerSpecification",
+              "localDeviceDatabase",
+              "backendDeviceDatabase",
+              "manual",
+              "unknown"
+            ],
+            "nullable": true
+          },
+          "estimatedFullChargeCapacityMah": {
+            "type": "number",
+            "nullable": true
+          },
+          "estimatedFullChargeCapacityWh": {
+            "type": "number",
+            "nullable": true
+          },
+          "fullChargeCapacitySource": {
+            "type": "string",
+            "enum": [
+              "androidChargeCounter",
+              "unknown"
+            ],
+            "nullable": true
+          },
+          "fullChargeCapacityConfidence": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "installationId",
+          "platform",
+          "model",
+          "modelIdentifier",
+          "designCapacityMah",
+          "designCapacityWh",
+          "designCapacitySource",
+          "estimatedFullChargeCapacityMah",
+          "estimatedFullChargeCapacityWh",
+          "fullChargeCapacitySource",
+          "fullChargeCapacityConfidence",
+          "createdAt",
+          "lastSeenAt"
+        ],
+        "additionalProperties": false
+      },
+      "DeviceListResponse": {
+        "type": "object",
+        "properties": {
+          "devices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeviceDto"
+            }
+          }
+        },
+        "required": [
+          "devices"
+        ],
+        "additionalProperties": false
+      },
+      "DailyUsageDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "mobileBytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000000000000
+          },
+          "wifiBytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000000000000
+          },
+          "chargedWh": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "wallWh": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "chargingSessions": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "estimatedCost": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "dataEstimated": {
+            "type": "boolean",
+            "default": false
+          },
+          "energyEstimated": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "date",
+          "mobileBytes",
+          "wifiBytes",
+          "chargedWh",
+          "wallWh",
+          "chargingSessions",
+          "estimatedCost",
+          "currency"
+        ],
+        "additionalProperties": false
+      },
+      "UsageSyncRequest": {
+        "type": "object",
+        "properties": {
+          "installationId": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 64
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DailyUsageDto"
+            },
+            "minItems": 1,
+            "maxItems": 92
+          }
+        },
+        "required": [
+          "installationId",
+          "days"
+        ],
+        "additionalProperties": false
+      },
+      "UsageSyncResponse": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "dates": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          }
+        },
+        "required": [
+          "accepted",
+          "dates"
+        ],
+        "additionalProperties": false
+      },
+      "UsageDailyResponse": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DailyUsageDto"
+            }
+          }
+        },
+        "required": [
+          "days"
+        ],
+        "additionalProperties": false
+      },
+      "AIInput": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 10
+          },
+          "periodType": {
+            "type": "string",
+            "enum": [
+              "day",
+              "week",
+              "month"
+            ]
+          },
+          "mobileDataGb": {
+            "type": "number",
+            "minimum": 0
+          },
+          "wifiDataGb": {
+            "type": "number",
+            "minimum": 0
+          },
+          "totalDataGb": {
+            "type": "number",
+            "minimum": 0
+          },
+          "chargingSessions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "batteryEnergyKwh": {
+            "type": "number",
+            "minimum": 0
+          },
+          "wallEnergyKwh": {
+            "type": "number",
+            "minimum": 0
+          },
+          "electricityCost": {
+            "type": "number",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "previousPeriodChangePercent": {
+            "type": "number",
+            "nullable": true
+          },
+          "wifiSharePercent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "nullable": true
+          },
+          "averageSessionMah": {
+            "type": "number",
+            "minimum": 0,
+            "nullable": true
+          }
+        },
+        "required": [
+          "period",
+          "periodType",
+          "mobileDataGb",
+          "wifiDataGb",
+          "totalDataGb",
+          "chargingSessions",
+          "batteryEnergyKwh",
+          "wallEnergyKwh",
+          "electricityCost",
+          "currency"
+        ],
+        "additionalProperties": false
+      },
+      "AIOutput": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 600
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "friendly",
+              "funny",
+              "roast"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "info",
+              "notice",
+              "celebrate"
+            ]
+          },
+          "emoji": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8
+          }
+        },
+        "required": [
+          "title",
+          "message",
+          "tone",
+          "severity",
+          "emoji"
+        ],
+        "additionalProperties": false
+      },
+      "AIGenerateRequest": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "friendly",
+              "funny",
+              "roast"
+            ],
+            "nullable": true
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "en",
+              "pl"
+            ],
+            "nullable": true
+          },
+          "input": {
+            "$ref": "#/components/schemas/AIInput"
+          }
+        },
+        "required": [
+          "input"
+        ],
+        "additionalProperties": false
+      },
+      "AIGenerateResponse": {
+        "type": "object",
+        "properties": {
+          "output": {
+            "$ref": "#/components/schemas/AIOutput"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "remainingToday": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "output",
+          "provider",
+          "model",
+          "remainingToday"
+        ],
+        "additionalProperties": false
+      },
+      "DeviceSpecificationDto": {
+        "type": "object",
+        "properties": {
+          "manufacturer": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "modelIdentifier": {
+            "type": "string"
+          },
+          "designCapacityMah": {
+            "type": "number"
+          },
+          "designCapacityWh": {
+            "type": "number",
+            "nullable": true
+          },
+          "nominalVoltage": {
+            "type": "number",
+            "nullable": true
+          },
+          "catalogVersion": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "manufacturer",
+          "model",
+          "modelIdentifier",
+          "designCapacityMah",
+          "designCapacityWh",
+          "nominalVoltage",
+          "catalogVersion"
+        ],
+        "additionalProperties": false
+      },
+      "UserSettingsDto": {
+        "type": "object",
+        "properties": {
+          "countryCode": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$",
+            "nullable": true
+          },
+          "countryCodeSource": {
+            "type": "string",
+            "enum": [
+              "detected",
+              "manual",
+              "migratedManual"
+            ],
+            "nullable": true
+          },
+          "currencyCode": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$",
+            "nullable": true
+          },
+          "currencyCodeSource": {
+            "type": "string",
+            "enum": [
+              "detected",
+              "manual",
+              "migratedManual"
+            ],
+            "nullable": true
+          },
+          "electricityPriceMode": {
+            "type": "string",
+            "enum": [
+              "automatic",
+              "manual"
+            ]
+          },
+          "manualElectricityPrice": {
+            "type": "number",
+            "nullable": true
+          },
+          "electricityPriceSource": {
+            "type": "string",
+            "enum": [
+              "detected",
+              "manual",
+              "migratedManual"
+            ],
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "countryCode",
+          "countryCodeSource",
+          "currencyCode",
+          "currencyCodeSource",
+          "electricityPriceMode",
+          "manualElectricityPrice",
+          "electricityPriceSource",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateUserSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "countryCode": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$",
+            "nullable": true
+          },
+          "countryCodeSource": {
+            "type": "string",
+            "enum": [
+              "detected",
+              "manual",
+              "migratedManual"
+            ],
+            "nullable": true
+          },
+          "currencyCode": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$",
+            "nullable": true
+          },
+          "currencyCodeSource": {
+            "type": "string",
+            "enum": [
+              "detected",
+              "manual",
+              "migratedManual"
+            ],
+            "nullable": true
+          },
+          "electricityPriceMode": {
+            "type": "string",
+            "enum": [
+              "automatic",
+              "manual"
+            ],
+            "nullable": true
+          },
+          "manualElectricityPrice": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000,
+            "nullable": true
+          },
+          "electricityPriceSource": {
+            "type": "string",
+            "enum": [
+              "detected",
+              "manual",
+              "migratedManual"
+            ],
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ElectricityPriceDto": {
+        "type": "object",
+        "properties": {
+          "countryCode": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "pricePerKwh": {
+            "type": "number"
+          },
+          "period": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "eurostat",
+              "government",
+              "manual",
+              "fallback"
+            ]
+          },
+          "includesTaxes": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "includesNetworkCosts": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stale": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "countryCode",
+          "currency",
+          "pricePerKwh",
+          "period",
+          "source",
+          "includesTaxes",
+          "includesNetworkCosts",
+          "updatedAt",
+          "stale"
+        ],
+        "additionalProperties": false
+      },
+      "RegionResponse": {
+        "type": "object",
+        "properties": {
+          "countryCode": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$",
+            "nullable": true
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "backendCountry",
+              "none"
+            ]
+          }
+        },
+        "required": [
+          "countryCode",
+          "source"
+        ],
+        "additionalProperties": false
+      },
+      "CloudDataDeletedCounts": {
+        "type": "object",
+        "properties": {
+          "dailyUsage": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "chargingSummaries": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "monthlySummaries": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "aiGenerations": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "devices": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "dailyUsage",
+          "chargingSummaries",
+          "monthlySummaries",
+          "aiGenerations",
+          "devices"
+        ],
+        "additionalProperties": false
+      },
+      "CloudDataDeleteResponse": {
+        "type": "object",
+        "properties": {
+          "deleted": {
+            "$ref": "#/components/schemas/CloudDataDeletedCounts"
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "additionalProperties": false
+      },
+      "CloudExportSettings": {
+        "type": "object",
+        "properties": {
+          "countryCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "countryCodeSource": {
+            "type": "string",
+            "enum": [
+              "detected",
+              "manual",
+              "migratedManual"
+            ],
+            "nullable": true
+          },
+          "currencyCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "currencyCodeSource": {
+            "type": "string",
+            "enum": [
+              "detected",
+              "manual",
+              "migratedManual"
+            ],
+            "nullable": true
+          },
+          "electricityPriceMode": {
+            "type": "string",
+            "enum": [
+              "automatic",
+              "manual"
+            ]
+          },
+          "manualElectricityPrice": {
+            "type": "number",
+            "nullable": true
+          },
+          "electricityPriceSource": {
+            "type": "string",
+            "enum": [
+              "detected",
+              "manual",
+              "migratedManual"
+            ],
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "countryCode",
+          "countryCodeSource",
+          "currencyCode",
+          "currencyCodeSource",
+          "electricityPriceMode",
+          "manualElectricityPrice",
+          "electricityPriceSource",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "CloudExportDailyUsage": {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "mobileBytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "wifiBytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "chargedWh": {
+            "type": "number",
+            "minimum": 0
+          },
+          "wallWh": {
+            "type": "number",
+            "minimum": 0
+          },
+          "chargingSessions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "estimatedCost": {
+            "type": "number",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string"
+          },
+          "dataEstimated": {
+            "type": "boolean"
+          },
+          "energyEstimated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "deviceId",
+          "date",
+          "mobileBytes",
+          "wifiBytes",
+          "chargedWh",
+          "wallWh",
+          "chargingSessions",
+          "estimatedCost",
+          "currency",
+          "dataEstimated",
+          "energyEstimated"
+        ],
+        "additionalProperties": false
+      },
+      "CloudExportChargingSummary": {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "startPercent": {
+            "type": "integer"
+          },
+          "endPercent": {
+            "type": "integer"
+          },
+          "mah": {
+            "type": "number"
+          },
+          "mahEstimated": {
+            "type": "boolean"
+          },
+          "batteryWh": {
+            "type": "number"
+          },
+          "wallWh": {
+            "type": "number"
+          },
+          "estimatedCost": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "deviceId",
+          "startedAt",
+          "endedAt",
+          "startPercent",
+          "endPercent",
+          "mah",
+          "mahEstimated",
+          "batteryWh",
+          "wallWh",
+          "estimatedCost",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "CloudExportMonthlySummary": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}$"
+          },
+          "mobileBytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "wifiBytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "wallWh": {
+            "type": "number"
+          },
+          "chargingSessions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "estimatedCost": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "computedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "month",
+          "mobileBytes",
+          "wifiBytes",
+          "wallWh",
+          "chargingSessions",
+          "estimatedCost",
+          "currency",
+          "computedAt"
+        ],
+        "additionalProperties": false
+      },
+      "CloudExportAiGeneration": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "inputTokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "outputTokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "estimatedCostUsd": {
+            "type": "number",
+            "minimum": 0
+          },
+          "latencyMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "task",
+          "mode",
+          "provider",
+          "model",
+          "inputTokens",
+          "outputTokens",
+          "estimatedCostUsd",
+          "latencyMs",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "CloudExportSubscription": {
+        "type": "object",
+        "properties": {
+          "store": {
+            "type": "string",
+            "enum": [
+              "app_store",
+              "play"
+            ]
+          },
+          "productId": {
+            "type": "string"
+          },
+          "originalTransactionId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "grace",
+              "expired",
+              "revoked"
+            ]
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "store",
+          "productId",
+          "originalTransactionId",
+          "status",
+          "expiresAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "CloudExportTruncated": {
+        "type": "object",
+        "properties": {
+          "devices": {
+            "type": "boolean"
+          },
+          "dailyUsage": {
+            "type": "boolean"
+          },
+          "chargingSummaries": {
+            "type": "boolean"
+          },
+          "monthlySummaries": {
+            "type": "boolean"
+          },
+          "aiGenerations": {
+            "type": "boolean"
+          },
+          "subscriptions": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "devices",
+          "dailyUsage",
+          "chargingSummaries",
+          "monthlySummaries",
+          "aiGenerations",
+          "subscriptions"
+        ],
+        "additionalProperties": false
+      },
+      "CloudExportLimits": {
+        "type": "object",
+        "properties": {
+          "maxRowsPerCollection": {
+            "type": "integer",
+            "exclusiveMinimum": true,
+            "minimum": 0
+          },
+          "truncated": {
+            "$ref": "#/components/schemas/CloudExportTruncated"
+          }
+        },
+        "required": [
+          "maxRowsPerCollection",
+          "truncated"
+        ],
+        "additionalProperties": false
+      },
+      "CloudExportDocument": {
+        "type": "object",
+        "properties": {
+          "schemaVersion": {
+            "type": "integer",
+            "exclusiveMinimum": true,
+            "minimum": 0
+          },
+          "exportedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "account": {
+            "$ref": "#/components/schemas/UserDto"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/CloudExportSettings"
+          },
+          "devices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeviceDto"
+            }
+          },
+          "dailyUsage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CloudExportDailyUsage"
+            }
+          },
+          "chargingSummaries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CloudExportChargingSummary"
+            }
+          },
+          "monthlySummaries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CloudExportMonthlySummary"
+            }
+          },
+          "aiGenerations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CloudExportAiGeneration"
+            }
+          },
+          "subscriptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CloudExportSubscription"
+            }
+          },
+          "limits": {
+            "$ref": "#/components/schemas/CloudExportLimits"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "exportedAt",
+          "account",
+          "settings",
+          "devices",
+          "dailyUsage",
+          "chargingSummaries",
+          "monthlySummaries",
+          "aiGenerations",
+          "subscriptions",
+          "limits"
+        ],
+        "additionalProperties": false
+      },
+      "AppConfigDto": {
+        "type": "object",
+        "properties": {
+          "environment": {
+            "type": "string",
+            "enum": [
+              "development",
+              "staging",
+              "production"
+            ]
+          },
+          "features": {
+            "type": "object",
+            "properties": {
+              "ai": {
+                "type": "boolean"
+              },
+              "subscriptions": {
+                "type": "boolean"
+              },
+              "cloudSync": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "ai",
+              "subscriptions",
+              "cloudSync"
+            ],
+            "additionalProperties": false
+          },
+          "ai": {
+            "type": "object",
+            "properties": {
+              "dailyLimits": {
+                "type": "object",
+                "properties": {
+                  "free": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "premium": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "free",
+                  "premium"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "dailyLimits"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "environment",
+          "features",
+          "ai"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "ops"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "tags": [
+          "ops"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadyResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadyResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "summary": "Create an email + password account",
+        "tags": [
+          "auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "summary": "Exchange a refresh token for a new pair (rotation)",
+        "tags": [
+          "auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "enum": [
+                    "null"
+                  ],
+                  "nullable": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/apple": {
+      "post": {
+        "summary": "Sign in with Apple (not configured yet)",
+        "tags": [
+          "auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "idToken": {
+                    "type": "string",
+                    "minLength": 10
+                  }
+                },
+                "required": [
+                  "idToken"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/google": {
+      "post": {
+        "summary": "Sign in with Google (not configured yet)",
+        "tags": [
+          "auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "idToken": {
+                    "type": "string",
+                    "minLength": 10
+                  }
+                },
+                "required": [
+                  "idToken"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/settings": {
+      "get": {
+        "summary": "Account-level preferences (region, currency, electricity price mode) with the origin of each value; defaults before the first save",
+        "tags": [
+          "account"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSettingsDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update account-level preferences and the origin of each value; omitted fields keep their value",
+        "tags": [
+          "account"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserSettingsRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSettingsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "tags": [
+          "account"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "account"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMeRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete the account and every cloud record (GDPR erasure)",
+        "tags": [
+          "account"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "enum": [
+                    "null"
+                  ],
+                  "nullable": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/cloud-data": {
+      "delete": {
+        "summary": "Delete the synced cloud data but keep the account",
+        "tags": [
+          "account"
+        ],
+        "description": "Removes, in one transaction, the daily usage, charging and monthly summaries, AI generation log and AI quota counters. Keeps the account, its sessions, subscriptions, settings and registered devices, so sync can resume. `?devices=true` also removes the devices. Idempotent: repeating it deletes nothing and answers zeros.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "in": "query",
+            "name": "devices",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudDataDeleteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/export": {
+      "get": {
+        "summary": "Export everything stored about the account",
+        "tags": [
+          "account"
+        ],
+        "description": "A JSON document (`schemaVersion`, account, settings, devices with design capacity and estimated full-charge capacity, daily usage, charging and monthly summaries, AI generation metadata, subscriptions), sent as an attachment `wattbyte-export-YYYY-MM-DD.json`. Never contains the password hash, sessions or refresh tokens, or another user's data. `?format=csv` returns only the daily usage as RFC 4180 `text/csv; charset=utf-8`. At most 10000 rows per collection (the newest); a cut collection is flagged in `limits.truncated` (CSV: header `x-wattbyte-truncated`).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "csv"
+              ]
+            },
+            "in": "query",
+            "name": "format",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudExportDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/devices": {
+      "get": {
+        "tags": [
+          "devices"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Register (or refresh) this installation; idempotent per installationId",
+        "tags": [
+          "devices"
+        ],
+        "description": "Battery capacity travels in two groups that are stored atomically: the design capacity of the model (designCapacityMah / designCapacityWh / designCapacitySource) and the estimated full-charge capacity of this battery (estimatedFullChargeCapacityMah / estimatedFullChargeCapacityWh / fullChargeCapacitySource / fullChargeCapacityConfidence). A group whose source is given replaces the stored group as a whole (nulls included); a group with a null source leaves the stored one untouched. A design capacity needs a source other than unknown; an estimate needs source androidChargeCounter and a confidence; Wh needs mAh. Violations are 400 validation.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceRegisterRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/devices/specifications/{identifier}": {
+      "get": {
+        "summary": "Design (nominal) battery capacity for a model identifier (iOS utsname.machine or Android Build.MODEL)",
+        "tags": [
+          "devices"
+        ],
+        "description": "Served from the shared device catalog (packages/device-specs); every figure is a design capacity of the model, never a measurement. 404 when the model is not listed; the app then reports the capacity as unknown rather than guessing.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "identifier",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceSpecificationDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/devices/{id}": {
+      "delete": {
+        "tags": [
+          "devices"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "enum": [
+                    "null"
+                  ],
+                  "nullable": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/usage/sync": {
+      "post": {
+        "summary": "Upload per-day aggregates for one installation; safe to repeat",
+        "tags": [
+          "usage"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsageSyncRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageSyncResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/usage/daily": {
+      "get": {
+        "summary": "Daily totals across all devices in [from, to]",
+        "tags": [
+          "usage"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "in": "query",
+            "name": "from",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "in": "query",
+            "name": "to",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageDailyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/electricity-price": {
+      "get": {
+        "summary": "Average household electricity price per kWh for a country (defaults to the account country)",
+        "tags": [
+          "electricity"
+        ],
+        "description": "A statistical average from a public source (Eurostat nrg_pc_204, band DC, taxes included), cached server-side. Never a wholesale or spot price and never the user's own tariff. 404 when no source covers the country.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            },
+            "in": "query",
+            "name": "country",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ElectricityPriceDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/region": {
+      "get": {
+        "summary": "Country of the caller as seen by the edge proxy, if the deployment provides one",
+        "tags": [
+          "region"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/insight": {
+      "post": {
+        "summary": "One observation about a period",
+        "tags": [
+          "ai"
+        ],
+        "description": "Input must be pre-computed aggregates only; the model never calculates.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AIGenerateRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIGenerateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/weekly-summary": {
+      "post": {
+        "summary": "Summary of a week",
+        "tags": [
+          "ai"
+        ],
+        "description": "Input must be pre-computed aggregates only; the model never calculates.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AIGenerateRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIGenerateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/monthly-summary": {
+      "post": {
+        "summary": "Summary of a month",
+        "tags": [
+          "ai"
+        ],
+        "description": "Input must be pre-computed aggregates only; the model never calculates.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AIGenerateRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIGenerateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/roast": {
+      "post": {
+        "summary": "Playful roast (tone is always roast)",
+        "tags": [
+          "ai"
+        ],
+        "description": "Input must be pre-computed aggregates only; the model never calculates.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AIGenerateRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIGenerateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/config": {
+      "get": {
+        "summary": "Runtime configuration: environment, feature flags and AI limits",
+        "tags": [
+          "config"
+        ],
+        "description": "Contains no secret and nothing account-specific. A disabled feature answers 503 `feature_disabled`.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppConfigDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

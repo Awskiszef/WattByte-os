@@ -1,0 +1,112 @@
+# WattByte monorepo. Nested .gitignore files (apps/mobile, apps/mobile/ios,
+# apps/mobile/android) add the Flutter-specific rules; this file holds everything
+# that applies at any depth. Verify changes with scripts/secret-scan.mjs --list-files
+# and docs/REPOSITORY.md ("Checking what would be committed").
+
+# ---------------------------------------------------------------- secrets
+# Never commit credentials or signing material. Templates (*.example) stay tracked.
+.env
+.env.*
+*.env
+!.env.example
+!.env.sample
+!.env.template
+!*.env.example
+/secrets/
+/.secrets/
+*.pem
+*.pfx
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+
+# Android signing
+*.jks
+*.keystore
+key.properties
+**/android/key.properties
+
+# Apple signing and provisioning
+*.p12
+*.p8
+*.cer
+*.mobileprovision
+*.provisionprofile
+*.certSigningRequest
+# Local signing override for Xcode (team id, bundle id suffix). Copy
+# Local.xcconfig.example to Local.xcconfig; only the example is tracked.
+apps/mobile/ios/Flutter/Local.xcconfig
+
+# ----------------------------------------------- Node / TypeScript (pnpm workspace)
+node_modules/
+.pnpm-store/
+dist/
+dist-smoke/
+coverage/
+*.tsbuildinfo
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+# pnpm-lock.yaml and packages/contracts/openapi/openapi.json are tracked on purpose.
+
+# ----------------------------------------------------- Flutter / Dart (any depth)
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+# Written by apps/mobile/tool/arb_add.py to serialise ARB edits
+apps/mobile/tool/.arb.lock
+
+# ------------------------------------------------------------ Android / Gradle
+.gradle/
+.kotlin/
+.cxx/
+local.properties
+captures/
+*.apk
+*.aab
+*.ap_
+*.dex
+# Windows-style absolute path created as a directory by a tool on a copied tree
+apps/mobile/android/app/C:/
+
+# -------------------------------------------------------------------- iOS / Xcode
+Pods/
+.symlinks/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM
+*.dSYM.zip
+apps/mobile/ios/Flutter/Generated.xcconfig
+apps/mobile/ios/Flutter/flutter_export_environment.sh
+apps/mobile/ios/Flutter/ephemeral/
+apps/mobile/ios/Flutter/Flutter.podspec
+apps/mobile/ios/Runner/GeneratedPluginRegistrant.*
+# Podfile.lock is tracked on purpose (reproducible pod versions).
+
+# ------------------------------------------------------------- OS / editors / tools
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+*.iml
+.vscode/*
+!.vscode/settings.json
+*.swp
+*.swo
+*~
+# Local Claude Code state; a shared .claude/launch.json may be tracked deliberately.
+.claude/settings.local.json
+.claude/worktrees/
+.claude/scheduled_tasks.lock

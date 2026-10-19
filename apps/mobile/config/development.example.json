@@ -1,0 +1,9 @@
+{
+  "_NOTE": "Copy to config/development.json (git-ignored) and run: flutter run --dart-define-from-file=config/development.json. Android emulator: use http://10.0.2.2:8080. Dart defines are readable inside the shipped app: no secrets here.",
+  "APP_ENV": "development",
+  "API_BASE_URL": "http://127.0.0.1:8080",
+  "PRIVACY_POLICY_URL": "",
+  "FEATURE_AI": true,
+  "FEATURE_SUBSCRIPTIONS": false,
+  "FEATURE_CLOUD_SYNC": true
+}

@@ -1,0 +1,39 @@
+// WattByte build settings shared by Debug.xcconfig and Release.xcconfig. Both are the base
+// configuration of Runner and of the WattByteWidget extension (Profile uses Release.xcconfig).
+// Per-developer overrides (signing team, bundle id) go into the git-ignored Local.xcconfig,
+// which Debug/Release.xcconfig include after this file. See Local.xcconfig.example.
+
+// ---- Identity ---------------------------------------------------------------------------------
+// The bundle id is the single source of the widget id and of the App Group, so the app, the
+// widget, both entitlement files and the WBAppGroup Info.plist key can never disagree:
+//   Runner  PRODUCT_BUNDLE_IDENTIFIER = $(WB_BUNDLE_ID)
+//   Widget  PRODUCT_BUNDLE_IDENTIFIER = $(WB_BUNDLE_ID).WattByteWidget
+//   Group   $(WB_APP_GROUP) = group.$(WB_BUNDLE_ID)
+// Registering these ids and the App Group in an Apple Developer account is required before a
+// device or App Store build can be signed (docs/RELEASE.md).
+WB_BUNDLE_ID = pl.wattbyte.app
+WB_APP_GROUP = group.$(WB_BUNDLE_ID)
+
+// No Team ID is committed anywhere: DEVELOPMENT_TEAM comes from the git-ignored Local.xcconfig.
+// Without it simulator and --no-codesign builds still work and device builds stop with Xcode's
+// "Signing requires a development team".
+
+// ---- Architectures ----------------------------------------------------------------------------
+// Simulator builds target ONE architecture: the one of the machine that builds (arm64 on Apple Silicon,
+// x86_64 on Intel). The setting is conditional on the simulator SDK, so iphoneos builds keep Xcode's
+// defaults (arm64; Flutter's Generated.xcconfig still excludes armv7 / i386). EXCLUDED_ARCHS is left to Flutter.
+//
+// Why one architecture: with Xcode 27 the Flutter tool (3.41.x) fails the build in `debug_unpack_ios` with
+//     Binary .../Flutter.framework/Flutter does not contain architectures "arm64 x86_64"
+// although `lipo -info` lists both slices. Xcode 27's `lipo` rejects more than one architecture after
+// -verify_arch (it prints its usage text and exits 1), and that is how the tool checks a multi-arch ARCHS.
+//
+// Why a lookup table: the tool runs xcodebuild as `arch -arm64e xcrun xcodebuild`, so inside the build
+// NATIVE_ARCH_ACTUAL is "arm64e" (not "arm64"), and arm64e is not a simulator architecture. The table maps
+// the host to the simulator architecture and falls back to Xcode's default (ARCHS_STANDARD) for a host it
+// does not know, which is the behaviour before this file existed.
+// Details and how to revert: docs/PLATFORM_SUPPORT.md.
+WB_SIM_ARCH_FOR_arm64 = arm64
+WB_SIM_ARCH_FOR_arm64e = arm64
+WB_SIM_ARCH_FOR_x86_64 = x86_64
+ARCHS[sdk=iphonesimulator*] = $(WB_SIM_ARCH_FOR_$(NATIVE_ARCH_ACTUAL):default=$(ARCHS_STANDARD))

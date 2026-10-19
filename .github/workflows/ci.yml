@@ -1,0 +1,456 @@
+name: CI
+
+# Local equivalents of every step: docs/CI.md. Status of this file: CONFIGURED, NOT REMOTELY VERIFIED
+# (the repository had no GitHub remote when it was written; see docs/CI.md and docs/REPOSITORY.md).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A new push to the same branch / pull request replaces the run that is still going.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: nothing here writes to the repository, packages or checks.
+permissions:
+  contents: read
+
+env:
+  # Toolchains the project is verified with (README "Toolchain verified with"). Bump deliberately.
+  FLUTTER_VERSION: '3.41.6'
+  NODE_VERSION: '22'
+  JAVA_VERSION: '17'
+  GRADLE_VERSION: '9.3.1'
+  # Local development credentials, identical to infrastructure/docker/docker-compose.yml. The database is an
+  # ephemeral service container that only exists for the duration of the job.
+  PG_URL_BASE: postgres://wattbyte:wattbyte@localhost:5432
+
+jobs:
+  # ------------------------------------------------------------------ secret hygiene
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Unit tests of the repository scripts
+        run: node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs
+      - name: Scan the tree for credentials (masked output)
+        run: node scripts/secret-scan.mjs
+
+  # ------------------------------------------------- TypeScript: API, AI gateway, contracts
+  node:
+    name: TypeScript (lint, typecheck, test, build) + PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: wattbyte
+          POSTGRES_PASSWORD: wattbyte
+          POSTGRES_DB: wattbyte_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U wattbyte -d wattbyte_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+          --health-start-period 10s
+    env:
+      TEST_DATABASE_URL: postgres://wattbyte:wattbyte@localhost:5432/wattbyte_test
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The service reports "healthy" before the first step runs; this proves a real query works with the URL the tests use.
+      - name: Wait for PostgreSQL
+        run: node scripts/wait-for-db.mjs "$TEST_DATABASE_URL" --timeout 60
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - name: AI gateway tests (hermetic, mock transports, no network, no keys)
+        run: pnpm --filter @wattbyte/ai test
+      - name: API, contracts and device-catalog tests (includes the PostgreSQL integration suites in apps/api/tests/db)
+        run: pnpm --filter '!@wattbyte/ai' test
+      - run: pnpm build
+
+  audit:
+    name: Dependency audit (production)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: pnpm audit --prod
+
+  # ---------------------------------------- contracts: OpenAPI, device catalog, Dart client
+  contracts:
+    name: Contracts (OpenAPI, device catalog, generated Dart client)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      # openapi-generator is a JVM tool (scripts/generate-dart-client.mjs, scripts/check-generated-client.mjs).
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: pnpm install --frozen-lockfile
+      # The OpenAPI document is generated from the routes; the committed copy must be up to date.
+      - name: OpenAPI generation and drift check
+        run: |
+          pnpm openapi
+          git diff --exit-code -- packages/contracts/openapi/openapi.json
+      # The device catalog is bundled in the app as a copy of packages/device-specs.
+      - name: Device catalog drift check
+        run: pnpm device-specs:check
+      # The committed Dart client must be exactly what the generator produces from openapi.json ...
+      - name: Generated Dart client matches openapi.json
+        run: pnpm dart-client:check
+      # ... and it must compile: a client that does not analyse cleanly fails the build.
+      - name: Generated Dart client analyses cleanly
+        working-directory: apps/mobile
+        run: |
+          flutter pub get
+          dart analyze lib/generated/api
+
+  # -------------------------------------------------------------------------- Flutter
+  flutter-static:
+    name: Flutter (format, analyze)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      # lib/l10n/generated is not tracked; it is produced from the ARB files.
+      - run: flutter gen-l10n
+      - name: Format (no file may change)
+        run: dart format --output=none --set-exit-if-changed lib test packages tool
+      - run: flutter analyze
+
+  # A build without a valid backend configuration must never become an app that skips the account (local-only is a
+  # debug-only development mode). This job runs the same rules the app applies at start-up (lib/config/backend_config.dart)
+  # over every combination that matters; the release builds themselves are refused at compile time (see the android job).
+  mobile-config-guard:
+    name: Flutter (release configuration guard)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter gen-l10n
+      - name: Release without API_BASE_URL, or with LOCAL_ONLY_DEV=true, is rejected
+        run: bash tool/check_release_guard.sh
+      # The one link no unit test can see: the real compile-time defines reach AppConfig.fromEnvironment (a plain
+      # `flutter test` has none, so these two tests skip themselves there). Run once per kind of define.
+      - name: API_BASE_URL reaches the app configuration
+        run: flutter test test/config/define_wiring_test.dart --dart-define=API_BASE_URL=https://api.ci-guard.test
+      - name: LOCAL_ONLY_DEV reaches the app configuration (debug)
+        run: flutter test test/config/define_wiring_test.dart --dart-define=LOCAL_ONLY_DEV=true
+
+  flutter-test:
+    name: Flutter tests (TZ ${{ matrix.tz }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      # Calendar logic (LocalDate, periods, DST days, daily aggregates) must hold in a zone without
+      # daylight saving (UTC), one with it in the northern spring (Europe/Warsaw) and one with a different
+      # transition date (America/New_York). The whole suite runs in each zone.
+      matrix:
+        tz: [UTC, Europe/Warsaw, America/New_York]
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      # sqflite_common_ffi (in-memory SQLite for the database tests) needs libsqlite3.so on the host.
+      - run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+      - run: flutter pub get
+      - run: flutter gen-l10n
+      - name: Show the zone the tests will run in
+        env:
+          TZ: ${{ matrix.tz }}
+        run: date +'%Z %z'
+      # The e2e-tagged tests skip themselves here (no WATTBYTE_E2E_API_URL); they run in the e2e job.
+      - name: flutter test
+        env:
+          TZ: ${{ matrix.tz }}
+        run: flutter test
+
+  e2e:
+    name: End to end (Dart client -> API -> PostgreSQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: wattbyte
+          POSTGRES_PASSWORD: wattbyte
+          POSTGRES_DB: wattbyte
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U wattbyte -d wattbyte"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+          --health-start-period 10s
+    env:
+      E2E_PORT: '18080'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+      - run: pnpm install --frozen-lockfile
+      - name: Wait for PostgreSQL
+        run: node scripts/wait-for-db.mjs "$PG_URL_BASE/wattbyte" --timeout 60
+      - name: Create a throw-away JWT secret for this run
+        run: |
+          secret="$(openssl rand -hex 32)"
+          echo "::add-mask::$secret"
+          echo "JWT_SECRET=$secret" >> "$GITHUB_ENV"
+      # Hermetic: the household-price e2e must not depend on the public Eurostat service being up.
+      - name: Start the Eurostat fixture server
+        run: |
+          nohup node scripts/fake-eurostat.mjs 18090 > "$RUNNER_TEMP/eurostat.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/eurostat.pid"
+          for i in $(seq 1 20); do
+            if curl -sf "http://127.0.0.1:18090/eurostat/api/dissemination/statistics/1.0/data/nrg_pc_204?geo=PL&siec=E7000&nrg_cons=KWH2500-4999&unit=KWH&tax=I_TAX&currency=NAC&lastTimePeriod=3&format=JSON" > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          echo "::error::the Eurostat fixture server never answered"; cat "$RUNNER_TEMP/eurostat.log"; exit 1
+      - name: Migrate and start the API (mock AI provider)
+        working-directory: apps/api
+        env:
+          EUROSTAT_BASE_URL: http://127.0.0.1:18090/eurostat/api/dissemination/statistics/1.0/data
+          DATABASE_URL: postgres://wattbyte:wattbyte@localhost:5432/wattbyte
+          NODE_ENV: development
+          AI_MOCK: '1'
+          AI_FREE_DAILY_LIMIT: '4'
+          AUTH_RATE_LIMIT_PER_MIN: '1000'
+          PORT: ${{ env.E2E_PORT }}
+          HOST: 127.0.0.1
+        run: |
+          pnpm migrate
+          nohup node --conditions=development --import tsx src/main.ts > "$RUNNER_TEMP/api.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/api.pid"
+          for i in $(seq 1 60); do
+            if curl -sf "http://127.0.0.1:$E2E_PORT/ready" > /dev/null; then echo "API ready after ${i}s"; exit 0; fi
+            sleep 1
+          done
+          echo "::error::the API never answered /ready"
+          tail -n 100 "$RUNNER_TEMP/api.log"
+          exit 1
+      - run: flutter pub get
+        working-directory: apps/mobile
+      - run: flutter gen-l10n
+        working-directory: apps/mobile
+      # One run of the real generated client + app code against the live API and PostgreSQL.
+      # The suite also asks the API for a household price: the API reads it from the fixture server above.
+      - run: flutter test test/e2e
+        working-directory: apps/mobile
+        env:
+          WATTBYTE_E2E_API_URL: http://127.0.0.1:${{ env.E2E_PORT }}
+      - name: API log (on failure)
+        if: failure()
+        run: tail -n 200 "$RUNNER_TEMP/api.log" || true
+      - name: Stop the API
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/api.pid" ]; then kill "$(cat "$RUNNER_TEMP/api.pid")" 2>/dev/null || true; fi
+          if [ -f "$RUNNER_TEMP/eurostat.pid" ]; then kill "$(cat "$RUNNER_TEMP/eurostat.pid")" 2>/dev/null || true; fi
+
+  # ---------------------------------------------------------------------- Android
+  android:
+    name: Android (debug APK + AAB)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+      - uses: gradle/actions/setup-gradle@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter gen-l10n
+      - run: flutter build apk --debug
+      - run: flutter build appbundle --debug
+      # The compile-time half of the release guard, with real Gradle builds: a release build without API_BASE_URL
+      # ([WB-CONFIG-001]) or with LOCAL_ONLY_DEV=true ([WB-CONFIG-002]) must fail to compile, and the log must say so
+      # (any other failure fails the step). A release build with a valid API_BASE_URL must still build (positive control)
+      # and its binary must not contain the development banner text. Needs no signing key (WATTBYTE_ALLOW_UNSIGNED_RELEASE
+      # is set by the script), leaves no artifact behind.
+      - name: Release guard - invalid configurations must not compile, a valid one builds without the dev banner
+        run: bash tool/check_release_guard.sh --builds
+
+  kotlin:
+    name: Kotlin (wattbyte_system plugin unit tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+      - run: gradle test
+        working-directory: apps/mobile/packages/wattbyte_system/android/jvm-tests
+
+  # -------------------------------------------------------------------------- iOS
+  ios:
+    name: iOS build (${{ matrix.label }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      # An Intel failure must not hide an Apple Silicon result, or the other way round.
+      fail-fast: false
+      matrix:
+        include:
+          # Apple Silicon: `macos-latest` is macOS 26 on arm64 as of the runner-images README read on 2026-10-13.
+          - runner: macos-latest
+            label: macos-latest, Apple Silicon
+          # Intel (x86_64): GitHub still offers `macos-15-intel` (and `macos-26-intel`) on that date; Intel images
+          # are on a published retirement path (see docs/CI.md). Remove this entry when the label disappears;
+          # nothing in the project assumes either CPU.
+          - runner: macos-15-intel
+            label: macos-15-intel, Intel
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      # The toolchain actually in use, for the log (no step branches on it).
+      - name: Runner details
+        run: |
+          echo "machine: $(uname -m)"
+          sw_vers
+          xcodebuild -version
+          flutter --version
+      - run: flutter pub get
+      - run: flutter gen-l10n
+      # ios/Flutter/WattByte.xcconfig picks the simulator architecture from the machine that builds.
+      - run: flutter build ios --simulator --debug
+      - run: flutter build ios --debug --no-codesign
+
+  # ----------------------------------------------------------- single status for branch protection
+  ci-ok:
+    name: CI result
+    if: always()
+    needs:
+      - secret-scan
+      - node
+      - audit
+      - contracts
+      - flutter-static
+      - mobile-config-guard
+      - flutter-test
+      - e2e
+      - android
+      - kotlin
+      - ios
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every job must have succeeded (skipped and cancelled count as failures)
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "job results: $RESULTS"
+          for r in $RESULTS; do
+            if [ "$r" != "success" ]; then echo "::error::at least one job did not succeed"; exit 1; fi
+          done

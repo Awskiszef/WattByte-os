@@ -1,0 +1,29 @@
+# Line endings: LF in the repository on every OS. The tree was started on Windows and 16 template files
+# (Gradle, Xcode, plist) still contain CRLF; `git add` normalises them to LF with the rule below.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files: never touched by text conversion or diffed as text
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.icns binary
+*.pdf binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.jar binary
+*.zip binary
+
+# Generated files stay tracked on purpose; GitHub collapses them in diffs and language statistics.
+apps/mobile/lib/generated/** linguist-generated=true
+packages/contracts/openapi/openapi.json linguist-generated=true
+pnpm-lock.yaml linguist-generated=true
+apps/mobile/pubspec.lock linguist-generated=true
+apps/mobile/ios/Podfile.lock linguist-generated=true

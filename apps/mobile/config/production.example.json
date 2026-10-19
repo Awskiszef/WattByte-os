@@ -1,0 +1,9 @@
+{
+  "_NOTE": "Placeholder hosts under the reserved .invalid TLD: the app refuses them on purpose. Copy to config/production.json (git-ignored), put the real https hosts in, then: flutter build ipa|appbundle --dart-define-from-file=config/production.json. The privacy-policy URL must be a public https page before store submission. Dart defines are readable inside the shipped app: no secrets here.",
+  "APP_ENV": "production",
+  "API_BASE_URL": "https://api.wattbyte.invalid",
+  "PRIVACY_POLICY_URL": "https://privacy.wattbyte.invalid/policy",
+  "FEATURE_AI": true,
+  "FEATURE_SUBSCRIPTIONS": false,
+  "FEATURE_CLOUD_SYNC": true
+}

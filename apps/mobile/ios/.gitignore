@@ -1,0 +1,56 @@
+# Standard Flutter iOS ignores plus WattByte specifics. Podfile.lock stays TRACKED
+# (reproducible pod versions); Pods/ does not.
+*.mode1v3
+*.mode2v3
+*.moved-aside
+*.pbxuser
+*.perspectivev3
+**/*sync/
+.sconsign.dblite
+.tags*
+**/.vagrant/
+**/DerivedData/
+Icon?
+**/Pods/
+**/.symlinks/
+profile
+xcuserdata
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+*.hmap
+*.ipa
+*.dSYM
+*.dSYM.zip
+**/dgph
+**/.generated/
+Flutter/App.framework
+Flutter/Flutter.framework
+Flutter/Flutter.podspec
+Flutter/Generated.xcconfig
+Flutter/ephemeral/
+Flutter/app.flx
+Flutter/app.zip
+Flutter/flutter_assets/
+Flutter/flutter_export_environment.sh
+ServiceDefinitions.json
+Runner/GeneratedPluginRegistrant.*
+
+# Local signing override (team id, bundle id suffix) created from Local.xcconfig.example.
+# Only the .example file is tracked.
+Flutter/Local.xcconfig
+
+# Signing material must never be committed
+*.p12
+*.p8
+*.cer
+*.mobileprovision
+*.provisionprofile
+*.certSigningRequest
+ExportOptions.local.plist
+
+# Exceptions to above rules.
+!default.mode1v3
+!default.mode2v3
+!default.pbxuser
+!default.perspectivev3

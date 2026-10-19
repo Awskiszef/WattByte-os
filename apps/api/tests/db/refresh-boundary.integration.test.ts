@@ -1,0 +1,49 @@
+import { afterAll, describe } from 'vitest';
+
+import { PostgresRepositories } from '../../src/database/postgres.js';
+import { defineRefreshEndpointBoundaryTests, defineRotateBoundaryTests } from '../refresh-boundary.shared.js';
+import { buildTestApp } from '../support.js';
+import { closePgApp, DATABASE_URL, makePgApp, type PgContext, uniqueEmail } from './helpers.js';
+
+describe.skipIf(!DATABASE_URL)('refresh reuse boundary (PostgreSQL)', () => {
+  const contexts: PgContext[] = [];
+  const closers: (() => Promise<void>)[] = [];
+  afterAll(async () => {
+    for (const c of contexts) await closePgApp(c);
+    for (const close of closers) await close();
+  });
+
+  async function pgHarness() {
+    const ctx = await makePgApp();
+    contexts.push(ctx);
+    return {
+      repos: ctx.repos,
+      newUser: async () => (await ctx.repos.users.create({ email: uniqueEmail('boundary'), passwordHash: null })).id,
+      // PostgreSQL stamps revoked_at from its own clock; the test needs the rotation time it simulates.
+      pinRevokedAt: async (refreshHash: string, at: Date) => {
+        await ctx.pool.query('UPDATE sessions SET revoked_at = $2 WHERE refresh_hash = $1', [refreshHash, at]);
+      },
+      pool: ctx.pool,
+    };
+  }
+
+  defineRotateBoundaryTests(pgHarness);
+
+  defineRefreshEndpointBoundaryTests(async () => {
+    const base = await pgHarness();
+    let clock = new Date();
+    const repos = new PostgresRepositories(DATABASE_URL!);
+    closers.push(() => repos.close());
+    const ctx = await buildTestApp({ repos, now: () => clock });
+    closers.push(() => ctx.app.close());
+    return {
+      app: ctx.app,
+      repos,
+      setClock: (at: Date) => {
+        clock = at;
+      },
+      newUser: base.newUser,
+      pinRevokedAt: base.pinRevokedAt,
+    };
+  });
+});

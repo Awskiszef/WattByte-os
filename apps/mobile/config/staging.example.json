@@ -1,0 +1,9 @@
+{
+  "_NOTE": "Placeholder hosts under the reserved .invalid TLD: the app refuses them on purpose. Copy to config/staging.json (git-ignored), put the real https hosts in, then: flutter build ipa|appbundle --dart-define-from-file=config/staging.json. Dart defines are readable inside the shipped app: no secrets here.",
+  "APP_ENV": "staging",
+  "API_BASE_URL": "https://api.staging.wattbyte.invalid",
+  "PRIVACY_POLICY_URL": "https://privacy.staging.wattbyte.invalid/policy",
+  "FEATURE_AI": true,
+  "FEATURE_SUBSCRIPTIONS": false,
+  "FEATURE_CLOUD_SYNC": true
+}

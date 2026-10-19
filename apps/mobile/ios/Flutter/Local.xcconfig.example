@@ -1,0 +1,16 @@
+// Per-developer iOS settings. Copy to Local.xcconfig (same folder; the copy is git-ignored):
+//
+//   cp ios/Flutter/Local.xcconfig.example ios/Flutter/Local.xcconfig
+//
+// Never commit Local.xcconfig and never put a Team ID in a tracked file.
+
+// Apple Developer Team ID (10 characters, Xcode > Settings > Accounts > team > "Team ID", or
+// developer.apple.com > Membership). Needed to build for a physical iPhone; simulator and
+// `flutter build ios --no-codesign` do not need it.
+DEVELOPMENT_TEAM = ABCDE12345
+
+// Optional: use your own bundle id when `pl.wattbyte.app` is not registered in your account
+// (for example a personal team testing on a device). The widget becomes
+// $(WB_BUNDLE_ID).WattByteWidget and the App Group group.$(WB_BUNDLE_ID); both must exist in your
+// Developer account (Xcode creates them for you with automatic signing).
+// WB_BUNDLE_ID = com.example.wattbyte

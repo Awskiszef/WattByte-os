@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- No tracking: nothing here is combined with third-party data, shared with a data broker or used for
+	     advertising, and the app has no analytics, advertising or attribution SDK. -->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<!-- Data that leaves the phone for the WattByte API, all linked to the user's account and used only for app
+	     functionality. It exists only in builds configured with an API address, after the user creates an
+	     account (see docs/privacy.md and docs/RELEASE.md). Per data type:
+	     - EmailAddress: the sign-up / sign-in e-mail.
+	     - UserID: the account id the API assigns (it keys every server-side row and is in the access token).
+	     - DeviceID: the random installation id (not a hardware or advertising id) that ties synced days to this
+	       phone's device record.
+	     - OtherUsageData: per-day aggregates (mobile and Wi-Fi bytes, battery and wall Wh, charging session count,
+	       estimated cost) uploaded by cloud sync, and the month totals sent for AI insights.
+	     - OtherDataTypes: device facts registered with the account (platform, model code such as iPhone16,1,
+	       nominal battery capacity and where it came from) and account settings (country, currency, electricity
+	       price mode and manual price).
+	     Passwords are sent over TLS for sign-in and are not stored in clear text (scrypt on the server); Apple's
+	     data-type list has no entry for credentials. Keep this list in step with docs/privacy.md. -->
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeEmailAddress</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeUserID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeDeviceID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeOtherUsageData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeOtherDataTypes</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Required-reason APIs the app's own code (Runner, the wattbyte_system plugin) and the plugins without a
+	     manifest of their own (home_widget) use. Plugins that ship a manifest (shared_preferences, sqflite,
+	     workmanager, flutter_local_notifications, flutter_secure_storage, share_plus) and the Flutter engine
+	     (file timestamps, boot time) declare theirs in their own bundles. No file-timestamp, disk-space or
+	     active-keyboard API is called by this code. -->
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<!-- UserDefaults. CA92.1: information only the app itself reads (settings, background-task bookkeeping).
+		     1C8F.1: the App Group suite shared with the WattByteWidget extension (home_widget writes it). -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+				<string>1C8F.1</string>
+			</array>
+		</dict>
+		<!-- sysctl kern.boottime (wattbyte_system, iOS interfaceCounters): the boot time is compared between two
+		     samples to see whether the device rebooted, which resets the network interface counters. The value
+		     never leaves the device. 35F9.1 (time elapsed between events within the app) is the closest published
+		     reason; see docs/PLATFORM_SUPPORT.md. -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>35F9.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

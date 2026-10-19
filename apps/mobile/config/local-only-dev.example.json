@@ -1,0 +1,5 @@
+{
+  "_NOTE": "DEBUG BUILDS ONLY. No backend, no account: the app starts at the local device setup and shows LOCAL ONLY DEVELOPMENT MODE. Copy to config/local-only-dev.json (git-ignored) and run: flutter run --dart-define-from-file=config/local-only-dev.json. Never for staging or production: profile and release builds refuse LOCAL_ONLY_DEV=true, and need API_BASE_URL (see development.example.json). Do not combine with API_BASE_URL.",
+  "APP_ENV": "development",
+  "LOCAL_ONLY_DEV": true
+}
