@@ -46,9 +46,20 @@ export function organizationJsonLd() {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: site.name,
+    legalName: site.company.name,
     url: site.url,
     logo: absoluteUrl('/icon.svg'),
     email: site.supportEmail,
+    vatID: site.company.vatId,
+    taxID: site.company.nip,
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: site.company.address.street,
+      postalCode: site.company.address.postalCode,
+      addressLocality: site.company.address.city,
+      addressRegion: site.company.address.region,
+      addressCountry: site.company.address.countryCode,
+    },
   };
 }
 

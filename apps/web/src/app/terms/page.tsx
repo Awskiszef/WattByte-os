@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { CompanyDetails } from '@/components/ui/company-details';
 import { PageHeader } from '@/components/ui/page-header';
 import { Prose } from '@/components/ui/prose';
 import { Section } from '@/components/ui/section';
@@ -21,7 +22,7 @@ export default function TermsPage() {
           <Prose>
             <h2 className="!mt-0">1. What WattByte is</h2>
             <p>
-              WattByte is a mobile application that reads battery and network counters provided by your phone&apos;s operating system and presents them as usage statistics, estimated energy and estimated electricity cost. Optional features (an account, cloud sync of daily totals and AI explanations) are provided by {site.legalName} through its backend.
+              WattByte is a mobile application that reads battery and network counters provided by your phone&apos;s operating system and presents them as usage statistics, estimated energy and estimated electricity cost. Optional features (an account, cloud sync of daily totals and AI explanations) are provided through its backend by {site.company.name}, {site.company.address.street}, {site.company.address.postalCode} {site.company.address.city}, {site.company.address.country} (NIP {site.company.nip}, REGON {site.company.regon}), referred to below as &quot;we&quot;.
             </p>
 
             <h2>2. Estimates, not measurements</h2>
@@ -56,10 +57,10 @@ export default function TermsPage() {
             <p>The app on your phone keeps working without the backend. Account features depend on the backend and on third-party providers (hosting, electricity price data, AI providers) and may be unavailable from time to time. We do not promise a particular level of availability for the free plan.</p>
 
             <h2>8. Intellectual property</h2>
-            <p>The app, its design and its content are owned by {site.legalName} or its licensors. Your data is yours; you give us only the permission needed to store and process it for the features you use, as described in the <Link href="/privacy">privacy policy</Link>.</p>
+            <p>The app, its design and its content are owned by {site.company.name} or its licensors. Your data is yours; you give us only the permission needed to store and process it for the features you use, as described in the <Link href="/privacy">privacy policy</Link>.</p>
 
             <h2>9. Liability</h2>
-            <p>To the extent permitted by law, {site.legalName} is not liable for indirect or consequential loss, or for decisions made on the basis of estimates shown in the app. Nothing in these terms limits liability that cannot be limited by law, including liability for death or personal injury caused by negligence, or your statutory rights as a consumer.</p>
+            <p>To the extent permitted by law, {site.company.name} is not liable for indirect or consequential loss, or for decisions made on the basis of estimates shown in the app. Nothing in these terms limits liability that cannot be limited by law, including liability for death or personal injury caused by negligence, or your statutory rights as a consumer.</p>
 
             <h2>10. Changes and termination</h2>
             <p>We may change these terms; the date at the top changes with them and material changes are announced in the app before they take effect. You may stop using the service at any time by deleting the account and uninstalling the app.</p>
@@ -68,6 +69,7 @@ export default function TermsPage() {
             <p>
               Questions about these terms: <a href={`mailto:${site.supportEmail}`}>{site.supportEmail}</a>.
             </p>
+            <CompanyDetails />
           </Prose>
         </div>
       </Section>

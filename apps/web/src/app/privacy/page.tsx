@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { CompanyDetails } from '@/components/ui/company-details';
 import { PageHeader } from '@/components/ui/page-header';
 import { Prose } from '@/components/ui/prose';
 import { Section } from '@/components/ui/section';
@@ -31,9 +32,12 @@ export default function PrivacyPage() {
 
             <h2>1. Who is responsible</h2>
             <p>
-              {site.legalName} operates the WattByte app and the website at {site.url}. For any question about this policy or your data, write to{' '}
+              The controller of your data is {site.company.name}, {site.company.address.street}, {site.company.address.postalCode}{' '}
+              {site.company.address.city}, {site.company.address.country} (NIP {site.company.nip}, REGON {site.company.regon}), which operates the WattByte app
+              and the website at {site.url}. For any question about this policy or your data, write to{' '}
               <a href={`mailto:${site.supportEmail}`}>{site.supportEmail}</a>.
             </p>
+            <CompanyDetails className="mb-6" />
 
             <h2>2. Data kept on your phone</h2>
             <p>The app stores these in its private storage, which other apps cannot read:</p>

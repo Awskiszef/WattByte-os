@@ -53,6 +53,9 @@ Scores are Performance / Accessibility / Best Practices / SEO.
 | `/pricing` | 96 / 94 / 100 / 100 | **99** / 100 / 100 / 100 | 100 / 94 / 100 / 100 | 100 / 100 / 100 / 100 |
 | `/download` | 99 / 96 / 100 / 100 | **100** / 100 / 100 / 100 | 100 / 96 / 100 / 100 | 100 / 100 / 100 / 100 |
 
+`/contact` and `/privacy`, measured the same day after the company details were added, score 100 in every
+category on mobile and desktop.
+
 ¹ First run of the session (cold browser and server): TBT 770 ms. Three warm re-runs of the same build
 scored 93 with TBT 10–20 ms and LCP 3.2 s, so the real "before" for `/` on mobile is 93.
 

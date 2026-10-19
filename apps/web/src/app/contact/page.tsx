@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { CompanyDetails } from '@/components/ui/company-details';
 import { PageHeader } from '@/components/ui/page-header';
 import { Prose } from '@/components/ui/prose';
 import { Section } from '@/components/ui/section';
@@ -27,7 +28,10 @@ export default function ContactPage() {
             <p>Access, export or erasure of the data held about your account. Deleting the account from the app is the fastest way to erase everything; write to us if you cannot sign in.</p>
             <h2>Press and partnerships</h2>
             <p>Use the same address with &quot;Press&quot; in the subject.</p>
+            <h2>Company details</h2>
+            <p>WattByte is operated by {site.company.name}, a sole proprietorship registered in Poland.</p>
           </Prose>
+          <CompanyDetails className="mt-6 max-w-[42rem]" />
         </div>
       </Section>
     </>

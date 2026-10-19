@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { footerColumns } from '@/config/navigation';
 import { site } from '@/config/site';
 import { ComingSoon } from '@/components/ui/badge';
+import { companyLine } from '@/components/ui/company-details';
 import { Logo } from './logo';
 
 export function Footer() {
@@ -36,11 +37,14 @@ export function Footer() {
             </nav>
           ))}
         </div>
-        <div className="mt-14 flex flex-col gap-3 border-t border-border pt-6 text-xs text-fg-subtle sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            © {year} {site.legalName}. All rights reserved.
-          </p>
-          <p>Mockups on this site show example data, not a real account.</p>
+        <div className="mt-14 border-t border-border pt-6 text-xs text-fg-subtle">
+          <p>Operated by {companyLine()}. NIP {site.company.nip}, VAT ID {site.company.vatId}, REGON {site.company.regon}.</p>
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              © {year} {site.legalName}. All rights reserved.
+            </p>
+            <p>Mockups on this site show example data, not a real account.</p>
+          </div>
         </div>
       </div>
     </footer>
