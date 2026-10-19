@@ -9,5 +9,7 @@ packages:
 # esbuild's postinstall only validates its platform binary; allow it so vitest/tsx work.
 allowBuilds:
   esbuild: true
+  # workerd (Cloudflare Workers runtime used by wrangler dev/preview in apps/web) only validates its platform binary.
+  workerd: true
   # eslint-config-next's resolver ships prebuilt binaries; its postinstall is only a fallback.
   unrs-resolver: false

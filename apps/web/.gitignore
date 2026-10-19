@@ -2,4 +2,8 @@
 out/
 next-env.d.ts
 *.tsbuildinfo
-.vercel/
+# Cloudflare Workers build output and local state
+.open-next/
+.wrangler/
+.dev.vars
+cloudflare-env.d.ts

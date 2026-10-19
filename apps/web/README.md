@@ -85,41 +85,62 @@ CHROME_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" npx l
 
 Drop `--preset=desktop` for the mobile run. Any Chromium build works as `CHROME_PATH`.
 
-## Deployment (Vercel, https://wattbyte.app)
+## Deployment (Cloudflare Workers, https://wattbyte.app)
 
-The site deploys as one Vercel project rooted at `apps/web`; `vercel.json` in this directory holds the
-commands, so the dashboard only needs the settings below.
+The site runs as the Cloudflare Worker `wattbyte-web`, built with the
+[OpenNext Cloudflare adapter](https://opennext.js.org/cloudflare) from the normal `next build` output
+(`open-next.config.ts`, `wrangler.jsonc`). Static files are served by Workers Static Assets; the home
+page is ISR (the Eurostat price is fetched with `revalidate: 86400`), so prerendered pages and the fetch
+cache live in the Workers KV namespace `wattbyte-web-cache` (binding `NEXT_INC_CACHE_KV`).
 
-1. **Create the project** from the GitHub repository (Vercel → Add New → Project → import `wattbyte`).
-2. **Project Settings → General**
-   - Root Directory: `apps/web` (tick "Include source files outside of the Root Directory in the
-     Build Step" so the workspace lockfile and `pnpm-workspace.yaml` are available).
-   - Framework Preset: Next.js (also pinned in `vercel.json`).
-   - Node.js Version: 22.x (also pinned by `engines.node` in `package.json`, which Vercel reads; on a
-     machine with a newer Node, `pnpm install` prints an "Unsupported engine" warning for `apps/web`
-     and carries on, since the workspace does not set `engine-strict`).
-   - Install Command: `pnpm install --frozen-lockfile`; Build Command: `pnpm --filter @wattbyte/web build`
-     (both from `vercel.json`; Vercel reads `packageManager` from the repository root to pick pnpm 11).
-   - Ignored Build Step comes from `vercel.json`: a commit that touches neither `apps/web` nor the
-     workspace lockfile is not built.
-3. **Environment variables** (Settings → Environment Variables; the names and meanings are in
-   `.env.example`):
+```bash
+pnpm --filter @wattbyte/web preview   # OpenNext build + wrangler dev on http://localhost:8787 (Workers runtime)
+```
 
-   | Variable | Production | Preview |
-   |---|---|---|
-   | `NEXT_PUBLIC_SITE_URL` | `https://wattbyte.app` | leave unset (falls back to `https://wattbyte.app`, which keeps canonical URLs pointing at production) |
-   | `LAUNCH_LIST_WEBHOOK_URL` | the HTTPS endpoint that stores sign-ups | unset, or a test endpoint; unset means the form reports the list as closed |
-   | `LAUNCH_LIST_WEBHOOK_TOKEN` | the bearer token for that endpoint (mark as Sensitive) | unset |
+```bash
+pnpm --filter @wattbyte/web deploy    # OpenNext build + upload + KV cache population
+```
 
-4. **Domain**: Settings → Domains → add `wattbyte.app` and `www.wattbyte.app` (redirect `www` to the
-   apex). At the DNS provider: apex `A` record to Vercel's address (`76.76.21.21` at the time of
-   writing; the Domains page shows the current one) and `www` `CNAME` to `cname.vercel-dns.com`.
-   Vercel issues the TLS certificate once the records resolve.
-5. **Branches**: `main` deploys to production; every pull request gets a preview URL. Nothing is
-   deployed from this repository's GitHub Actions: `.github/workflows/ci.yml` (`node` job) already
-   lints, typechecks, tests and builds `apps/web` through `pnpm -r`, and Vercel builds independently
-   from the same commit.
+Both need a port, so run them outside any sandbox. `deploy` needs a logged-in Wrangler
+(`npx wrangler login`, or `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` in the environment with the
+"Edit Cloudflare Workers" template plus Workers KV write and DNS edit for the zone).
 
-After the first production deploy, check `https://wattbyte.app/robots.txt`, `/sitemap.xml` and the
-security headers from `next.config.ts` (`curl -I https://wattbyte.app`), and re-run the Lighthouse
-audit above against the live site.
+### What `wrangler.jsonc` sets
+
+| Key | Value | Why |
+|---|---|---|
+| `routes` | `wattbyte.app`, `www.wattbyte.app` as custom domains | Cloudflare creates the DNS records and the certificate itself; the zone `wattbyte.app` must be in the same account. `next.config.ts` redirects `www.` to the apex with 308. |
+| `workers_dev` | `false` | no `*.workers.dev` hostname for the production Worker |
+| `compatibility_flags` | `nodejs_compat` | required by OpenNext (and by the `runtime = 'nodejs'` route handler) |
+| `kv_namespaces` | `NEXT_INC_CACHE_KV` → `wattbyte-web-cache` | ISR and `fetch` cache |
+| `services` | `WORKER_SELF_REFERENCE` → `wattbyte-web` | the revalidation queue calls the Worker back |
+| `vars` | `NEXT_PUBLIC_SITE_URL=https://wattbyte.app` | canonical URLs, sitemap, Open Graph |
+
+### Secrets
+
+The launch list is closed until these exist (names and meanings in `.env.example`):
+
+```bash
+npx wrangler secret put LAUNCH_LIST_WEBHOOK_URL
+```
+
+```bash
+npx wrangler secret put LAUNCH_LIST_WEBHOOK_TOKEN
+```
+
+Set them in the Cloudflare dashboard (Workers & Pages → wattbyte-web → Settings → Variables and Secrets)
+or with the commands above from this directory. Never put them in `vars`.
+
+### Checklist after a deploy
+
+1. `curl -I https://wattbyte.app` answers 200 with the headers from `next.config.ts`; `https://www.wattbyte.app/`
+   answers 308 to the apex.
+2. `/robots.txt`, `/sitemap.xml`, `/opengraph-image` and `/api/launch-list` (POST) work.
+3. Re-run the Lighthouse audit above against the live site.
+
+### Continuous deployment (optional)
+
+Connect the repository to the Worker under Workers & Pages → wattbyte-web → Settings → Build: root directory
+`apps/web`, build command `pnpm --filter @wattbyte/web exec opennextjs-cloudflare build`, deploy command
+`npx wrangler deploy`, non-production branches as previews. Nothing in `.github/workflows/ci.yml` deploys;
+its `node` job lints, typechecks, tests and builds `apps/web` through `pnpm -r` on every push.

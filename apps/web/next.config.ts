@@ -5,6 +5,17 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // The site is static marketing content; images are inline SVG, so the optimizer is not needed.
   images: { formats: ['image/avif', 'image/webp'] },
+  // The Worker also answers on www.wattbyte.app (wrangler.jsonc); one canonical host for search engines.
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'www.wattbyte.app' }],
+        destination: 'https://wattbyte.app/:path*',
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
