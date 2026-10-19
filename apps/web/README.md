@@ -131,10 +131,19 @@ npx wrangler secret put LAUNCH_LIST_WEBHOOK_TOKEN
 Set them in the Cloudflare dashboard (Workers & Pages → wattbyte-web → Settings → Variables and Secrets)
 or with the commands above from this directory. Never put them in `vars`.
 
+`public/_headers` gives the content-hashed files under `/_next/static/` a one-year immutable cache; it applies
+because those requests are answered by the asset layer, not by the Worker code. Plain-HTTP requests and the
+`www.` host are 308-redirected to `https://wattbyte.app` by `next.config.ts`.
+
+First production deploy: 2026-10-20 (Worker version `18eb6351`), account `atlashc`; both custom domains
+were created by that deploy, and `wattbyte-web-cache` was populated with the prerendered pages. Note that
+`opennextjs-cloudflare deploy` on its own uploads the existing `.open-next/` build; always run the `deploy`
+package script (build + deploy) after a code change.
+
 ### Checklist after a deploy
 
-1. `curl -I https://wattbyte.app` answers 200 with the headers from `next.config.ts`; `https://www.wattbyte.app/`
-   answers 308 to the apex.
+1. `curl -I https://wattbyte.app` answers 200 with the headers from `next.config.ts`; `http://wattbyte.app/` and
+   `https://www.wattbyte.app/` answer 308 to the apex; `/_next/static/...` files carry `max-age=31536000, immutable`.
 2. `/robots.txt`, `/sitemap.xml`, `/opengraph-image` and `/api/launch-list` (POST) work.
 3. Re-run the Lighthouse audit above against the live site.
 

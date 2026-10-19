@@ -1,0 +1,4 @@
+# Workers Static Assets headers (Cloudflare). Next.js output under /_next/static is content-hashed, so it can be
+# cached forever; everything else keeps the default (revalidate on every request).
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable

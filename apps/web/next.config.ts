@@ -5,9 +5,16 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // The site is static marketing content; images are inline SVG, so the optimizer is not needed.
   images: { formats: ['image/avif', 'image/webp'] },
-  // The Worker also answers on www.wattbyte.app (wrangler.jsonc); one canonical host for search engines.
+  // One canonical origin: plain HTTP (Cloudflare forwards the visitor's scheme in x-forwarded-proto) and the
+  // www. host (wrangler.jsonc attaches both custom domains) both land on https://wattbyte.app.
   async redirects() {
     return [
+      {
+        source: '/:path*',
+        has: [{ type: 'header', key: 'x-forwarded-proto', value: 'http' }],
+        destination: 'https://wattbyte.app/:path*',
+        permanent: true,
+      },
       {
         source: '/:path*',
         has: [{ type: 'host', value: 'www.wattbyte.app' }],
