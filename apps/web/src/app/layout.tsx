@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { GeistSans } from 'geist/font/sans';
-import { GeistMono } from 'geist/font/mono';
+import localFont from 'next/font/local';
 import type { ReactNode } from 'react';
 import './globals.css';
 import { Footer } from '@/components/layout/footer';
@@ -9,6 +8,22 @@ import { ThemeProvider } from '@/components/layout/theme-provider';
 import { JsonLd } from '@/components/ui/json-ld';
 import { site } from '@/config/site';
 import { organizationJsonLd } from '@/lib/seo';
+
+// Latin subsets of the Geist variable fonts (see src/fonts/README.md). Only the sans face is
+// preloaded: it renders every heading and paragraph; mono appears in two sections below the fold.
+const geistSans = localFont({
+  src: '../fonts/Geist-Variable-latin.woff2',
+  variable: '--font-geist-sans',
+  weight: '100 900',
+  display: 'swap',
+});
+const geistMono = localFont({
+  src: '../fonts/GeistMono-Variable-latin.woff2',
+  variable: '--font-geist-mono',
+  weight: '100 900',
+  display: 'swap',
+  preload: false,
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(site.url),
@@ -34,7 +49,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang={site.locale} suppressHydrationWarning className={`${GeistSans.variable} ${GeistMono.variable}`}>
+    <html lang={site.locale} suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="min-h-dvh flex flex-col">
         <ThemeProvider>
           <a

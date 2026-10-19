@@ -16,6 +16,8 @@ function PriceLine({ plan }: { plan: Plan }) {
 }
 
 export function Pricing({ withHeading = true }: { withHeading?: boolean }) {
+  // Without the section heading (the /pricing page, whose h1 is the page header) the plan names are the next level down.
+  const PlanName = withHeading ? 'h3' : 'h2';
   return (
     <Section id="pricing" className="scroll-mt-16 border-t border-border">
       <div className="container-x">
@@ -34,9 +36,9 @@ export function Pricing({ withHeading = true }: { withHeading?: boolean }) {
               aria-labelledby={`plan-${plan.id}`}
             >
               <div className="flex items-center justify-between gap-3">
-                <h3 id={`plan-${plan.id}`} className="text-xl font-semibold tracking-[-0.01em]">
+                <PlanName id={`plan-${plan.id}`} className="text-xl font-semibold tracking-[-0.01em]">
                   {plan.name}
-                </h3>
+                </PlanName>
                 {plan.status === 'planned' ? <ComingSoon /> : null}
               </div>
               <p className="mt-2 text-sm text-fg-muted">{plan.summary}</p>

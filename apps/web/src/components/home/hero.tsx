@@ -22,11 +22,11 @@ export function Hero() {
           </p>
           <h1
             id="hero-title"
-            className="rise rise-2 mt-5 text-balance text-[2.6rem] font-semibold leading-[1.04] tracking-[-0.03em] sm:text-[3.4rem] lg:text-[4rem]"
+            className="rise-solid rise-2 mt-5 text-balance text-[2.6rem] font-semibold leading-[1.04] tracking-[-0.03em] sm:text-[3.4rem] lg:text-[4rem]"
           >
             {hero.headline}
           </h1>
-          <p className="rise rise-3 mt-6 max-w-[32rem] text-pretty text-lg leading-relaxed text-fg-muted">{hero.subheadline}</p>
+          <p className="rise-solid rise-3 mt-6 max-w-[32rem] text-pretty text-lg leading-relaxed text-fg-muted">{hero.subheadline}</p>
           <div className="rise rise-3 mt-8 flex flex-col gap-3 sm:flex-row">
             <ButtonLink href={hero.primary.href} size="lg">
               {hero.primary.label}

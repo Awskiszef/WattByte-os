@@ -12,7 +12,7 @@
   --border-strong: rgb(0 0 0 / 0.16);
   --fg: #0a0a0a;
   --fg-muted: #52525b;
-  --fg-subtle: #71717a;
+  --fg-subtle: #65656e; /* 5.8:1 on --bg, 4.8:1 on --surface-2 (WCAG AA for small text) */
   --energy: #a8690f;
   --energy-soft: rgb(168 105 15 / 0.12);
   --data: #0b6f87;
@@ -33,7 +33,7 @@
   --border-strong: rgb(255 255 255 / 0.16);
   --fg: #f4f4f5;
   --fg-muted: #a1a1aa;
-  --fg-subtle: #6b6b75;
+  --fg-subtle: #85858f; /* 5.8:1 on --bg, 4.8:1 on --surface-2 (WCAG AA for small text) */
   --energy: #f0b35b;
   --energy-soft: rgb(240 179 91 / 0.14);
   --data: #62d0e6;
@@ -149,8 +149,22 @@ body {
     transform: translateY(0);
   }
 }
+/* Same motion without the fade: Chrome never reports an element that first
+   painted at opacity 0 as a Largest Contentful Paint candidate, so the hero
+   headline and its lead paragraph slide in at full opacity. */
+@keyframes rise-solid {
+  from {
+    transform: translateY(12px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
 .rise {
   animation: rise 0.7s var(--ease-out-quint) both;
+}
+.rise-solid {
+  animation: rise-solid 0.7s var(--ease-out-quint) both;
 }
 .rise-1 { animation-delay: 0.05s; }
 .rise-2 { animation-delay: 0.15s; }
@@ -191,6 +205,7 @@ body {
     scroll-behavior: auto;
   }
   .rise,
+  .rise-solid,
   .drift,
   .pulse-dot {
     animation: none !important;
