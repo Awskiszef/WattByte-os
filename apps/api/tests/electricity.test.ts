@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { MemoryRepositories } from '../src/database/memory.js';
 import { EurostatElectricityPriceProvider, latestValue, type JsonStat } from '../src/modules/electricity/eurostat.js';
@@ -87,12 +87,14 @@ class ScriptedProvider implements ElectricityPriceProvider {
 describe('ElectricityPriceService', () => {
   const DAY = 86_400_000;
 
+  afterEach(() => vi.useRealTimers());
+
   function make() {
     let now = new Date('2026-10-13T10:00:00Z');
     const provider = new ScriptedProvider();
     const repos = new MemoryRepositories();
     const service = new ElectricityPriceService([provider], repos.prices, { cacheMs: 7 * DAY, now: () => now });
-    return { provider, repos, service, advance: (ms: number) => (now = new Date(now.getTime() + ms)) };
+    return { provider, repos, service, now: () => now, advance: (ms: number) => (now = new Date(now.getTime() + ms)) };
   }
 
   it('asks the source once, then serves the cache until it expires', async () => {
@@ -117,12 +119,23 @@ describe('ElectricityPriceService', () => {
     expect(await service.get('DE')).toBeNull();
   });
 
-  it('survives a restart through the repository (last known value, not memory)', async () => {
-    const { provider, repos, service } = make();
+  it.each([
+    '2026-10-19T10:00:00Z',
+    '2026-10-20T10:00:00Z',
+    '2026-10-21T10:00:00Z',
+    '2035-01-01T00:00:00Z',
+  ])('survives a restart independently of wall time (%s)', async (wallTime) => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(wallTime));
+    const { provider, repos, service, now, advance } = make();
     await service.get('PL');
-    const second = new ElectricityPriceService([provider], repos.prices, { cacheMs: 7 * DAY });
+    const second = new ElectricityPriceService([provider], repos.prices, { cacheMs: 7 * DAY, now });
     provider.fail = true;
     expect(await second.get('PL')).toMatchObject({ pricePerKwh: 1.2724, stale: false });
+    expect(provider.calls).toBe(1);
+    advance(7 * DAY);
+    expect(await second.get('PL')).toMatchObject({ pricePerKwh: 1.2724, stale: true });
+    expect(provider.calls).toBe(2);
   });
 
   it('concurrent requests share one source call', async () => {
