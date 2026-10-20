@@ -3,6 +3,7 @@
 import { useId, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { site } from '@/config/site';
+import { readCampaign } from '@/lib/campaign';
 
 type State = { status: 'idle' | 'sending' | 'done' | 'closed' | 'error'; message?: string };
 
@@ -20,7 +21,7 @@ export function LaunchListForm() {
       const res = await fetch('/api/launch-list', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email: data.get('email'), platform: data.get('platform'), source: 'website' }),
+        body: JSON.stringify({ email: data.get('email'), platform: data.get('platform'), source: 'website', ...readCampaign() }),
       });
       const body = (await res.json().catch(() => null)) as { ok?: boolean; closed?: boolean; error?: string } | null;
       if (body?.closed) {

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import type { ReactNode } from 'react';
 import './globals.css';
+import { CampaignCapture } from '@/components/layout/campaign-capture';
 import { Footer } from '@/components/layout/footer';
 import { Navbar } from '@/components/layout/navbar';
 import { ThemeProvider } from '@/components/layout/theme-provider';
@@ -65,6 +66,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <Footer />
         </ThemeProvider>
         <JsonLd data={organizationJsonLd()} />
+        <CampaignCapture />
       </body>
     </html>
   );

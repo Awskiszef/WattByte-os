@@ -24,6 +24,9 @@ export default function CookiesPage() {
               <li>
                 <strong>Theme preference</strong> (dark or light) in local storage, set only when you use the theme switch. It never leaves your browser.
               </li>
+              <li>
+                <strong>Campaign tag</strong> in session storage, set only when you arrive through one of our ads or tagged links (the <code>utm_</code> parameters in the address). It is erased when you close the tab and leaves your browser only if you join the launch list.
+              </li>
             </ul>
             <h2>What it does not do</h2>
             <ul>
@@ -31,7 +34,7 @@ export default function CookiesPage() {
               <li>No cookies are set by the website itself.</li>
             </ul>
             <h2>The launch list</h2>
-            <p>If you submit the launch-list form, the e-mail address and platform you entered are sent to our mailing service to deliver one launch announcement. This is a form submission, not a cookie, and it happens only when you press the button.</p>
+            <p>If you submit the launch-list form, the e-mail address and platform you entered, and the campaign tag if you arrived through a tagged link, are sent to our mailing service to deliver one launch announcement. This is a form submission, not a cookie, and it happens only when you press the button.</p>
             <h2>The app</h2>
             <p>
               The WattByte app uses no cookies and no trackers. What it stores and sends is described in the <Link href="/privacy">privacy policy</Link>.

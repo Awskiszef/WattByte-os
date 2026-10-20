@@ -84,7 +84,7 @@ export default function PrivacyPage() {
 
             <h2>6. This website</h2>
             <p>
-              This website sets no tracking cookies and loads no analytics. Your theme choice is kept in your browser&apos;s local storage. If you join the launch list, your e-mail address and chosen platform are forwarded to our mailing service and used for one announcement; see the <Link href="/cookies">cookie notice</Link>.
+              This website sets no tracking cookies and loads no analytics. Your theme choice is kept in your browser&apos;s local storage. If you join the launch list, your e-mail address and chosen platform are forwarded to our mailing service and used for one announcement. If you reached the site through one of our ads or tagged links, the campaign tag of that link (the <code>utm_source</code>, <code>utm_medium</code>, <code>utm_campaign</code> and <code>utm_content</code> parameters, for example &quot;tiktok&quot; or &quot;launch-video&quot;) is stored with the sign-up, so we can tell which ad worked. It is deleted together with the address. See the <Link href="/cookies">cookie notice</Link>.
             </p>
 
             <h2>7. Retention</h2>

@@ -25,12 +25,23 @@ pnpm --filter @wattbyte/web build      # next build, then `start`
 | `src/fonts/` | Latin subsets of Geist Sans / Geist Mono (OFL), loaded with `next/font/local`; see its README |
 | `src/lib/electricity-price.ts` | Eurostat `nrg_pc_204` fetch (same query as the API), cached one day, `null` on failure |
 | `src/app/api/launch-list/route.ts` | launch-list sign-up, forwarded to `LAUNCH_LIST_WEBHOOK_URL` |
+| `src/lib/campaign.ts` | the `utm_*` campaign tag of a sign-up (read on landing, kept in session storage, validated by the route) |
 
 ## Environment
 
 See `.env.example`. `NEXT_PUBLIC_SITE_URL` sets canonical/Open Graph URLs (default `https://wattbyte.app`);
 `LAUNCH_LIST_WEBHOOK_URL` (+ optional `LAUNCH_LIST_WEBHOOK_TOKEN`) opens the launch list. Unset, the form
 reports that the list is closed.
+
+## Campaign tags
+
+To see which ad brought a sign-up, tag the ad's link, for example
+`https://wattbyte.app/download?utm_source=tiktok&utm_medium=paid&utm_campaign=launch-test&utm_content=hook-a`.
+The tag of the page the visitor lands on is kept in session storage for that tab (no cookie, no third party) and is
+sent with the launch-list form as `utm_source`, `utm_medium`, `utm_campaign` and `utm_content`. The route forwards a
+tag only if it is at most 100 characters of letters, digits, space, `.`, `_` and `-` (starting with a letter or
+digit) and silently drops it otherwise; the sign-up itself never fails because of a tag. A later landing through
+another tagged link replaces the tag; untagged pages keep it.
 
 ## Content rule
 
