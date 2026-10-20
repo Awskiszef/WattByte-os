@@ -34,7 +34,7 @@ export default function CookiesPage() {
               <li>No cookies are set by the website itself.</li>
             </ul>
             <h2>The launch list</h2>
-            <p>If you submit the launch-list form, the e-mail address and platform you entered, and the campaign tag if you arrived through a tagged link, are sent to our mailing service to deliver one launch announcement. This is a form submission, not a cookie, and it happens only when you press the button.</p>
+            <p>If you submit the launch-list form, the e-mail address and platform you entered, and the campaign tag if you arrived through a tagged link, are saved to a private Google Sheet that we use to send one launch announcement. This is a form submission, not a cookie, and it happens only when you press the button.</p>
             <h2>The app</h2>
             <p>
               The WattByte app uses no cookies and no trackers. What it stores and sends is described in the <Link href="/privacy">privacy policy</Link>.

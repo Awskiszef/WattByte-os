@@ -26,6 +26,7 @@ pnpm --filter @wattbyte/web build      # next build, then `start`
 | `src/lib/electricity-price.ts` | Eurostat `nrg_pc_204` fetch (same query as the API), cached one day, `null` on failure |
 | `src/app/api/launch-list/route.ts` | launch-list sign-up, forwarded to `LAUNCH_LIST_WEBHOOK_URL` |
 | `src/lib/campaign.ts` | the `utm_*` campaign tag of a sign-up (read on landing, kept in session storage, validated by the route) |
+| `integrations/launch-list-sheet.gs` | the Google Apps Script that receives the launch list into a Google Sheet (see below) |
 
 ## Environment
 
@@ -42,6 +43,23 @@ sent with the launch-list form as `utm_source`, `utm_medium`, `utm_campaign` and
 tag only if it is at most 100 characters of letters, digits, space, `.`, `_` and `-` (starting with a letter or
 digit) and silently drops it otherwise; the sign-up itself never fails because of a tag. A later landing through
 another tagged link replaces the tag; untagged pages keep it.
+
+## Launch-list receiver (Google Sheet)
+
+Production sends sign-ups to a private Google Sheet through `integrations/launch-list-sheet.gs`, one row per
+sign-up with the columns `at, email, platform, source, utm_source, utm_medium, utm_campaign, utm_content`.
+
+1. Create the spreadsheet in the Google account that should own the list, then Extensions → Apps Script and
+   replace `Code.gs` with `integrations/launch-list-sheet.gs`.
+2. Project Settings → Script properties: add `KEY` with a long random value (`openssl rand -hex 24`).
+3. Deploy → New deployment → Web app, Execute as: Me, Who has access: Anyone; authorize, copy the URL ending
+   in `/exec`. After a later script edit, Manage deployments → Edit → New version keeps the same URL.
+4. `pnpm --filter @wattbyte/web exec wrangler secret put LAUNCH_LIST_WEBHOOK_URL` and paste
+   `<web app URL>?key=<KEY>`. Leave `LAUNCH_LIST_WEBHOOK_TOKEN` unset: Apps Script cannot read request headers,
+   so the key travels in the URL, which stays inside the Worker secret. The secret applies without a redeploy.
+5. Sign up once through `https://wattbyte.app/download?utm_source=test&utm_campaign=setup` and check that the
+   row arrives with its tags, then delete it. The script answers 200 even to a wrong key, so a missing row is
+   the only sign of a bad `KEY` or URL.
 
 ## Content rule
 
