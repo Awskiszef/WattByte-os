@@ -23,7 +23,7 @@ class _DataByAppScreenState extends ConsumerState<DataByAppScreen> {
   late Future<List<RawAppData>> _future = _load();
 
   Future<List<RawAppData>> _load() {
-    final r = rangeFor(_period, DateTime.now());
+    final r = rangeFor(_period, ref.read(clockProvider)());
     return ref.read(systemProvider).queryAppData(r.start, r.end);
   }
 

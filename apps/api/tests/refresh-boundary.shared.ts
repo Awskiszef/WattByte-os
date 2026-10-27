@@ -30,8 +30,14 @@ export interface Harness {
 }
 
 const hash = (token: string): string => TokenService.hashRefresh(token);
-const T0 = new Date('2026-10-13T12:00:00.000Z');
-const FAR = new Date('2027-10-13T12:00:00.000Z');
+/**
+ * The simulated rotation time is anchored to the real clock at load, not to a calendar date. The PostgreSQL suites share one
+ * database with the retention test, whose global purge deletes sessions revoked more than SESSION_RETENTION_DAYS ago: a pinned
+ * `revoked_at` in the past is purged (and the assertions fail or flake) once real time passes that window (H-11).
+ * Everything below is relative to T0, so the boundary arithmetic is unchanged.
+ */
+const T0 = new Date();
+const FAR = new Date(T0.getTime() + 365 * 86_400_000);
 /** Unique per process: the PostgreSQL database outlives test runs and refresh hashes are unique. */
 const RUN = randomUUID().slice(0, 12);
 const token = (label: string, n: number): string => `${RUN}-${label}-${n}-`.padEnd(43, 'x');

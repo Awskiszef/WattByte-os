@@ -21,6 +21,7 @@ class InsightsScreen extends ConsumerWidget {
     final calc = ref.watch(energyCalcProvider);
     final currency = ref.watch(settingsProvider).currency;
     final data = ref.watch(appDataProvider);
+    final now = ref.watch(clockProvider)();
 
     return SafeArea(
       bottom: false,
@@ -35,7 +36,7 @@ class InsightsScreen extends ConsumerWidget {
             days: d.days,
             sessions: d.sessions,
             calc: calc,
-            now: DateTime.now(),
+            now: now,
           );
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),

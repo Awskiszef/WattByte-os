@@ -54,7 +54,7 @@
 /// [kScreenSizes] has four) or a plain `size`, `brightness`, `locale`,
 /// `platform`, `signedIn`, `onboarded`, `apiConfigured`, `appConfig` (`pumpApp`
 /// only: any [AppConfig] instead of the one `apiConfigured` derives), `settings`,
-/// `historyDays` (0 = fresh install), `chargingNow`, `plan`,
+/// `historyDays` (0 = fresh install), `now` (default [harnessNow]), `chargingNow`, `plan`,
 /// `accessibilityFeatures` (bold text, reduce motion, ...), `semantics`.
 /// Change them later, in place, with [AppHarness.configure] and its `set*`
 /// shortcuts. Reach the fakes through the returned [AppHarness]: `h.system`
@@ -95,9 +95,10 @@
 ///   the harness sets it to the chosen [HarnessPlatform] (default iOS) so the
 ///   Flutter side agrees with the fake native side, and undoes it when the tree
 ///   is unmounted.
-/// * **Time.** `DateTime.now()` is real (flutter_test only fakes timers).
-///   [seedHistory] therefore seeds relative to "today" and is deterministic
-///   per day offset, not per calendar date.
+/// * **Time.** Screen periods and seed data share [AppHarness.now], defaulting
+///   to [harnessNow] through [clockProvider]. No test data or date label depends
+///   on the host clock, including when a suite runs across midnight. Pass `now`
+///   to exercise another time; sessions are still only seeded once completed.
 /// * **Async.** SQLite runs through `databaseFactoryFfiNoIsolate`, so
 ///   `pump()` is enough to complete database work; no `runAsync` is needed.
 ///   [settle] pumps until the app is quiet. `databaseFactory` is a
@@ -328,13 +329,17 @@ class SeededHistory {
   final List<ChargingSession> sessions;
 }
 
+/// Default local time for app data and screen periods in widget tests.
+final harnessNow = DateTime(2026, 10, 13, 12);
+
 const _mb = 1024 * 1024;
 
 /// Writes `days` days of plausible usage and charging sessions.
 ///
 /// Deterministic: the numbers of "N days ago" depend only on [seed] and N, never
-/// on the calendar date or the wall clock (except that today's overnight
-/// session exists only once [now] is past 07:00).
+/// on the calendar date or the wall clock. Today's overnight session is included
+/// only after its seeded end time (06:50-07:29, 07:07 for the default seed).
+/// [now] defaults to [harnessNow], so the default fixture always includes it.
 ///
 /// * Data: 0.2-0.9 GB mobile and 1.4-4.6 GB Wi-Fi per day, more on every 6th
 ///   and 7th offset ("weekend"); today holds ~45% of a normal day.
@@ -354,7 +359,7 @@ Future<SeededHistory> seedHistory(
   double capacityMah = 3988,
   bool chargingNow = false,
 }) async {
-  final at = now ?? DateTime.now();
+  final at = now ?? harnessNow;
   final today = dayOf(at);
   final rows = <DailyData>[];
   final sessions = <ChargingSession>[];
@@ -484,8 +489,10 @@ class AppHarness {
     required this.authRepository,
     required this.tokenStore,
     required this.history,
+    required this.now,
   }) {
     overrides = [
+      clockProvider.overrideWithValue(() => now),
       prefsProvider.overrideWithValue(prefs),
       dbProvider.overrideWithValue(db),
       systemProvider.overrideWithValue(system.system),
@@ -539,7 +546,9 @@ class AppHarness {
     FakeSystem? system,
     AuthRepository? authRepository,
     bool installErrorLog = true,
+    DateTime? now,
   }) async {
+    final at = now ?? harnessNow;
     // In-memory SQLite is one database per process: a second harness would
     // silently share the first one's data. The previous harness is therefore
     // disposed first (its database closed), and using it afterwards fails loudly.
@@ -559,6 +568,7 @@ class AppHarness {
     final fake = system ??
         FakeSystem(
           platform: platform,
+          clock: () => at,
           chargeCounterMah: platform.isIos ? null : 4575 * 0.78,
         );
     final AppHarness harness;
@@ -570,7 +580,9 @@ class AppHarness {
       final prefs = await SharedPreferences.getInstance();
       final store = SettingsStore(prefs);
       final base = settings ??
-          ((onboarded ?? true) ? defaultSettings(device) : const Settings());
+          ((onboarded ?? true)
+              ? defaultSettings(device, now: at)
+              : const Settings());
       await store.save(base.copyWith(onboarded: onboarded ?? base.onboarded));
       await store.setLocale(_tag(locale));
 
@@ -591,6 +603,7 @@ class AppHarness {
           ? const SeededHistory([], [])
           : await seedHistory(db,
               days: historyDays,
+              now: at,
               estimated: device.isIos,
               measuredEnergy: !device.isIos,
               capacityMah: device.isIos ? 3988 : 4575,
@@ -611,6 +624,7 @@ class AppHarness {
         authRepository: authRepository ?? HarnessAuthRepository(user: user),
         tokenStore: tokens,
         history: seeded,
+        now: at,
       );
     } catch (_) {
       await db.close();
@@ -651,6 +665,9 @@ class AppHarness {
   final AuthRepository authRepository;
   final InMemoryTokenStore tokenStore;
   final SeededHistory history;
+
+  /// Fixed app-data clock, also used by the screens through [clockProvider].
+  final DateTime now;
   final FakeAppNotifier notifier = FakeAppNotifier();
   final FakeWidgetPublisher widgets = FakeWidgetPublisher();
 
@@ -662,7 +679,8 @@ class AppHarness {
 
   /// Realistic, fully configured settings (what a finished setup leaves behind):
   /// Poland, PLN, the average household price, the catalog battery.
-  static Settings defaultSettings(HarnessPlatform platform) => Settings(
+  static Settings defaultSettings(HarnessPlatform platform, {DateTime? now}) =>
+      Settings(
         currency: 'PLN',
         countryCode: 'PL',
         regionSource: SettingSource.detected,
@@ -674,7 +692,7 @@ class AppHarness {
           period: '2026-S1',
           source: 'eurostat',
           // Fresh: the app only refetches after 24 h.
-          updatedAt: DateTime.now(),
+          updatedAt: now ?? harnessNow,
         ),
         // The DESIGN capacity of the model (catalog figure); the estimated
         // full-charge capacity of this battery is not a setting (see
@@ -887,7 +905,7 @@ class _HarnessRootState extends State<_HarnessRoot> {
 /// the start gate), still inside the real MaterialApp builder.
 ///
 /// Creation arguments ([platform], [signedIn], [onboarded], [apiConfigured],
-/// [appConfig], [settings], [historyDays], [chargingNow], [plan], [realFonts])
+/// [appConfig], [settings], [historyDays], [now], [chargingNow], [plan], [realFonts])
 /// are ignored when an existing [harness] is passed. Returns the harness (pass
 /// it back to pump again, or use its fakes).
 ///
@@ -918,6 +936,7 @@ Future<AppHarness> pumpApp(
   bool realFonts = true,
   bool semantics = false,
   bool andSettle = true,
+  DateTime? now,
 }) async {
   final h = await _prepare(tester,
       harness: harness,
@@ -937,7 +956,8 @@ Future<AppHarness> pumpApp(
       chargingNow: chargingNow,
       plan: plan,
       realFonts: realFonts,
-      semantics: semantics);
+      semantics: semantics,
+      now: now);
   await tester.pumpWidget(ProviderScope(
     // A new harness must never inherit the previous one's provider state.
     key: ObjectKey(h),
@@ -983,6 +1003,7 @@ Future<AppHarness> pumpScreen(
   bool realFonts = true,
   bool semantics = false,
   bool andSettle = true,
+  DateTime? now,
 }) async {
   final h = await _prepare(tester,
       harness: harness,
@@ -1001,7 +1022,8 @@ Future<AppHarness> pumpScreen(
       chargingNow: chargingNow,
       plan: plan,
       realFonts: realFonts,
-      semantics: semantics);
+      semantics: semantics,
+      now: now);
   await tester.pumpWidget(ProviderScope(
     key: ObjectKey(h),
     overrides: h.overrides,
@@ -1036,6 +1058,7 @@ Future<AppHarness> _prepare(
   required bool realFonts,
   required bool semantics,
   AppConfig? appConfig,
+  DateTime? now,
 }) async {
   final h = harness ??
       await AppHarness.create(tester,
@@ -1049,7 +1072,8 @@ Future<AppHarness> _prepare(
           chargingNow: chargingNow,
           plan: plan,
           locale: locale,
-          realFonts: realFonts);
+          realFonts: realFonts,
+          now: now);
   await h.configure(tester,
       textScale: textScale,
       device: size == null ? device : ScreenSpec.custom(size),

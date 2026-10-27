@@ -42,7 +42,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     final calc = ref.watch(energyCalcProvider);
     final currency = ref.watch(settingsProvider).currency;
     final data = ref.watch(appDataProvider);
-    final now = DateTime.now();
+    final now = ref.watch(clockProvider)();
 
     return Scaffold(
       appBar: AppBar(title: Text(l.statistics)),

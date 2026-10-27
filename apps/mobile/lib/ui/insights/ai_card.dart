@@ -38,7 +38,7 @@ class _AiCardState extends ConsumerState<AiCard> {
       sessions: data.sessions,
       calc: ref.read(energyCalcProvider),
       currency: settings.currency,
-      now: DateTime.now(),
+      now: ref.read(clockProvider)(),
     );
     if (stats.isEmpty) {
       setState(() {

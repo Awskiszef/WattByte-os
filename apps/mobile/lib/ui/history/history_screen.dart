@@ -32,6 +32,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     final calc = ref.watch(energyCalcProvider);
     final currency = ref.watch(settingsProvider).currency;
     final data = ref.watch(appDataProvider);
+    final now = ref.watch(clockProvider)();
 
     return SafeArea(
       bottom: false,
@@ -73,19 +74,24 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     : const Duration(milliseconds: 250),
                 child: switch (_tab) {
                   _Tab.data => _DataList(
-                      key: const ValueKey('data'), days: d.days, units: units),
+                      key: const ValueKey('data'),
+                      days: d.days,
+                      units: units,
+                      now: now),
                   _Tab.charging => _ChargingList(
                       key: const ValueKey('charging'),
                       sessions: d.sessions,
                       units: units,
                       calc: calc,
-                      currency: currency),
+                      currency: currency,
+                      now: now),
                   _Tab.energy => _EnergyList(
                       key: const ValueKey('energy'),
                       sessions: d.sessions,
                       units: units,
                       calc: calc,
-                      currency: currency),
+                      currency: currency,
+                      now: now),
                 },
               ),
             ),
@@ -96,9 +102,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   }
 }
 
-String dayTitle(BuildContext context, DateTime day) {
+String dayTitle(BuildContext context, DateTime day, DateTime now) {
   final l = context.l10n;
-  final today = dayOf(DateTime.now());
+  final today = dayOf(now);
   if (day == today) return l.today;
   if (day == DateTime(today.year, today.month, today.day - 1)) {
     return l.yesterday;
@@ -107,10 +113,12 @@ String dayTitle(BuildContext context, DateTime day) {
 }
 
 class _DataList extends StatelessWidget {
-  const _DataList({super.key, required this.days, required this.units});
+  const _DataList(
+      {super.key, required this.days, required this.units, required this.now});
 
   final List<DailyData> days;
   final Units units;
+  final DateTime now;
 
   @override
   Widget build(BuildContext context) {
@@ -127,7 +135,7 @@ class _DataList extends StatelessWidget {
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (context, i) {
         final d = rows[i];
-        final title = dayTitle(context, d.day);
+        final title = dayTitle(context, d.day, now);
         final mobileShare = d.total == 0 ? 0.0 : d.mobile / d.total;
         return WbCard(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
@@ -189,12 +197,14 @@ class _ChargingList extends StatelessWidget {
     required this.units,
     required this.calc,
     required this.currency,
+    required this.now,
   });
 
   final List<ChargingSession> sessions;
   final Units units;
   final EnergyCalc calc;
   final String currency;
+  final DateTime now;
 
   @override
   Widget build(BuildContext context) {
@@ -218,7 +228,7 @@ class _ChargingList extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SectionHeader(dayTitle(context, day)),
+            SectionHeader(dayTitle(context, day, now)),
             for (final s in groups[day]!) ...[
               Builder(builder: (context) {
                 final e = calc.session(s);
@@ -299,12 +309,14 @@ class _EnergyList extends StatelessWidget {
     required this.units,
     required this.calc,
     required this.currency,
+    required this.now,
   });
 
   final List<ChargingSession> sessions;
   final Units units;
   final EnergyCalc calc;
   final String currency;
+  final DateTime now;
 
   @override
   Widget build(BuildContext context) {
@@ -322,7 +334,7 @@ class _EnergyList extends StatelessWidget {
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (context, i) {
         final e = byDay[days[i]]!;
-        final title = dayTitle(context, days[i]);
+        final title = dayTitle(context, days[i], now);
         final battery =
             units.approx(units.wh(e.batteryWh), estimated: e.whEstimated);
         final wall = units.approx(units.kwh(e.wallWh), estimated: true);

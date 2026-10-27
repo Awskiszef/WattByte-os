@@ -281,7 +281,8 @@ class SettingsScreen extends ConsumerWidget {
     final calc = ref.read(energyCalcProvider);
     final s = ref.read(settingsProvider);
     final dir = await getTemporaryDirectory();
-    final stamp = DateFormat('yyyyMMdd-HHmm').format(DateTime.now());
+    final now = ref.read(clockProvider)();
+    final stamp = DateFormat('yyyyMMdd-HHmm').format(now);
     final files = <XFile>[];
     Future<void> write(String name, String content, String mime) async {
       final f = File(p.join(dir.path, name));
@@ -297,7 +298,7 @@ class SettingsScreen extends ConsumerWidget {
               sessions: data.sessions,
               calc: calc,
               settings: s,
-              now: DateTime.now()),
+              now: now),
           'application/json');
     } else {
       await write(

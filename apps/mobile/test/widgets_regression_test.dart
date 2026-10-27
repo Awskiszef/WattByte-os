@@ -66,7 +66,7 @@ void main() {
   });
 
   group('"Measured" belongs to a real measurement only', () {
-    final today = DateTime.now();
+    final today = harnessNow;
     final midnight = DateTime(today.year, today.month, today.day);
 
     /// One session today, from midnight to one minute past.
@@ -93,12 +93,6 @@ void main() {
 
     testWidgets('a measured charge under the card says "Measured"',
         (tester) async {
-      // The session lies in the first minute of today: only meaningful once
-      // that minute has passed.
-      if (DateTime.now().difference(midnight) < const Duration(minutes: 3)) {
-        markTestSkipped('too close to midnight for a session "today"');
-        return;
-      }
       await dashboardWith(
           tester, [session(chargeUah: 150000, energyNwh: 580000000)]);
       expect(find.text(en.measured), findsOneWidget);
@@ -112,10 +106,6 @@ void main() {
 
     testWidgets('a session that added nothing is not "Measured" either',
         (tester) async {
-      if (DateTime.now().difference(midnight) < const Duration(minutes: 3)) {
-        markTestSkipped('too close to midnight for a session "today"');
-        return;
-      }
       // Counters that read 0: the calculator falls back to the percentage, and
       // 0 % of a battery is 0 mAh.
       await dashboardWith(
@@ -125,10 +115,6 @@ void main() {
 
     testWidgets('an estimate says "Estimated", never "Measured" (iPhone)',
         (tester) async {
-      if (DateTime.now().difference(midnight) < const Duration(minutes: 3)) {
-        markTestSkipped('too close to midnight for a session "today"');
-        return;
-      }
       await dashboardWith(tester, [session(to: 40)],
           platform: HarnessPlatform.ios);
       expect(find.text(en.measured), findsNothing);

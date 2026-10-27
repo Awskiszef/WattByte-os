@@ -45,7 +45,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           children: [
             _Header(
               title: l.appName,
-              subtitle: '${l.today} · ${dateFmt.format(DateTime.now())}',
+              subtitle:
+                  '${l.today} · ${dateFmt.format(ref.watch(clockProvider)())}',
               actionLabel: l.statistics,
               onAction: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const StatisticsScreen())),

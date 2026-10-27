@@ -44,8 +44,8 @@ final notifierProvider = Provider<AppNotifier>((_) => AppNotifier());
 final widgetPublisherProvider =
     Provider<WidgetPublisher>((_) => WidgetPublisher());
 
-/// "Now" for everything that schedules or stamps something (refresh, sync windows,
-/// the day sync was enabled). Tests override it with a controllable clock.
+/// "Now" for screen periods, date labels, refresh and sync timestamps.
+/// Tests override it with a controllable clock.
 final clockProvider = Provider<DateTime Function()>((_) => DateTime.now);
 
 final refreshServiceProvider = Provider<RefreshService>((ref) => RefreshService(
@@ -243,13 +243,14 @@ final appDataProvider = FutureProvider<AppData>((ref) async {
 
 final dashboardProvider = Provider<AsyncValue<DashboardModel>>((ref) {
   final calc = ref.watch(energyCalcProvider);
+  final now = ref.watch(clockProvider)();
   return ref.watch(appDataProvider).whenData((d) => DashboardModel.build(
         days: d.days,
         sessions: d.sessions,
         open: d.open,
         chargingNow: d.chargingNow,
         calc: calc,
-        now: DateTime.now(),
+        now: now,
       ));
 });
 
