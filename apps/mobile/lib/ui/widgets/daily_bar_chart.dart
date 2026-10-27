@@ -70,7 +70,17 @@ class DailyBarChart extends StatelessWidget {
     final dayFmt = DateFormat.E(locale);
     final dateFmt = DateFormat.MMMd(locale);
     final longDateFmt = DateFormat.MMMEd(locale);
-    final labelStyle = TextStyle(color: muted, fontSize: 11);
+    // The labels are measured in the style the Text below draws them in - the
+    // inherited one (font, line height) with this size and colour on top, bold
+    // when the system asks for bold text. Measured in the bare style, the strip
+    // came out shorter than the text and clipped the bottom of every label.
+    final inherited = DefaultTextStyle.of(context);
+    var labelStyle =
+        inherited.style.merge(TextStyle(color: muted, fontSize: 11));
+    if (MediaQuery.boldTextOf(context)) {
+      labelStyle =
+          labelStyle.merge(const TextStyle(fontWeight: FontWeight.bold));
+    }
     final scaler = MediaQuery.textScalerOf(context);
     // The touch tooltip is painted by fl_chart without a text scaler, so its
     // sizes are scaled here; it sits inside the chart, hence the 1.6x cap.
@@ -86,6 +96,8 @@ class DailyBarChart extends StatelessWidget {
         text: TextSpan(text: t, style: labelStyle),
         textDirection: Directionality.of(context),
         textScaler: scaler,
+        textHeightBehavior: inherited.textHeightBehavior ??
+            DefaultTextHeightBehavior.maybeOf(context),
         maxLines: 1,
       )..layout();
       labelWidth = math.max(labelWidth, p.width);

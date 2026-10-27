@@ -6,7 +6,9 @@
 // at 1.6x (dashboard_screen.dart:353 by 8.6 px), at 2.0x (:324 by 13 px and
 // :353 by 80 px) and at 3.0x (:174, :324, :353, up to 258 px), always in Rows
 // whose children did not fit side by side.
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wattbyte/core/units.dart';
 import 'package:wattbyte/domain/battery_capacity.dart';
@@ -125,6 +127,46 @@ Future<AppHarness> _pump(
 Future<void> _check(WidgetTester tester, String screen) =>
     expectLayoutHealthy(tester, screen, semantics: false);
 
+/// The day labels under the bars of both charts that are not drawn whole: a
+/// paragraph shorter than its text (it clips the bottom of the glyphs) or one
+/// reaching below or above its chart.
+List<String> _chartLabelProblems(WidgetTester tester) {
+  final charts = find.byType(BarChart).evaluate().toList();
+  final out = <String>[
+    if (charts.length != 2) 'expected 2 charts, found ${charts.length}',
+  ];
+  for (final chart in charts) {
+    final box = chart.renderObject! as RenderBox;
+    final bounds = box.localToGlobal(Offset.zero) & box.size;
+    var labels = 0;
+    void visit(RenderObject r) {
+      if (r is RenderParagraph && r.hasSize) {
+        labels++;
+        final text = r.text.toPlainText();
+        final needed = r.getMaxIntrinsicHeight(r.size.width);
+        if (r.size.height + 0.5 < needed) {
+          out.add('"$text" is cut off at the bottom: '
+              '${r.size.height.toStringAsFixed(1)} px tall, its text needs '
+              '${needed.toStringAsFixed(1)} px');
+        }
+        final rect = r.localToGlobal(Offset.zero) & r.size;
+        if (rect.top < bounds.top - 0.5 || rect.bottom > bounds.bottom + 0.5) {
+          out.add('"$text" reaches out of its chart '
+              '(${rect.top.toStringAsFixed(1)}-'
+              '${rect.bottom.toStringAsFixed(1)}, chart '
+              '${bounds.top.toStringAsFixed(1)}-'
+              '${bounds.bottom.toStringAsFixed(1)})');
+        }
+      }
+      r.visitChildren(visit);
+    }
+
+    box.visitChildren(visit);
+    if (labels == 0) out.add('a chart has no day labels');
+  }
+  return out;
+}
+
 void main() {
   group('layout: every text scale x phone x theme x language', () {
     for (final s in _scenarios) {
@@ -177,6 +219,37 @@ void main() {
             brightnesses: const [Brightness.light],
             positions: 3,
             check: () => _check(tester, 'Dashboard wide'));
+      });
+    }
+  });
+
+  group('chart day labels are drawn whole (not clipped at the bottom)', () {
+    // Both phones at their width, tall enough that the whole dashboard - both
+    // charts - is laid out at every text size.
+    const tallPhones = [
+      ScreenSpec.custom(Size(375, 9000)),
+      ScreenSpec.custom(Size(402, 9000)),
+    ];
+    for (final s in const [
+      _Scenario('iPhone'),
+      _Scenario('Android', platform: HarnessPlatform.android)
+    ]) {
+      testWidgets(s.name, (tester) async {
+        final h = await _pump(tester, s);
+        for (final range in [_en.days7, _en.days30]) {
+          // Back to the view the toggle can be found in (English, top).
+          await h.configure(tester,
+              textScale: 1.0, device: kIPhone17Pro, locale: const Locale('en'));
+          await tester.tap(find.text(range));
+          await settle(tester);
+          await sweepLayouts(tester, h,
+              screen: 'Dashboard charts (${s.name}, $range)',
+              devices: tallPhones,
+              brightnesses: const [Brightness.dark], check: () async {
+            final problems = _chartLabelProblems(tester);
+            if (problems.isNotEmpty) fail(problems.join('\n'));
+          });
+        }
       });
     }
   });
