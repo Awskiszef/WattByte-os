@@ -52,15 +52,6 @@ export const REDACT_PATHS: string[] = [
   'prompt',
 ];
 
-const EMAIL_LIKE = /[^/\s?#]+@[^/\s?#]+/g;
-
-/** Request path without query string; an e-mail-looking segment (junk or probing URLs) is masked. */
-export function loggablePath(url: string | undefined): string {
-  if (!url) return '';
-  const path = url.split(/[?#]/, 1)[0] ?? '';
-  return path.replace(EMAIL_LIKE, '[email]');
-}
-
 /** Only the stack frames: the first lines of `stack` repeat the message. */
 function stackFrames(stack: string | undefined): string {
   return (stack ?? '')
@@ -78,7 +69,9 @@ export const logSerializers: Serializers = {
     method: request.method,
     // The route pattern (`/api/v1/devices/:id`) is what identifies an endpoint; undefined for an unknown route.
     route: request.routeOptions?.url,
-    url: loggablePath(request.url),
+    // Never inspect the raw URL: it can contain private identifiers or adversarially long segments.
+    // Keep the existing `url` field, but only with a server-defined route template or a constant.
+    url: request.routeOptions?.url ?? '[unmatched]',
   }),
   res: (reply) => ({ statusCode: reply.statusCode }),
   err: (err) => {

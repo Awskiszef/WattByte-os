@@ -1,8 +1,9 @@
 import { ProviderError } from '@wattbyte/ai';
+import type { FastifyRequest } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { generateRequestId, REQUEST_ID_PATTERN } from '../src/observability/request-id.js';
-import { loggablePath, LOG_CENSOR } from '../src/observability/logging.js';
+import { logSerializers, LOG_CENSOR } from '../src/observability/logging.js';
 import { type BuiltApp, buildTestApp, LogCapture, pgStyleError, sampleAiInput, sampleDay, seedUser } from './support.js';
 
 const apps: BuiltApp[] = [];
@@ -185,8 +186,8 @@ describe('logs never contain secrets, personal data or AI text', () => {
       expect(req).not.toHaveProperty('remoteAddress');
       expect(req).not.toHaveProperty('headers');
     }
-    const probe = incoming.find((r) => String((r.req as { url: string }).url).includes('/profile'));
-    expect((probe?.req as { url: string }).url).toBe('/api/v1/users/[email]/profile');
+    const probe = incoming.find((r) => (r.req as { url: string }).url === '[unmatched]');
+    expect(probe).toBeDefined();
     const registration = incoming.find((r) => (r.req as { route?: string }).route === '/api/v1/auth/register');
     expect(registration).toBeDefined();
   });
@@ -238,9 +239,47 @@ describe('logs never contain secrets, personal data or AI text', () => {
     expect(text).toContain(LOG_CENSOR);
   });
 
-  it('loggablePath keeps the path, drops the query and masks e-mail-looking segments', () => {
-    expect(loggablePath('/api/v1/usage/daily?from=2026-01-01&to=2026-01-31')).toBe('/api/v1/usage/daily');
-    expect(loggablePath('/a/b@c.de/d?x=y#z')).toBe('/a/[email]/d');
-    expect(loggablePath(undefined)).toBe('');
+  it('request logging never reads the raw URL, regardless of its length or encoding', () => {
+    for (const route of [undefined, '/api/v1/devices/:id']) {
+      const request = {
+        method: 'GET',
+        routeOptions: { url: route },
+        get url(): string { throw new Error('raw URL must not be inspected by the logger'); },
+      };
+      expect(logSerializers.req!(request as FastifyRequest)).toEqual({ method: 'GET', route, url: route ?? '[unmatched]' });
+    }
+  });
+
+  it('logs bounded route labels for long unknown URLs, also after rate limiting', async () => {
+    const log = new LogCapture();
+    const { app } = await make({ logStream: log, rateLimitMax: 2 });
+    const url = `/${'a'.repeat(15_000)}`;
+    for (const status of [404, 404, 429, 429]) {
+      expect((await app.inject({ method: 'GET', url })).statusCode).toBe(status);
+    }
+    const incoming = log.records().filter((r) => r.msg === 'incoming request');
+    expect(incoming).toHaveLength(4);
+    for (const r of incoming) expect(r.req).toEqual({ method: 'GET', url: '[unmatched]' });
+    expect(log.text()).not.toContain('a'.repeat(100));
+    expect(Math.max(...log.lines.map((line) => line.length))).toBeLessThan(1_000);
+  });
+
+  it.each(['@', '%40', '%2540'])('omits personal path segments encoded as %s', async (at) => {
+    const log = new LogCapture();
+    const { app } = await make({ logStream: log });
+    const email = `private-canary${at}privacy-test.example`;
+    const res = await app.inject({ method: 'GET', url: `/users/${email}?token=private-query` });
+    expect(res.statusCode).toBe(404);
+    const matched = await app.inject({ method: 'GET', url: `/api/v1/devices/specifications/${email}` });
+    expect(matched.statusCode).toBe(404);
+    expect(log.text()).not.toContain('private-canary');
+    expect(log.text()).not.toContain('privacy-test.example');
+    expect(log.text()).not.toContain('private-query');
+    const health = await app.inject({ method: 'GET', url: `/health?email=${email}` });
+    expect(health.statusCode).toBe(200);
+    const incoming = log.records().filter((r) => r.msg === 'incoming request');
+    expect(incoming.map((r) => (r.req as { url: string }).url)).toEqual([
+      '[unmatched]', '/api/v1/devices/specifications/:identifier', '/health',
+    ]);
   });
 });

@@ -193,16 +193,57 @@ function translate(e: unknown): never {
 /** PostgreSQL implementation; `pg` returns DATE columns as strings via the type parser below. */
 export class PostgresRepositories implements Repositories {
   private readonly pool: pg.Pool;
+  private readonly onError?: (e: Error) => void;
 
   constructor(
     connectionString: string,
     options: { max?: number; ssl?: pg.PoolConfig['ssl']; onError?: (e: Error) => void } = {},
   ) {
     pg.types.setTypeParser(1082, (v) => v); // DATE -> 'YYYY-MM-DD'
+    this.onError = options.onError;
     this.pool = new pg.Pool({ connectionString, max: options.max ?? 10, ssl: options.ssl, statement_timeout: 15_000, connectionTimeoutMillis: 5_000 });
     // An idle client can be dropped by the server or a proxy; without a listener
     // the 'error' event would crash the whole process.
-    this.pool.on('error', (e) => options.onError?.(e));
+    this.pool.on('error', (e) => this.reportError(e));
+  }
+
+  private reportError(error: Error): void {
+    // Logging must not turn a handled connection failure into an uncaught exception.
+    try {
+      this.onError?.(error);
+    } catch {
+      // The transaction still rejects with the original database error.
+    }
+  }
+
+  private async withTransaction<T>(run: (client: pg.PoolClient) => Promise<T>, begin = 'BEGIN'): Promise<T> {
+    const client = await this.pool.connect();
+    let connectionError: Error | undefined;
+    let rollbackFailed = false;
+    const onClientError = (error: Error): void => {
+      connectionError ??= error;
+      this.reportError(error);
+    };
+    // pg-pool only listens while a client is idle in the pool, not during checkout.
+    client.on('error', onClientError);
+    try {
+      await client.query(begin);
+      if (connectionError) throw connectionError;
+      const result = await run(client);
+      if (connectionError) throw connectionError;
+      await client.query('COMMIT');
+      // The commit was acknowledged: a connection that drops now still leaves the data written.
+      // The result is returned and the client is discarded on release below.
+      return result;
+    } catch (error) {
+      // A failed rollback must neither replace the cause nor return an open transaction to the pool.
+      await client.query('ROLLBACK').catch(() => { rollbackFailed = true; });
+      throw connectionError ?? error;
+    } finally {
+      // release reinstalls pg-pool's idle listener before ours is removed.
+      client.release(connectionError ?? (rollbackFailed || undefined));
+      client.removeListener('error', onClientError);
+    }
   }
 
   private async one<T>(sql: string, params: unknown[], map: (r: Row) => T): Promise<T | null> {
@@ -246,15 +287,12 @@ export class PostgresRepositories implements Repositories {
       await this.pool.query('UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL', [userId]);
     },
     rotate: async ({ oldHash, newHash, newExpiresAt, now, graceMs }): Promise<RotateResult> => {
-      const client = await this.pool.connect();
-      try {
-        await client.query('BEGIN');
+      return this.withTransaction<RotateResult>(async (client) => {
         // The row lock serialises concurrent presentations of the same token:
         // the first one consumes it, the others wake up and see it revoked.
         const found = await client.query('SELECT * FROM sessions WHERE refresh_hash = $1 FOR UPDATE', [oldHash]);
         const old = found.rows[0] ? toSession(found.rows[0] as Row) : null;
         if (!old) {
-          await client.query('ROLLBACK');
           return { status: 'invalid' };
         }
         if (old.revokedAt) {
@@ -262,11 +300,9 @@ export class PostgresRepositories implements Repositories {
           if (!rotatedRecently) {
             await client.query('UPDATE sessions SET revoked_at = $2 WHERE user_id = $1 AND revoked_at IS NULL', [old.userId, now]);
           }
-          await client.query('COMMIT');
           return { status: 'reused', userId: old.userId, familyRevoked: !rotatedRecently };
         }
         if (old.expiresAt <= now) {
-          await client.query('ROLLBACK');
           return { status: 'expired' };
         }
         const created = await client.query(
@@ -280,14 +316,8 @@ export class PostgresRepositories implements Repositories {
           (created.rows[0] as Row).id,
           now,
         ]);
-        await client.query('COMMIT');
         return { status: 'ok', userId: old.userId };
-      } catch (e) {
-        await client.query('ROLLBACK').catch(() => undefined);
-        return translate(e);
-      } finally {
-        client.release();
-      }
+      }).catch(translate);
     },
   };
 
@@ -412,9 +442,7 @@ export class PostgresRepositories implements Repositories {
 
   readonly usage: UsageRepository = {
     upsertDaily: async (rows) => {
-      const client = await this.pool.connect();
-      try {
-        await client.query('BEGIN');
+      return this.withTransaction(async (client) => {
         for (const r of rows) {
           await client.query(
             `INSERT INTO daily_usage(user_id, device_id, date, mobile_bytes, wifi_bytes, charged_wh, wall_wh,
@@ -442,14 +470,8 @@ export class PostgresRepositories implements Repositories {
             ],
           );
         }
-        await client.query('COMMIT');
         return rows.length;
-      } catch (e) {
-        await client.query('ROLLBACK');
-        throw e;
-      } finally {
-        client.release();
-      }
+      });
     },
     listDaily: (userId, from, to) =>
       this.many(
@@ -506,12 +528,9 @@ export class PostgresRepositories implements Repositories {
 
   readonly cloud: CloudDataRepository = {
     deleteData: async (userId, { devices = false } = {}): Promise<CloudDeleteCounts | null> => {
-      const client = await this.pool.connect();
-      try {
-        await client.query('BEGIN');
+      return this.withTransaction(async (client) => {
         const account = await client.query('SELECT 1 FROM users WHERE id = $1', [userId]);
         if (account.rowCount === 0) {
-          await client.query('ROLLBACK');
           return null;
         }
         const erase = async (table: CloudTable): Promise<number> =>
@@ -528,26 +547,17 @@ export class PostgresRepositories implements Repositories {
         // UTC day, no content, purged after 7 days by the retention job). Erasing it here would let a user
         // reset the daily AI allowance by deleting their cloud data. Account deletion removes it (CASCADE).
         if (devices) counts.devices = await erase('devices');
-        await client.query('COMMIT');
         return counts;
-      } catch (e) {
-        await client.query('ROLLBACK').catch(() => undefined);
-        return translate(e);
-      } finally {
-        client.release();
-      }
+      }).catch(translate);
     },
 
     exportData: async (userId, max): Promise<CloudExportData | null> => {
-      const client = await this.pool.connect();
-      try {
-        // One snapshot for every table, so the document is internally consistent while syncs keep running.
-        await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+      // One snapshot for every table, so the document is internally consistent while syncs keep running.
+      return this.withTransaction(async (client) => {
         // Named columns: the password hash is never read.
         const account = await client.query('SELECT id, email, display_name, plan, created_at FROM users WHERE id = $1', [userId]);
         const a = account.rows[0] as Row | undefined;
         if (!a) {
-          await client.query('ROLLBACK');
           return null;
         }
         const settings = await client.query('SELECT * FROM user_settings WHERE user_id = $1', [userId]);
@@ -566,7 +576,6 @@ export class PostgresRepositories implements Repositories {
         const monthlySummaries = await collect('monthly_summaries', 'month', 'month DESC', toMonthly);
         const aiGenerations = await collect('ai_generations', 'created_at, id', 'created_at DESC, id DESC', toAiGeneration);
         const subscriptions = await collect('subscriptions', 'created_at, id', 'created_at DESC, id DESC', toSubscription);
-        await client.query('COMMIT');
         return {
           account: {
             id: a.id as string,
@@ -591,12 +600,7 @@ export class PostgresRepositories implements Repositories {
             subscriptions: subscriptions.truncated,
           },
         };
-      } catch (e) {
-        await client.query('ROLLBACK').catch(() => undefined);
-        return translate(e);
-      } finally {
-        client.release();
-      }
+      }, 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY').catch(translate);
     },
   };
 
