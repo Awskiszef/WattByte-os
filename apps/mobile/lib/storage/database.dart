@@ -90,9 +90,23 @@ class WattByteDb {
   static const metaAccountPrefix = 'sync_account:';
   static const metaDevicePrefix = 'server_device_id:';
 
+  /// The foreground isolate's connection: a process-wide single instance that
+  /// lives as long as the process (it is never closed in production).
   static Future<WattByteDb> open({String? path}) async {
     final file = path ?? p.join(await getDatabasesPath(), 'wattbyte.db');
     return _open(file, singleInstance: true);
+  }
+
+  /// A connection of its own for work that runs beside the foreground isolate
+  /// (the WorkManager / BGTask isolate). On Android the plugin keeps its
+  /// single-instance registry in JVM statics shared by every FlutterEngine of the
+  /// process and `close` has no reference count, so closing a `singleInstance`
+  /// handle opened here would close the connection the UI keeps using (G-01).
+  /// A private connection can be closed freely; WAL plus `busy_timeout` let it
+  /// write next to the foreground connection.
+  static Future<WattByteDb> openPrivate({String? path}) async {
+    final file = path ?? p.join(await getDatabasesPath(), 'wattbyte.db');
+    return _open(file, singleInstance: false);
   }
 
   /// A private, empty, in-memory database. Unlike `open(path: inMemoryDatabasePath)`
@@ -108,7 +122,8 @@ class WattByteDb {
       file,
       version: schemaVersion,
       singleInstance: singleInstance,
-      onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
+      onConfigure: (db) =>
+          _configure(db, inMemory: file == inMemoryDatabasePath),
       onCreate: (db, version) async {
         await _create(db);
         await _upgrade(db, 1, version);
@@ -116,6 +131,20 @@ class WattByteDb {
       onUpgrade: _upgrade,
     );
     return WattByteDb._(db);
+  }
+
+  /// How long a writer waits for another connection's write lock before failing.
+  static const busyTimeoutMs = 5000;
+
+  /// Per-connection settings; every connection must apply them (they are not stored in the file,
+  /// except the journal mode).
+  static Future<void> _configure(Database db, {required bool inMemory}) async {
+    await db.execute('PRAGMA foreign_keys = ON');
+    // PRAGMAs that return a row must go through rawQuery on Android (execute rejects them).
+    await db.rawQuery('PRAGMA busy_timeout = $busyTimeoutMs');
+    // The foreground and background connections write concurrently: WAL lets readers
+    // keep reading during a write and a writer wait (busy_timeout) instead of failing at once.
+    if (!inMemory) await db.rawQuery('PRAGMA journal_mode = WAL');
   }
 
   static Future<void> _create(Database db) async {

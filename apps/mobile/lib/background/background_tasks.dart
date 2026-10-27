@@ -38,8 +38,7 @@ Future<void> runBackgroundRefresh() async {
   final store = SettingsStore(prefs);
   final settings = store.load();
   final text = backgroundText(store.locale, binaryUnits: settings.binaryUnits);
-  final db = await WattByteDb.open();
-  try {
+  await withBackgroundDb((db) async {
     final service = RefreshService(
       collector: Collector(system: WattByteSystem(), db: db),
       db: db,
@@ -53,6 +52,20 @@ Future<void> runBackgroundRefresh() async {
       units: text.units,
       now: DateTime.now(),
     );
+  });
+}
+
+/// Runs [body] on a connection that belongs to this isolate and closes it afterwards.
+///
+/// Never `WattByteDb.open()` here: that is the process-wide single instance the UI
+/// isolate keeps using, and on Android closing it from the WorkManager engine closes
+/// it for the UI too (G-01). [path] is for tests.
+@visibleForTesting
+Future<T> withBackgroundDb<T>(Future<T> Function(WattByteDb db) body,
+    {String? path}) async {
+  final db = await WattByteDb.openPrivate(path: path);
+  try {
+    return await body(db);
   } finally {
     await db.close();
   }
