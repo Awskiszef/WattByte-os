@@ -140,9 +140,15 @@ class AccountSettingsSync {
   /// [current] is the account as just read; without it the account is read
   /// first, so nothing is ever written from a stale copy.
   Future<AccountPush?> push(Settings s, {api.UserSettingsDto? current}) async {
+    // The account this upload is FOR is fixed now. If another account signs in while it is on the wire, the request is
+    // not sent with that account's token (WrongAccountException) and an answer that arrives later is dropped (F-13).
+    final userId = (await sessions.current())?.user.id;
+    if (userId == null) return null;
+    final epoch = sessions.accountEpoch;
     try {
-      final account = current ?? await pull();
+      final account = current ?? await pull(userId: userId);
       if (account == null) return null;
+      if (sessions.accountEpoch != epoch) return null;
       final groups = groupsToPush(s);
       if (groups.isEmpty) return AccountPush(account, groups, s);
       final region = groups.contains(SettingGroup.region);
@@ -170,8 +176,11 @@ class AccountSettingsSync {
             ? s.priceSource.wire
             : account.electricityPriceSource?.toJson()),
       );
-      final saved = await sessions.authorized((token) => guarded(() =>
-          api.AccountApi(apis.bearer(token)).apiV1MeSettingsPut(request)));
+      final saved = await sessions.authorized(
+          (token) => guarded(() =>
+              api.AccountApi(apis.bearer(token)).apiV1MeSettingsPut(request)),
+          userId: userId);
+      if (sessions.accountEpoch != epoch) return null;
       return saved == null ? null : AccountPush(saved, groups, s);
     } on ApiFailure {
       return null;
@@ -182,10 +191,19 @@ class AccountSettingsSync {
 
   /// What the account holds (possibly nothing: every field null); null when the
   /// API cannot be reached or nobody is signed in.
-  Future<api.UserSettingsDto?> pull() async {
+  ///
+  /// The answer belongs to the account that was signed in when the call started: [userId] pins the request to it and
+  /// an answer that arrives after another account signed in is dropped (F-13).
+  Future<api.UserSettingsDto?> pull({String? userId}) async {
+    final pinned = userId ?? (await sessions.current())?.user.id;
+    if (pinned == null) return null;
+    final epoch = sessions.accountEpoch;
     try {
-      return await sessions.authorized((token) => guarded(
-          () => api.AccountApi(apis.bearer(token)).apiV1MeSettingsGet()));
+      final result = await sessions.authorized(
+          (token) => guarded(
+              () => api.AccountApi(apis.bearer(token)).apiV1MeSettingsGet()),
+          userId: pinned);
+      return sessions.accountEpoch == epoch ? result : null;
     } on ApiFailure {
       return null;
     } on Exception {
