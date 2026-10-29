@@ -3,6 +3,7 @@ import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wattbyte_system/wattbyte_system.dart';
 
 import 'app.dart';
 import 'background/background_tasks.dart';
@@ -11,6 +12,8 @@ import 'config/config_error_app.dart';
 import 'config/startup.dart';
 import 'config/startup_failure.dart';
 import 'core/error_log.dart';
+import 'features/auth/data/install_marker.dart';
+import 'features/auth/data/secure_token_store.dart';
 import 'providers.dart';
 import 'settings/settings.dart';
 import 'storage/database.dart';
@@ -40,7 +43,17 @@ Future<void> main() async {
   await startGuarded(
     build: () async {
       final prefs = await SharedPreferences.getInstance();
+      // A session left in the Keychain by an earlier install is not this install's (F-19).
+      await clearSessionOfPreviousInstall(
+          prefs: prefs, tokens: SecureTokenStore());
       final db = await WattByteDb.open();
+      // iOS: the database and its log files stay out of backups and of a restore onto another iPhone (H-06).
+      try {
+        await WattByteSystem().excludeFromBackup(
+            WattByteDb.filesOf(await WattByteDb.defaultPath()));
+      } catch (e, st) {
+        reportError(e, st, 'backup exclusion');
+      }
       await SettingsStore(prefs)
           .setLocale(_localeTag(PlatformDispatcher.instance.locale));
       try {

@@ -98,9 +98,17 @@ class WattByteDb {
   /// The foreground isolate's connection: a process-wide single instance that
   /// lives as long as the process (it is never closed in production).
   static Future<WattByteDb> open({String? path}) async {
-    final file = path ?? p.join(await getDatabasesPath(), 'wattbyte.db');
+    final file = path ?? await defaultPath();
     return _open(file, singleInstance: true);
   }
+
+  /// Where the app's database lives.
+  static Future<String> defaultPath() async =>
+      p.join(await getDatabasesPath(), 'wattbyte.db');
+
+  /// The files SQLite keeps for [file] (the database, its write-ahead log and shared memory): what a backup must leave out.
+  static List<String> filesOf(String file) =>
+      [file, '$file-wal', '$file-shm', '$file-journal'];
 
   /// Moves a database that cannot be opened out of the way (never deletes it): the file, its write-ahead log and shared
   /// memory file get the suffix `.broken-<epoch ms>` so the next open creates an empty database. Returns the new name of

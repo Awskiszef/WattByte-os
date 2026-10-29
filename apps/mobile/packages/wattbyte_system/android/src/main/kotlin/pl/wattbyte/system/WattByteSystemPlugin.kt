@@ -49,6 +49,7 @@ class WattByteSystemPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             "appGroupId" -> result.success(null) // iOS only
             "deviceInfo" -> result.success(deviceInfo())
             "batterySnapshot" -> result.success(BatteryReader.snapshot(context).toMap("app"))
+            "excludeFromBackup" -> result.success(null) // Android: the manifest already excludes the whole app
             "peekSamples" -> result.success(SampleStore.peek(context))
             "ackSamples" -> {
                 SampleStore.ack(context, (call.argument<Number>("token") ?: 0).toLong())

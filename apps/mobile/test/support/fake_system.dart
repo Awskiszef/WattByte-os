@@ -141,6 +141,9 @@ class FakeSystem {
   List<Map<String, Object?>> pendingSamples = [];
   int _sampleToken = 0;
 
+  /// Every path the app asked to leave out of backups (`excludeFromBackup`).
+  final List<String> excludedFromBackup = [];
+
   /// Every token the app acknowledged through `ackSamples`.
   final List<int> ackedTokens = [];
 
@@ -240,6 +243,10 @@ class FakeSystem {
         final rows = List<Map<String, Object?>>.of(pendingSamples);
         pendingSamples = [];
         return rows;
+      case 'excludeFromBackup':
+        excludedFromBackup
+            .addAll(((call.arguments as Map)['paths'] as List).cast<String>());
+        return null;
       case 'peekSamples':
         // Two-step hand-over like the real SampleStore: the rows stay until they are acknowledged.
         return {

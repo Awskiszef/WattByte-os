@@ -36,6 +36,10 @@ public class WattByteSystemPlugin: NSObject, FlutterPlugin {
       result(DeviceInfo.read())
     case "drainSamples":
       result([])
+    case "excludeFromBackup":
+      let paths = ((call.arguments as? [String: Any])?["paths"] as? [String]) ?? []
+      let failed = BackupExclusion.apply(to: paths)
+      result(failed.isEmpty ? nil : FlutterError(code: "backup_exclusion_failed", message: "\(failed.count) file(s)", details: nil))
     case "peekSamples":
       result(["token": 0, "samples": []])
     case "ackSamples":

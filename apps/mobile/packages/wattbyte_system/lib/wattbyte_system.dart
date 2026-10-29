@@ -332,6 +332,18 @@ class WattByteSystem {
     await _ch.invokeMethod<void>('ackSamples', {'token': token});
   }
 
+  /// iOS: marks these files as excluded from iCloud / iTunes backups (and so from a restore onto another iPhone), like the
+  /// Android backup rules do. The local database holds an installation id, the sync ledger and the data-counter
+  /// baseline, which only mean something on this device. Files that do not exist are skipped. No-op on Android, where
+  /// the manifest excludes the whole app, and on a native side without the call.
+  Future<void> excludeFromBackup(List<String> paths) async {
+    try {
+      await _ch.invokeMethod<void>('excludeFromBackup', {'paths': paths});
+    } on MissingPluginException {
+      // An older native side: nothing to do.
+    }
+  }
+
   /// iOS: the App Group shared with the widget extension (build setting
   /// `WB_APP_GROUP`, read from Info.plist). `null` on Android or when not configured.
   Future<String?> appGroupId() async {
