@@ -273,7 +273,8 @@ export class PostgresRepositories implements Repositories {
         [email.toLowerCase(), passwordHash, displayName ?? null],
         toUser,
       ))!,
-    findByEmail: (email) => this.one('SELECT * FROM users WHERE email = lower($1)', [email], toUser),
+    // lower(email) on BOTH sides: that is the expression users_email_key indexes (a plain `email = lower($1)` scans the table).
+    findByEmail: (email) => this.one('SELECT * FROM users WHERE lower(email) = lower($1)', [email], toUser),
     findById: (id) => this.one('SELECT * FROM users WHERE id = $1', [id], toUser),
     updateDisplayName: (id, displayName) =>
       this.one('UPDATE users SET display_name = $2, updated_at = now() WHERE id = $1 RETURNING *', [id, displayName], toUser),
