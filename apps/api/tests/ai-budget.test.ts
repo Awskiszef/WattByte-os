@@ -78,7 +78,7 @@ describe('the free plan gets a share of the budget, not the whole of it (A-01, D
     await buildGateway(loadEnv({ NODE_ENV: 'development', JWT_SECRET: base.JWT_SECRET }), repos, providers, { info: () => undefined, warn: () => undefined })
       .generate('insight', 'normal', sampleInput, { userRef: 'probe', plan: 'free', locale: 'en' });
     expect(hold).toBeGreaterThan(0);
-    const share = hold * 3;
+    const share = hold * 1.5;
     const probeSpent = await repos.ai.spentUsd('1970-01-01');
     const loaded = loadEnv({ NODE_ENV: 'development', JWT_SECRET: base.JWT_SECRET, AI_BUDGET_DAILY_USD: '1', AI_BUDGET_FREE_DAILY_USD: String(share), AI_FREE_DAILY_LIMIT: '1000' });
     const gateway = buildGateway(loaded, repos, providers, { info: () => undefined, warn: () => undefined });
@@ -89,7 +89,7 @@ describe('the free plan gets a share of the budget, not the whole of it (A-01, D
 
     let served = 0;
     let refused = 0;
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 400; i++) {
       await service.generate('insight', free.id, 'free', body).then(() => (served += 1), () => (refused += 1));
     }
     expect(served).toBeGreaterThan(0); // the share is usable

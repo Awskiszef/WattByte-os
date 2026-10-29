@@ -207,6 +207,7 @@ describe('the gateway built from the environment', () => {
       fallback: { enabled: false, onRateLimit: false },
       defaultProvider: 'openai',
       modelPrices: { m: { input: 1, output: 2 } },
+      maxInFlight: 16, // AI_MAX_CONCURRENT
     });
   });
 

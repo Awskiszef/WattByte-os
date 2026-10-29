@@ -58,7 +58,7 @@ export async function buildTestApp(opts: BuildOptions = {}): Promise<BuiltApp> {
   const providers = Object.fromEntries(AI_PROVIDER_IDS.map((id) => [id, new MockProvider(id)])) as Record<AIProviderId, MockProvider>;
   const memory = new MemoryRepositories();
   const repos = opts.repos ?? memory;
-  const gateway = new AIGateway({ router: new ProviderRouter(Object.values(providers), { cooldownMs: 0 }), sleep: async () => undefined, ledger: spendLedger(env, repos) });
+  const gateway = new AIGateway({ router: new ProviderRouter(Object.values(providers), { cooldownMs: 0 }), sleep: async () => undefined, ledger: spendLedger(env, repos), maxInFlight: env.AI_MAX_CONCURRENT });
   const app = await buildApp({
     env,
     repos,

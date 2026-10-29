@@ -15,7 +15,7 @@ import type { Repositories } from '../../database/repositories.js';
 /** Everything in the gateway that the environment decides, as plain options (no provider, no I/O). */
 export type EnvGatewayOptions = Pick<
   GatewayOptions,
-  'timeoutMs' | 'requestTimeoutMs' | 'maxRetries' | 'fallback' | 'defaultProvider' | 'modelPrices'
+  'timeoutMs' | 'requestTimeoutMs' | 'maxRetries' | 'fallback' | 'defaultProvider' | 'modelPrices' | 'maxInFlight'
 >;
 
 export function gatewayOptionsFromEnv(env: Env): EnvGatewayOptions {
@@ -26,6 +26,7 @@ export function gatewayOptionsFromEnv(env: Env): EnvGatewayOptions {
     fallback: { enabled: env.AI_FALLBACK_ENABLED === '1', onRateLimit: env.AI_FALLBACK_ON_RATE_LIMIT === '1' },
     defaultProvider: env.AI_DEFAULT_PROVIDER,
     modelPrices: env.AI_MODEL_PRICES,
+    maxInFlight: env.AI_MAX_CONCURRENT,
   };
 }
 

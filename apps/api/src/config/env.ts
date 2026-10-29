@@ -79,7 +79,10 @@ const EnvSchema = z
     SCRYPT_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(2),
     /** Hashes allowed to wait; beyond that the API answers 503 with Retry-After instead of queueing without bound. */
     SCRYPT_MAX_QUEUE: z.coerce.number().int().min(0).max(1_000).default(8),
+    /** Requests per minute per SIGNED-IN USER, all AI routes together (one bucket). */
     AI_RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(20),
+    /** AI generations running at the same time in this process; the next one is answered 503 at once (D-09). */
+    AI_MAX_CONCURRENT: z.coerce.number().int().min(1).max(1_000).default(16),
     DATABASE_SSL: z.enum(['0', '1']).default('0'),
     /** How long GET /ready waits for `SELECT 1` before answering 503. */
     READY_DB_TIMEOUT_MS: z.coerce.number().int().min(100).max(30_000).default(2_000),

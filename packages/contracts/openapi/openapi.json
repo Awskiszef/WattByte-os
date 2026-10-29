@@ -582,39 +582,47 @@
           },
           "mobileDataGb": {
             "type": "number",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 1000000
           },
           "wifiDataGb": {
             "type": "number",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 1000000
           },
           "totalDataGb": {
             "type": "number",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 2000000
           },
           "chargingSessions": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 100000
           },
           "batteryEnergyKwh": {
             "type": "number",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 1000000
           },
           "wallEnergyKwh": {
             "type": "number",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 1000000
           },
           "electricityCost": {
             "type": "number",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 1000000000
           },
           "currency": {
             "type": "string",
-            "minLength": 3,
-            "maxLength": 3
+            "pattern": "^[A-Z]{3}$"
           },
           "previousPeriodChangePercent": {
             "type": "number",
+            "minimum": -100,
+            "maximum": 1000000,
             "nullable": true
           },
           "wifiSharePercent": {
@@ -626,6 +634,7 @@
           "averageSessionMah": {
             "type": "number",
             "minimum": 0,
+            "maximum": 100000,
             "nullable": true
           }
         },

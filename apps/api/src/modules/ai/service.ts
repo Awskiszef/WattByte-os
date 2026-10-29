@@ -26,7 +26,7 @@ export interface AiGeneratedEvent {
 export interface AiFailedEvent {
   task: AITask;
   /** Why the gateway gave up: the provider(s) the policy allowed failed, a spend limit is used up, or nothing is configured. */
-  status: 'all_providers_failed' | 'budget_exceeded' | 'budget_unavailable' | 'no_provider' | 'aborted';
+  status: 'all_providers_failed' | 'budget_exceeded' | 'budget_unavailable' | 'no_provider' | 'overloaded' | 'aborted';
   /** Provider calls that were billed although nothing was delivered (their cost is on the spend ledger, the user's slot stays used). */
   billedAttempts?: number;
   /** One entry per provider that was asked: who, what failed (`kind`, `category`) and the HTTP status they answered with (if any). */
@@ -73,7 +73,7 @@ export class AiService {
     return this.gateway.status();
   }
 
-  async generate(task: AITask, userId: string, plan: Plan, body: AIGenerateRequest, log: AiLog | undefined = this.log): Promise<AIGenerateResponse> {
+  async generate(task: AITask, userId: string, plan: Plan, body: AIGenerateRequest, log: AiLog | undefined = this.log, signal?: AbortSignal): Promise<AIGenerateResponse> {
     const limit = this.limits[plan];
     const day = utcDayKey(this.now());
     // Reserve first, atomically: concurrent requests cannot exceed the limit, and a
@@ -87,7 +87,8 @@ export class AiService {
     const mode: AIMode = task === 'roast' ? 'roast' : (body.mode ?? 'normal');
     let outcome;
     try {
-      outcome = await this.gateway.generate(task, mode, body.input, { userRef: userId, plan, locale: body.locale ?? 'en' });
+      // `signal` is the client's connection: when it goes away no retry, no fallback and no further paid call is started.
+      outcome = await this.gateway.generate(task, mode, body.input, { userRef: userId, plan, locale: body.locale ?? 'en' }, { signal });
     } catch (e) {
       const billed = e instanceof AIGatewayError ? e.billed.length : 0;
       // The slot goes back only when the user got nothing AND nothing was billed: a refused or cut-off answer is paid
@@ -105,6 +106,8 @@ export class AiService {
           attempts: e.attempts.map((a) => ({ provider: a.providerId, httpStatus: a.status, kind: a.kind, category: a.category })),
           ...(billed > 0 ? { billedAttempts: billed } : {}),
         });
+        // Overloaded: tell the client when to come back instead of letting it hammer an instance that is full.
+        if (e.code === 'overloaded') throw new HttpError(503, 'ai_unavailable', 'AI providers are unavailable right now', 5);
         throw HttpError.unavailable('ai_unavailable', 'AI providers are unavailable right now');
       }
       throw e;

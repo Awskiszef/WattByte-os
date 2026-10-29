@@ -73,7 +73,8 @@ Request bodies are limited to 16 KiB (`POST /usage/sync`: 64 KiB), arrays in a b
 | `TRUST_PROXY_HOPS` | `0` (development only; **must be set in staging/production**) | Number of reverse proxies in front of the API. `0` ignores `X-Forwarded-For` (clients cannot spoof their IP); behind a proxy set it, or every client shares the proxy's rate-limit bucket. `/health` and `/ready` are exempt from the per-IP limiter. |
 | `RATE_LIMIT_PER_MIN` | `120` | Per IP, all routes (unknown paths included). |
 | `AUTH_RATE_LIMIT_PER_MIN` | `10` | Per IP, per credential route (register, login, refresh, social sign-in). |
-| `AI_RATE_LIMIT_PER_MIN` | `20` | Per IP, per AI route. |
+| `AI_RATE_LIMIT_PER_MIN` | `20` | Per signed-in user, all AI routes together (one bucket, applied after authentication); the global per-client limit applies on top. |
+| `AI_MAX_CONCURRENT` | `16` | AI generations running at the same time in this process; the next one is answered `503 ai_unavailable` with `Retry-After: 5` at once instead of adding another slow, paid call to a backlog. |
 | `AI_FREE_DAILY_LIMIT` | `3` | AI generations per UTC day on the free plan. Published to the app in `GET /api/v1/config`. |
 | `AI_PREMIUM_DAILY_LIMIT` | `50` | Same, premium plan. |
 | `AI_MOCK` | `0` | `1` = deterministic mock providers, no keys needed. Development only. |

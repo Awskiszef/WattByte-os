@@ -1,5 +1,6 @@
 import { AI_PROVIDER_IDS, type AITask } from '@wattbyte/ai';
 import { AIGenerateRequest, AIGenerateResponse, ErrorResponse } from '@wattbyte/contracts';
+import type { FastifyRequest } from 'fastify';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
@@ -74,7 +75,18 @@ export const aiRoutes: FastifyPluginAsyncZod<AiRoutesOptions> = async (app, { se
       {
         preHandler: auth,
         preParsing: aiEnabled,
-        config: { rateLimit: { max: rateLimitMax ?? 20, timeWindow: '1 minute' } },
+        // One budget per SIGNED-IN USER for all AI routes together (D-11). It runs after authentication (preHandler), so the
+        // key is the account, not the address: users behind one NAT or proxy do not share it, and rotating addresses does
+        // not multiply it. The global per-client limit still applies on top.
+        config: {
+          rateLimit: {
+            max: rateLimitMax ?? 20,
+            timeWindow: '1 minute',
+            groupId: 'ai',
+            hook: 'preHandler',
+            keyGenerator: (request: FastifyRequest) => `user:${request.user?.userId ?? request.ip}`,
+          },
+        },
         schema: {
           tags: ['ai'],
           summary,
@@ -84,9 +96,14 @@ export const aiRoutes: FastifyPluginAsyncZod<AiRoutesOptions> = async (app, { se
           response: { 200: AIGenerateResponse, 400: ErrorResponse, 401: ErrorResponse, 429: ErrorResponse, 503: ErrorResponse },
         },
       },
-      async (request) => {
+      async (request, reply) => {
         const { userId, plan } = currentUser(request);
-        return service.generate(task, userId, plan, request.body, aiLogFrom(request.log));
+        // The client hung up: stop paying for an answer nobody reads (no retry, no fallback, no new call).
+        const gone = new AbortController();
+        reply.raw.once('close', () => {
+          if (!reply.raw.writableFinished) gone.abort();
+        });
+        return service.generate(task, userId, plan, request.body, aiLogFrom(request.log), gone.signal);
       },
     );
   }
