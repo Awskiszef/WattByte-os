@@ -239,12 +239,29 @@ Future<void> resolveMissingDesignCapacity(BuildContext context) async {
   }
 }
 
-/// Re-runs device detection, replacing the design capacity (a manual one too)
-/// on purpose: the user asked.
+/// Re-runs device detection.
+///
+/// It only ever writes a capacity it FOUND. A detection that finds nothing (a model the catalogs do not list, no
+/// network) leaves a known capacity, a typed one included, exactly as it is: it used to write "unknown" over it, which
+/// the app then showed and registered with the server as no capacity at all (G-16). A detected capacity that differs
+/// from one the user typed replaces it only after they have seen both numbers and said so.
 Future<void> redetectCapacity(BuildContext context) async {
   final container = ProviderScope.containerOf(context, listen: false);
   final spec = await container.read(autoSetupProvider).device.detect();
   if (!context.mounted) return;
+  final current = container.read(settingsProvider).designCapacity;
+  if (!spec.hasDesignCapacity && current.isKnown) {
+    return; // nothing found: keep what is there
+  }
+  if (spec.hasDesignCapacity &&
+      current.isKnown &&
+      current.source == DesignCapacitySource.manual &&
+      current.mah != spec.design.mah) {
+    final units = container.read(unitsProvider(context.localeTag));
+    final replace = await _confirmReplaceTyped(
+        context, units.mah(current.mah!), units.mah(spec.design.mah!));
+    if (replace != true || !context.mounted) return;
+  }
   await _save(
       context,
       (x) => x
@@ -256,6 +273,26 @@ Future<void> redetectCapacity(BuildContext context) async {
           .withDesignCapacity(spec.design),
       account: false,
       device: true);
+}
+
+Future<bool?> _confirmReplaceTyped(
+    BuildContext context, String typed, String detected) {
+  final l = context.l10n;
+  return showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(l.redetectKeepsTypedTitle),
+      content: Text(l.redetectKeepsTypedBody(typed, detected)),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l.redetectKeepMine)),
+        TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l.redetectUseDetected)),
+      ],
+    ),
+  );
 }
 
 Future<void> editEfficiency(BuildContext context) async {

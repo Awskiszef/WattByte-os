@@ -1218,15 +1218,13 @@ void main() {
     });
 
     testWidgets(
-        '"Detect again" on an unlisted model with an estimate leaves the design '
-        'capacity unknown (it replaces a manual one only by catalog data)',
-        (tester) async {
+        '"Detect again" on an unlisted model never turns a typed capacity into '
+        '"unknown" and registers nothing new (G-16)', (tester) async {
       final fake = _unlisted();
       final manual = AppHarness.defaultSettings(HarnessPlatform.android)
           .withDesignCapacity(
               DesignCapacity(mah: 5000, source: DesignCapacitySource.manual));
-      final (h, table) =
-          await app(tester, fake, settings: manual, onboarded: true);
+      final (h, _) = await app(tester, fake, settings: manual, onboarded: true);
       await pumpScreen(tester, const SettingsScreen(),
           harness: h, platform: h.platform, scaffold: true, semantics: true);
       expect(
@@ -1236,20 +1234,59 @@ void main() {
           scrollable: find.byType(Scrollable).first);
       await tester.ensureVisible(find.text(_en.detectAgain));
       await tester.pump();
+      final posts = h.backend.where('POST', '/api/v1/devices').length;
       await tester.tap(find.text(_en.detectAgain));
       await settle(tester);
 
-      // An explicit "Detect again" replaces the manual figure, with what the
-      // catalogs know: nothing. It does NOT put the 3600 mAh estimate there.
+      // The catalogs know nothing about this model: the typed figure stays.
       final s = h.container(tester).read(settingsProvider);
-      expect(s.designCapacityMah, 0);
-      expect(s.designCapacitySource, DesignCapacitySource.unknown);
-      final body = h.backend.where('POST', '/api/v1/devices').last.body!;
-      expect(body['designCapacitySource'], 'unknown');
-      expect(body['designCapacityMah'], isNull);
-      expect(body['estimatedFullChargeCapacityMah'], closeTo(3600, 0.01));
-      expect(designOf(table.rowsOf(harnessUser.id).single),
-          containsPair('designCapacitySource', 'unknown'));
+      expect(s.designCapacityMah, 5000);
+      expect(s.designCapacitySource, DesignCapacitySource.manual);
+      expect(h.backend.where('POST', '/api/v1/devices').length, posts,
+          reason: 'nothing was found, so nothing is registered');
+    });
+
+    testWidgets(
+        '"Detect again" that finds a DIFFERENT capacity asks first, showing '
+        'both numbers; "Keep mine" changes nothing, "Use detected" replaces it '
+        '(G-16)', (tester) async {
+      final manual = AppHarness.defaultSettings(HarnessPlatform.android)
+          .withDesignCapacity(
+              DesignCapacity(mah: 5000, source: DesignCapacitySource.manual));
+      final (h, _) =
+          await app(tester, _android(), settings: manual, onboarded: true);
+      await pumpScreen(tester, const SettingsScreen(),
+          harness: h, platform: h.platform, scaffold: true, semantics: true);
+      await tester.scrollUntilVisible(find.text(_en.detectAgain), 200,
+          scrollable: find.byType(Scrollable).first);
+      await tester.ensureVisible(find.text(_en.detectAgain));
+      await tester.pump();
+
+      await tester.tap(find.text(_en.detectAgain));
+      await settle(tester);
+      expect(find.text(_en.redetectKeepsTypedTitle), findsOneWidget);
+      final dialog = find.byType(AlertDialog);
+      expect(
+          find.descendant(
+              of: dialog, matching: find.textContaining('5,000 mAh')),
+          findsOneWidget);
+      expect(
+          find.descendant(
+              of: dialog, matching: find.textContaining('4,575 mAh')),
+          findsOneWidget);
+      await tester.tap(find.text(_en.redetectKeepMine));
+      await settle(tester);
+      expect(
+          h.container(tester).read(settingsProvider).designCapacityMah, 5000);
+
+      await tester.ensureVisible(find.text(_en.detectAgain));
+      await tester.tap(find.text(_en.detectAgain));
+      await settle(tester);
+      await tester.tap(find.text(_en.redetectUseDetected));
+      await settle(tester);
+      final s = h.container(tester).read(settingsProvider);
+      expect(s.designCapacityMah, 4575);
+      expect(s.designCapacitySource, DesignCapacitySource.localDeviceDatabase);
     });
 
     testWidgets(
