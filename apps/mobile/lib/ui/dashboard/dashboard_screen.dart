@@ -60,6 +60,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               const SizedBox(height: 12),
             ],
             model.when(
+              skipLoadingOnReload: true,
               loading: () => const WbProgress(padding: EdgeInsets.all(48)),
               error: (e, st) {
                 reportError(e, st, 'screen');

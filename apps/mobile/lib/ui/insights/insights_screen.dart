@@ -26,6 +26,7 @@ class InsightsScreen extends ConsumerWidget {
     return SafeArea(
       bottom: false,
       child: data.when(
+        skipLoadingOnReload: true,
         loading: () => const WbProgress(),
         error: (e, st) {
           reportError(e, st, 'screen');

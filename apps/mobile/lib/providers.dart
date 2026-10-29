@@ -244,14 +244,24 @@ final appDataProvider = FutureProvider<AppData>((ref) async {
 final dashboardProvider = Provider<AsyncValue<DashboardModel>>((ref) {
   final calc = ref.watch(energyCalcProvider);
   final now = ref.watch(clockProvider)();
-  return ref.watch(appDataProvider).whenData((d) => DashboardModel.build(
-        days: d.days,
-        sessions: d.sessions,
-        open: d.open,
-        chargingNow: d.chargingNow,
-        calc: calc,
-        now: now,
-      ));
+  final data = ref.watch(appDataProvider);
+  // While the data is being re-read (every refresh tick) the PREVIOUS value stays: `whenData` would turn a reload into
+  // a bare loading state and the screen would flash a spinner every minute (F-02, G-03).
+  if (data.hasError) {
+    return AsyncError(data.error!, data.stackTrace ?? StackTrace.empty);
+  }
+  final d = data.valueOrNull;
+  if (d != null) {
+    return AsyncData(DashboardModel.build(
+      days: d.days,
+      sessions: d.sessions,
+      open: d.open,
+      chargingNow: d.chargingNow,
+      calc: calc,
+      now: now,
+    ));
+  }
+  return const AsyncLoading();
 });
 
 /// Units bound to the current settings; the locale comes from the UI.

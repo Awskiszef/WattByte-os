@@ -62,6 +62,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           ),
           Expanded(
             child: data.when(
+              skipLoadingOnReload: true,
               loading: () => const WbProgress(),
               error: (e, st) {
                 reportError(e, st, 'screen');

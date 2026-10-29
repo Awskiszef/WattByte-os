@@ -47,6 +47,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(l.statistics)),
       body: data.when(
+        skipLoadingOnReload: true,
         loading: () => const WbProgress(),
         error: (e, st) {
           reportError(e, st, 'screen');
