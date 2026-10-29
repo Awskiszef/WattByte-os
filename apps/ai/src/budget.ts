@@ -30,6 +30,26 @@ export interface BudgetStatus {
   readonly exhaustedProviders: ReadonlySet<AIProviderId>;
 }
 
+/** A hold on the spend ledger for one provider call; settle it once, with what the call really cost. */
+export interface SpendReservation {
+  /** `billed` false = provably nothing was billed: the hold is returned in full. Idempotent; never throws. */
+  settle(actualUsd: number, billed: boolean): Promise<void>;
+}
+
+export type SpendReservationResult =
+  | { readonly ok: true; readonly reservation: SpendReservation }
+  | { readonly ok: false; readonly exceeded: 'daily' | 'monthly' | 'provider' };
+
+/**
+ * The spend ledger the gateway books every provider call on. `reserve` checks the limits against what is already
+ * spent PLUS the worst case of this call and holds that amount, atomically, so concurrent callers cannot overshoot
+ * a limit together (a plain read-then-add lets every one of them in). It throws when the ledger cannot be reached:
+ * the gateway then calls nothing (fails closed).
+ */
+export interface SpendLedger {
+  reserve(request: { provider: AIProviderId; estimateUsd: number; now: Date }): Promise<SpendReservationResult>;
+}
+
 export interface BudgetGuard {
   check(now: Date): Promise<BudgetStatus>;
 }

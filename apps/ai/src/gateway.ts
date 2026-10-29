@@ -1,4 +1,4 @@
-import type { BudgetGuard, BudgetStatus } from './budget.js';
+import type { BudgetGuard, BudgetStatus, SpendLedger, SpendReservation } from './budget.js';
 import { allowsFallback, categorize, isRetryable, type AIErrorCategory, type FallbackPolicy } from './errors.js';
 import { buildPrompt } from './prompts/index.js';
 import { ProviderError } from './providers/http.js';
@@ -17,12 +17,13 @@ import type {
   GenerateContext,
   GenerateOptions,
   GenerateOutcome,
+  BilledAttempt,
   Plan,
   UsageRecord,
   UsageSink,
 } from './types.js';
 import { AI_PROVIDER_IDS, TASK_TIER } from './types.js';
-import { estimateCost, type ModelPrices } from './usage.js';
+import { estimateCost, type ModelPrices, worstCaseCostUsd } from './usage.js';
 
 /**
  * What the caller sees when generation fails. `message` is generic on purpose
@@ -32,16 +33,22 @@ import { estimateCost, type ModelPrices } from './usage.js';
  *
  * - `invalid_input`          the aggregates (or the routing options) are not valid; nothing was called
  * - `no_provider`            nothing is configured, or the requested provider is not
- * - `budget_exceeded`        a spend limit is used up; nothing was called
+ * - `budget_exceeded`        a spend limit is used up (or this call would not fit under it); no further call was made
+ * - `budget_unavailable`     the spend ledger could not be read or held in time; nothing was called (fails closed)
  * - `all_providers_failed`   the provider(s) the policy allowed failed (see `attempts`)
  * - `aborted`                the caller cancelled
  */
 export class AIGatewayError extends Error {
   constructor(
-    readonly code: 'invalid_input' | 'no_provider' | 'budget_exceeded' | 'all_providers_failed' | 'aborted',
+    readonly code: 'invalid_input' | 'no_provider' | 'budget_exceeded' | 'budget_unavailable' | 'all_providers_failed' | 'aborted',
     message: string,
     readonly causes: readonly Error[] = [],
     readonly attempts: readonly AttemptFailure[] = [],
+    /**
+     * Calls that were billed (or must be assumed to be) although no answer was delivered: a refusal, a cut-off or an
+     * invalid answer is paid for. The caller must not hand the user's quota back for these (D-01).
+     */
+    readonly billed: readonly BilledAttempt[] = [],
   ) {
     super(message);
     this.name = 'AIGatewayError';
@@ -74,6 +81,10 @@ export interface GatewayOptions {
   readonly defaultProvider?: AIProviderId;
   /** Spend limits; checked before any provider is called. */
   readonly budget?: BudgetGuard;
+  /** The ledger every provider call is booked on (held back before the call, settled after it). Without one nothing is booked here. */
+  readonly ledger?: SpendLedger;
+  /** The ledger and the budget check must answer within this time, otherwise nothing is called. Default 2 000. */
+  readonly ledgerTimeoutMs?: number;
   readonly now?: () => Date;
   /** Receives one `ai.attempt` entry per provider call; see `AttemptLogEntry` for the complete field list. */
   readonly logger?: GatewayLogger;
@@ -110,6 +121,23 @@ export interface AttemptLogEntry {
   /** The provider's id for the request (to quote in a support ticket). */
   readonly requestId?: string;
 }
+
+/** Thrown inside the gateway when the ledger refuses or cannot hold a call; becomes an `AIGatewayError`. */
+class BudgetStop extends Error {
+  constructor(readonly reason: 'daily' | 'monthly' | 'provider' | 'unavailable') {
+    super(`budget stop: ${reason}`);
+  }
+}
+
+const withTimeout = async <T>(work: Promise<T>, ms: number): Promise<T> => {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => (timer = setTimeout(() => reject(new Error('timed out')), ms)));
+  try {
+    return await Promise.race([work, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+};
 
 const MAX_OUTPUT_TOKENS: Record<Plan, number> = { free: 220, premium: 400 };
 
@@ -152,6 +180,8 @@ export interface GatewayStatus {
   readonly attemptTimeoutMs: number;
   readonly requestTimeoutMs: number;
   readonly budgetEnforced: boolean;
+  /** Whether every provider call is booked on a spend ledger. */
+  readonly ledger: boolean;
 }
 
 /**
@@ -174,6 +204,8 @@ export class AIGateway {
   private readonly fallbackPolicy: FallbackPolicy;
   private readonly defaultProvider?: AIProviderId;
   private readonly budget?: BudgetGuard;
+  private readonly ledger?: SpendLedger;
+  private readonly ledgerTimeoutMs: number;
   private readonly now: () => Date;
   private readonly logger?: GatewayLogger;
   private readonly modelPrices?: ModelPrices;
@@ -195,6 +227,8 @@ export class AIGateway {
     this.fallbackPolicy = { onRateLimit: opts.fallback?.onRateLimit ?? true };
     this.defaultProvider = opts.defaultProvider;
     this.budget = opts.budget;
+    this.ledger = opts.ledger;
+    this.ledgerTimeoutMs = positive('ledgerTimeoutMs', opts.ledgerTimeoutMs ?? 2_000);
     this.now = opts.now ?? (() => new Date());
     this.logger = opts.logger;
     this.modelPrices = opts.modelPrices;
@@ -218,6 +252,7 @@ export class AIGateway {
       attemptTimeoutMs: this.timeoutMs,
       requestTimeoutMs: this.requestTimeoutMs,
       budgetEnforced: this.budget !== undefined,
+      ledger: this.ledger !== undefined,
     };
   }
 
@@ -258,6 +293,7 @@ export class AIGateway {
     const chain = candidates.slice(0, 1 + (this.fallbackEnabled ? MAX_FALLBACKS : 0));
     const errors: ProviderError[] = [];
     const failed: AIProviderId[] = [];
+    const billed: BilledAttempt[] = [];
 
     for (const [position, provider] of chain.entries()) {
       // A fallback only gets a call when enough of the request budget is left to make one worthwhile.
@@ -265,13 +301,23 @@ export class AIGateway {
       try {
         // The model override belongs to the provider it was asked for: the fallback keeps its configured models.
         const model = position === 0 && provider.id === options.provider ? options.model : undefined;
-        return await this.attempt(provider, { ...request, model }, { mode, task, ctx, deadline, fallback: position > 0, failed });
+        return await this.attempt(provider, { ...request, model }, { mode, task, ctx, deadline, fallback: position > 0, failed, billed });
       } catch (e) {
+        if (e instanceof BudgetStop) {
+          const unavailable = e.reason === 'unavailable';
+          throw new AIGatewayError(
+            unavailable ? 'budget_unavailable' : 'budget_exceeded',
+            unavailable ? 'AI spend could not be checked' : `AI ${e.reason} budget does not allow another call`,
+            errors,
+            this.attemptsOf(errors),
+            billed,
+          );
+        }
         const err = asProviderError(provider.id, e);
         errors.push(err);
         if (err.kind === 'aborted') {
           // The caller gave up: not the provider's fault, so the router is not told and nothing else is tried.
-          throw new AIGatewayError('aborted', 'request cancelled', errors, this.attemptsOf(errors));
+          throw new AIGatewayError('aborted', 'request cancelled', errors, this.attemptsOf(errors), billed);
         }
         // Any failed provider is demoted: a bad key, a wrong model name or a model that keeps answering in
         // prose would otherwise cost a (billed) call on every single request.
@@ -280,7 +326,7 @@ export class AIGateway {
         if (!allowsFallback(err, this.fallbackPolicy)) break;
       }
     }
-    throw new AIGatewayError('all_providers_failed', 'all AI providers failed', errors, this.attemptsOf(errors));
+    throw new AIGatewayError('all_providers_failed', 'all AI providers failed', errors, this.attemptsOf(errors), billed);
   }
 
   private attemptsOf(errors: readonly ProviderError[]): AttemptFailure[] {
@@ -291,7 +337,7 @@ export class AIGateway {
   private async attempt(
     provider: AIProvider,
     request: Omit<AIGenerationRequest, 'timeoutMs'>,
-    run: { mode: AIMode; task: AITask; ctx: GenerateContext; deadline: number; fallback: boolean; failed: readonly AIProviderId[] },
+    run: { mode: AIMode; task: AITask; ctx: GenerateContext; deadline: number; fallback: boolean; failed: readonly AIProviderId[]; billed: BilledAttempt[] },
   ): Promise<GenerateOutcome> {
     const { mode, task, ctx, deadline, fallback } = run;
     for (let n = 0; ; n += 1) {
@@ -300,11 +346,19 @@ export class AIGateway {
       // Never less than 1 ms: a pause that overshot must not hand an adapter a zero or negative deadline.
       const timeoutMs = Math.max(1, Math.min(this.timeoutMs, Math.floor(deadline - started)));
       let result: AIGenerationResult | undefined;
+      // Every call is held on the ledger BEFORE it is made (worst case) and settled after: nothing is paid for that the
+      // limits did not see, and a failure to reach the ledger stops the call (BudgetStop, handled in generate()).
+      const hold = await this.hold(provider.id, request);
+      // The caller may have given up while the ledger was being asked: no paid call is started for nobody.
+      if (request.signal?.aborted) {
+        await hold.settle(0, false);
+        throw new ProviderError(provider.id, 'aborted by the caller', undefined, false, { kind: 'aborted' });
+      }
       try {
         result = await provider.generate({ ...request, timeoutMs });
         const output = parseAIOutput(result.text, mode);
         this.router.markSuccess(provider.id);
-        const cost = estimateCost({
+        const priced = estimateCost({
           providerId: provider.id,
           model: result.model,
           inputTokens: result.inputTokens,
@@ -313,6 +367,12 @@ export class AIGateway {
           reportedCostUsd: result.costUsd,
           modelPrices: this.modelPrices,
         });
+        // No usable usage: book the worst case, never $0 ("no data" is not "free", D-07).
+        const cost =
+          priced.basis === 'unknown'
+            ? { usd: this.worstCase(provider.id, request, result.model), basis: 'conservative_estimate' as const }
+            : priced;
+        await hold.settle(cost.usd, true);
         const usage: UsageRecord = {
           userRef: ctx.userRef,
           task,
@@ -345,6 +405,9 @@ export class AIGateway {
         const err = asProviderError(provider.id, e);
         // A rejected answer was still billed; its token counts come from the result or the error.
         const billed = result?.usageReported === false ? undefined : result ?? err;
+        const bill = this.billedAttempt(provider.id, request, err, result);
+        await hold.settle(bill?.costUsd ?? 0, bill !== undefined);
+        if (bill) run.billed.push(bill);
         this.log('warn', {
           provider: provider.id,
           model: result?.model ?? err.model,
@@ -370,12 +433,80 @@ export class AIGateway {
   private async checkBudget(): Promise<BudgetStatus> {
     if (!this.budget) return { exhaustedProviders: new Set() };
     try {
-      return await this.budget.check(this.now());
+      return await withTimeout(this.budget.check(this.now()), this.ledgerTimeoutMs);
     } catch (e) {
-      // Fail open: a spend table that cannot be read must not switch every AI feature off. It is reported, loudly.
+      // Fail closed: a spend limit that cannot be read must not become "no limit". Without the spend table nothing
+      // else in this request works either (quota, usage log), so a stopped AI call costs the user next to nothing,
+      // while a call made blind would be unaccounted spend (D-06).
       this.warn({ event: 'ai.budget_check_failed', error: e instanceof Error ? e.name : 'Error' }, 'ai budget check failed');
-      return { exhaustedProviders: new Set() };
+      throw new AIGatewayError('budget_unavailable', 'AI spend could not be checked');
     }
+  }
+
+  /** Worst case of one call to `providerId`, used for the ledger hold and for calls without usage. */
+  private worstCase(providerId: AIProviderId, request: Omit<AIGenerationRequest, 'timeoutMs'>, model?: string): number {
+    return worstCaseCostUsd({
+      providerId,
+      promptChars: request.system.length + request.user.length,
+      maxOutputTokens: request.maxOutputTokens,
+      modelPrices: this.modelPrices,
+      model,
+    });
+  }
+
+  /** Holds the worst case of the call on the ledger; a no-op reservation when no ledger is configured. */
+  private async hold(providerId: AIProviderId, request: Omit<AIGenerationRequest, 'timeoutMs'>): Promise<SpendReservation> {
+    if (!this.ledger) return { settle: async () => undefined };
+    let outcome;
+    try {
+      outcome = await withTimeout(this.ledger.reserve({ provider: providerId, estimateUsd: this.worstCase(providerId, request, request.model), now: this.now() }), this.ledgerTimeoutMs);
+    } catch (e) {
+      this.warn({ event: 'ai.ledger_reserve_failed', provider: providerId, error: e instanceof Error ? e.name : 'Error' }, 'ai spend ledger unavailable');
+      throw new BudgetStop('unavailable');
+    }
+    if (!outcome.ok) throw new BudgetStop(outcome.exceeded);
+    const reservation = outcome.reservation;
+    let settled = false;
+    return {
+      settle: async (actualUsd, billed) => {
+        if (settled) return;
+        settled = true;
+        try {
+          await reservation.settle(actualUsd, billed);
+        } catch (e) {
+          // The hold stays booked: the ledger over-counts (safe) instead of under-counting.
+          this.warn({ event: 'ai.ledger_settle_failed', provider: providerId, error: e instanceof Error ? e.name : 'Error' }, 'ai spend ledger settle failed');
+        }
+      },
+    };
+  }
+
+  /**
+   * What a failed call cost, or undefined when nothing was billed. Billed: the provider answered with token counts
+   * (a refusal, a cut-off, text that fails the schema), or answered 2xx with something unusable and no counts (assumed
+   * billed at the worst case). Not billed: no connection, a timeout, 401/403/429/5xx without counts.
+   */
+  private billedAttempt(providerId: AIProviderId, request: Omit<AIGenerationRequest, 'timeoutMs'>, err: ProviderError, result: AIGenerationResult | undefined): BilledAttempt | undefined {
+    const source = result?.usageReported === false ? undefined : (result ?? err);
+    const inputTokens = source?.inputTokens ?? 0;
+    const outputTokens = source?.outputTokens ?? 0;
+    const model = result?.model ?? err.model ?? request.model ?? '';
+    const answered = result !== undefined || categorize(err) === 'response';
+    if (inputTokens + outputTokens > 0) {
+      const priced = estimateCost({ providerId, model, inputTokens, outputTokens, reportedCostUsd: result?.costUsd, modelPrices: this.modelPrices });
+      if (priced.basis !== 'unknown') return { providerId, model, kind: err.kind, inputTokens, outputTokens, costUsd: priced.usd, costBasis: priced.basis, usageReported: true };
+    }
+    if (!answered) return undefined;
+    return {
+      providerId,
+      model,
+      kind: err.kind,
+      inputTokens: 0,
+      outputTokens: 0,
+      costUsd: this.worstCase(providerId, request, model || undefined),
+      costBasis: 'conservative_estimate',
+      usageReported: false,
+    };
   }
 
   private async record(usage: UsageRecord): Promise<void> {

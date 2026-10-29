@@ -52,12 +52,18 @@ function validPrice(p: Price | undefined): p is Price {
   return p !== undefined && Number.isFinite(p.input) && p.input >= 0 && Number.isFinite(p.output) && p.output >= 0;
 }
 
-/** Exact name first, then the longest configured name followed by a `-` suffix (dated snapshots). */
-function modelPrice(prices: ModelPrices | undefined, model: string): Price | undefined {
+/** A dated snapshot of a model: `-2026-01-15` or `-20260115`. Anything else after the name is a different model. */
+const SNAPSHOT_SUFFIX = /^-(\d{4}-\d{2}-\d{2}|\d{8})$/;
+
+/**
+ * Exact name first, then a configured name followed by a date (a dated snapshot of the same model). A variant such as
+ * `name-mini` or `name-pro` is NOT the model `name`: pricing it as such would under- or over-count its spend (D-07).
+ */
+export function modelPrice(prices: ModelPrices | undefined, model: string): Price | undefined {
   if (!prices) return undefined;
   if (Object.hasOwn(prices, model)) return prices[model];
   const key = Object.keys(prices)
-    .filter((k) => model.startsWith(`${k}-`))
+    .filter((k) => model.startsWith(k) && SNAPSHOT_SUFFIX.test(model.slice(k.length)))
     .sort((a, b) => b.length - a.length)[0];
   return key === undefined ? undefined : prices[key];
 }
@@ -80,6 +86,38 @@ export function estimateCost(input: CostInput): CostEstimate {
   const usd = round6((input.inputTokens * price.input + input.outputTokens * price.output) / 1_000_000);
   if (!Number.isFinite(usd)) return UNKNOWN;
   return { usd, basis: override === undefined ? 'provider_estimate' : 'model_price' };
+}
+
+/** Prompt characters per token assumed when the input size must be guessed: low on purpose (Polish text and JSON tokenise worse than English). */
+const CHARS_PER_TOKEN = 3;
+
+export interface WorstCaseInput {
+  readonly providerId: AIProviderId;
+  /** Length of the system + user prompt in characters. */
+  readonly promptChars: number;
+  /** The output cap the request sets. */
+  readonly maxOutputTokens: number;
+  readonly modelPrices?: ModelPrices;
+  /** The model, when known; otherwise the dearest price that could apply to this provider is used. */
+  readonly model?: string;
+}
+
+/**
+ * The most one call can cost: the whole prompt as input plus the full output cap, at the dearest price that could
+ * apply (the model's own when it is known; else the provider's flat price or any configured model price, whichever
+ * is higher). It is what the spend ledger holds back before a call and what a call is booked at when the provider
+ * reported no usage, so "no data" can never mean "free".
+ */
+export function worstCaseCostUsd(input: WorstCaseInput): number {
+  const inputTokens = Math.ceil(Math.max(0, input.promptChars) / CHARS_PER_TOKEN);
+  const outputTokens = Math.max(0, input.maxOutputTokens);
+  const candidates: Price[] = [PRICE_PER_MILLION_USD[input.providerId]];
+  const own = input.model === undefined ? undefined : modelPrice(input.modelPrices, input.model);
+  if (own && validPrice(own)) return round6((inputTokens * own.input + outputTokens * own.output) / 1_000_000);
+  for (const p of Object.values(input.modelPrices ?? {})) if (validPrice(p)) candidates.push(p);
+  const input$ = Math.max(...candidates.map((p) => p.input));
+  const output$ = Math.max(...candidates.map((p) => p.output));
+  return round6((inputTokens * input$ + outputTokens * output$) / 1_000_000);
 }
 
 /**

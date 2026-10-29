@@ -7,7 +7,16 @@ export {
   type GatewayStatus,
   type ProviderStatus,
 } from './gateway.js';
-export { createBudgetGuard, type BudgetGuard, type BudgetLimits, type BudgetStatus, type SpendReader } from './budget.js';
+export {
+  createBudgetGuard,
+  type BudgetGuard,
+  type BudgetLimits,
+  type BudgetStatus,
+  type SpendLedger,
+  type SpendReader,
+  type SpendReservation,
+  type SpendReservationResult,
+} from './budget.js';
 export { AI_ERROR_CATEGORIES, allowsFallback, categorize, isRetryable, type AIErrorCategory, type FallbackPolicy } from './errors.js';
 export { backoffDelayMs, DEFAULT_RETRY_POLICY, type RetryPolicy } from './retry.js';
 export { buildPrompt, type Prompt } from './prompts/index.js';
@@ -28,6 +37,9 @@ export {
   PRICE_PER_MILLION_USD,
   type CostEstimate,
   type CostInput,
+  modelPrice as modelPriceFor,
   type ModelPrices,
   type Price,
+  worstCaseCostUsd,
+  type WorstCaseInput,
 } from './usage.js';

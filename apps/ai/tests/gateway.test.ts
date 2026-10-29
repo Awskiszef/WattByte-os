@@ -575,7 +575,9 @@ describe('usage and cost', () => {
     const { logger, entries } = capture();
     const { gateway } = gatewayFor(reporting('openai', { inputTokens: 0, outputTokens: 0, usageReported: false }), { logger });
     const r = await gateway.generate('insight', 'normal', input, ctx);
-    expect(r.usage).toMatchObject({ inputTokens: 0, outputTokens: 0, estimatedCostUsd: 0, costBasis: 'unknown', usageReported: false });
+    // "No data" is booked at the worst case, never as $0 (D-07).
+    expect(r.usage).toMatchObject({ inputTokens: 0, outputTokens: 0, costBasis: 'conservative_estimate', usageReported: false });
+    expect(r.usage.estimatedCostUsd).toBeGreaterThan(0);
     expect(entries[0]!.entry).not.toHaveProperty('inputTokens'); // unreported is not logged as 0
   });
 
@@ -593,7 +595,8 @@ describe('usage and cost', () => {
     const { fetchImpl } = fakeFetch({ body: spec.success(json, null) });
     const gateway = new AIGateway({ router: new ProviderRouter([spec.make(fetchImpl)]) });
     const r = await gateway.generate('insight', 'normal', input, ctx);
-    expect(r.usage).toMatchObject({ inputTokens: 0, outputTokens: 0, estimatedCostUsd: 0, costBasis: 'unknown', usageReported: false });
+    expect(r.usage).toMatchObject({ inputTokens: 0, outputTokens: 0, costBasis: 'conservative_estimate', usageReported: false });
+    expect(r.usage.estimatedCostUsd).toBeGreaterThan(0);
   });
 
   it('a usage sink that throws neither fails the request nor triggers another paid call, and is reported', async () => {

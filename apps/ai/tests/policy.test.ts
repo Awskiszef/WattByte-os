@@ -520,12 +520,19 @@ describe('spend limits', () => {
     await expect(gateway.generate('insight', 'normal', input, ctx)).rejects.toMatchObject({ code: 'budget_exceeded' });
   });
 
-  it('a budget check that cannot be read fails open and says so (a broken spend table must not switch AI off)', async () => {
+  it('a budget check that cannot be read FAILS CLOSED and says so: no provider is called (D-06)', async () => {
     const { logger, entries } = capture();
-    const { gateway } = setup({ logger, budget: guardWith(() => Promise.reject(new Error('db down SENTINEL-DB'))) });
-    expect((await gateway.generate('insight', 'normal', input, ctx)).providerId).toBe('google');
+    const { providers, gateway } = setup({ logger, budget: guardWith(() => Promise.reject(new Error('db down SENTINEL-DB'))) });
+    await expect(gateway.generate('insight', 'normal', input, ctx)).rejects.toMatchObject({ code: 'budget_unavailable', billed: [] });
+    expect(Object.values(providers).every((p) => p.calls.length === 0)).toBe(true);
     expect(entries.find((e) => e.entry.event === 'ai.budget_check_failed')).toMatchObject({ level: 'warn', entry: { error: 'Error' } });
     expect(JSON.stringify(entries)).not.toContain('SENTINEL-DB');
+  });
+
+  it('a budget check that hangs is cut off at ledgerTimeoutMs and also stops the call (the read is inside the deadline)', async () => {
+    const { providers, gateway } = setup({ budget: guardWith(() => new Promise(() => undefined)), ledgerTimeoutMs: 20 });
+    await expect(gateway.generate('insight', 'normal', input, ctx)).rejects.toMatchObject({ code: 'budget_unavailable' });
+    expect(Object.values(providers).every((p) => p.calls.length === 0)).toBe(true);
   });
 
   it('is evaluated with the injected clock', async () => {
@@ -555,7 +562,8 @@ describe('cancellation', () => {
     const router = new ProviderRouter([waiting, openai]);
     const gateway = new AIGateway({ router, sleep, random });
     const pending = gateway.generate('insight', 'normal', input, ctx, { signal: controller.signal }).catch((e: unknown) => e);
-    await Promise.resolve();
+    // Abort only once the call is really in flight (the gateway does a few awaits before it starts one).
+    await vi.waitFor(() => expect(waiting.calls).toHaveLength(1));
     controller.abort();
     const e = (await pending) as AIGatewayError;
     expect(e).toMatchObject({ code: 'aborted', attempts: [{ providerId: 'google', kind: 'aborted', category: 'aborted' }] });

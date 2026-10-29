@@ -91,9 +91,24 @@ export interface AIProvider {
  * - `provider_reported` the provider's own figure for this very call (the charge itself, not an estimate)
  * - `model_price`       from a per-model price the operator supplied (`modelPrices`)
  * - `provider_estimate` from the flat approximate list price of the provider (no model price configured)
- * - `unknown`           no token usage or no price was available; the cost is recorded as 0 and is NOT a claim that the call was free
+ * - `conservative_estimate` the provider sent no usable token counts, so the call is booked at its worst case (prompt size and the output cap)
+ * - `unknown`           no cost could be derived at all; only the pure `estimateCost` returns it, a booked call never carries it
  */
-export type CostBasis = 'provider_reported' | 'model_price' | 'provider_estimate' | 'unknown';
+export type CostBasis = 'provider_reported' | 'model_price' | 'provider_estimate' | 'conservative_estimate' | 'unknown';
+
+/** A provider call that was (or must be assumed to have been) billed but delivered no answer: refusal, cut-off or invalid output. */
+export interface BilledAttempt {
+  readonly providerId: AIProviderId;
+  readonly model: string;
+  readonly kind: ProviderErrorKind;
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  /** What the spend ledger was charged for it. */
+  readonly costUsd: number;
+  readonly costBasis: CostBasis;
+  /** False when the token counts are not the provider's: `costUsd` is then the conservative worst case. */
+  readonly usageReported: boolean;
+}
 
 /** Everything the gateway knows about one call; persisted by the API. */
 export interface UsageRecord {
