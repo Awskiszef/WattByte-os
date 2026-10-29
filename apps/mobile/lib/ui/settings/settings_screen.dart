@@ -17,6 +17,7 @@ import '../../providers.dart';
 import '../../settings/settings.dart';
 import '../../setup/region_detection.dart';
 import '../theme.dart';
+import '../widgets/privacy_policy_link.dart' show privacyPolicyUrlProvider;
 import '../widgets/wb_widgets.dart';
 import 'flow_widgets.dart';
 import 'setup_editors.dart';
@@ -197,6 +198,15 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const AccountScreen())),
             ),
+            Consumer(builder: (context, ref, _) {
+              final url = ref.watch(privacyPolicyUrlProvider);
+              if (url == null) return const SizedBox.shrink();
+              return _Tile(
+                title: l.privacyPolicy,
+                icon: Icons.policy_outlined,
+                onTap: () => ref.read(systemProvider).openExternalUrl(url),
+              );
+            }),
             FlowSwitchTile(
               title: l.dataCollection,
               subtitle: l.dataCollectionBody,

@@ -49,6 +49,7 @@ class WattByteSystemPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             "appGroupId" -> result.success(null) // iOS only
             "deviceInfo" -> result.success(deviceInfo())
             "batterySnapshot" -> result.success(BatteryReader.snapshot(context).toMap("app"))
+            "openExternalUrl" -> result.success(openExternalUrl(call.argument<String>("url")))
             "excludeFromBackup" -> result.success(null) // Android: the manifest already excludes the whole app
             "peekSamples" -> result.success(SampleStore.peek(context))
             "ackSamples" -> {
@@ -98,6 +99,18 @@ class WattByteSystemPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
      * entry in the device catalog, the system locale's country picks the default
      * currency. Nothing here identifies the device (no serial, IMEI, MAC or ad id).
      */
+    /** Opens an https address in the browser; false for anything else or when nothing can open it. */
+    private fun openExternalUrl(url: String?): Boolean {
+        val uri = try { android.net.Uri.parse(url ?: return false) } catch (e: Exception) { return false }
+        if (uri.scheme != "https" || uri.host.isNullOrEmpty()) return false
+        return try {
+            context.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            true
+        } catch (e: ActivityNotFoundException) {
+            false
+        }
+    }
+
     private fun deviceInfo(): Map<String, Any?> {
         val locale = context.resources.configuration.locales[0]
         return mapOf(

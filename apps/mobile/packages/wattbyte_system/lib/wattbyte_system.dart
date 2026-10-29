@@ -332,6 +332,19 @@ class WattByteSystem {
     await _ch.invokeMethod<void>('ackSamples', {'token': token});
   }
 
+  /// Opens a public web page (the privacy policy) in the system browser. Only `https` addresses are opened; anything else
+  /// returns false without asking the native side. False also when no app could open it.
+  Future<bool> openExternalUrl(Uri url) async {
+    if (url.scheme != 'https' || url.host.isEmpty) return false;
+    try {
+      return (await _ch.invokeMethod<bool>(
+              'openExternalUrl', {'url': url.toString()})) ??
+          false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
   /// iOS: marks these files as excluded from iCloud / iTunes backups (and so from a restore onto another iPhone), like the
   /// Android backup rules do. The local database holds an installation id, the sync ledger and the data-counter
   /// baseline, which only mean something on this device. Files that do not exist are skipped. No-op on Android, where

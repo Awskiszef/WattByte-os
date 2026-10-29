@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app.dart';
 import '../settings/flow_widgets.dart';
 import '../theme.dart';
+import '../widgets/privacy_policy_link.dart';
 import '../widgets/wb_widgets.dart';
 import 'auth_screen.dart';
 
@@ -63,6 +64,7 @@ class WelcomeScreen extends StatelessWidget {
                     Text(l.welcomePrivacyNote,
                         style: theme.textTheme.labelMedium,
                         textAlign: TextAlign.center),
+                    const PrivacyPolicyLink(),
                   ],
                 ),
               ),

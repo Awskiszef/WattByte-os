@@ -36,6 +36,15 @@ public class WattByteSystemPlugin: NSObject, FlutterPlugin {
       result(DeviceInfo.read())
     case "drainSamples":
       result([])
+    case "openExternalUrl":
+      guard let text = (call.arguments as? [String: Any])?["url"] as? String,
+            let url = URL(string: text), url.scheme == "https", url.host != nil else {
+        result(false)
+        return
+      }
+      DispatchQueue.main.async {
+        UIApplication.shared.open(url, options: [:]) { opened in result(opened) }
+      }
     case "excludeFromBackup":
       let paths = ((call.arguments as? [String: Any])?["paths"] as? [String]) ?? []
       let failed = BackupExclusion.apply(to: paths)

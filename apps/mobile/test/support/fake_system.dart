@@ -141,6 +141,9 @@ class FakeSystem {
   List<Map<String, Object?>> pendingSamples = [];
   int _sampleToken = 0;
 
+  /// Every web address the app asked the system to open (`openExternalUrl`).
+  final List<String> openedUrls = [];
+
   /// Every path the app asked to leave out of backups (`excludeFromBackup`).
   final List<String> excludedFromBackup = [];
 
@@ -243,6 +246,9 @@ class FakeSystem {
         final rows = List<Map<String, Object?>>.of(pendingSamples);
         pendingSamples = [];
         return rows;
+      case 'openExternalUrl':
+        openedUrls.add((call.arguments as Map)['url'] as String);
+        return true;
       case 'excludeFromBackup':
         excludedFromBackup
             .addAll(((call.arguments as Map)['paths'] as List).cast<String>());

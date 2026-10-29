@@ -126,10 +126,12 @@ jobs:
           WATTBYTE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           WATTBYTE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           API_BASE_URL: ${{ inputs.api_base_url }}
+          PRIVACY_POLICY_URL: ${{ vars.PRIVACY_POLICY_URL }}
           BUILD_NUMBER: ${{ inputs.build_number || github.run_number }}
         run: |
           flutter build appbundle --release \
             --dart-define="API_BASE_URL=$API_BASE_URL" \
+            --dart-define="PRIVACY_POLICY_URL=$PRIVACY_POLICY_URL" \
             --build-number="$BUILD_NUMBER"
 
       # Proves the bundle is signed with the upload key from the secret, and not unsigned or signed with the debug key.
@@ -254,10 +256,12 @@ jobs:
         working-directory: apps/mobile
         env:
           API_BASE_URL: ${{ inputs.api_base_url }}
+          PRIVACY_POLICY_URL: ${{ vars.PRIVACY_POLICY_URL }}
           BUILD_NUMBER: ${{ inputs.build_number || github.run_number }}
         run: |
           flutter build ios --release --config-only \
             --dart-define="API_BASE_URL=$API_BASE_URL" \
+            --dart-define="PRIVACY_POLICY_URL=$PRIVACY_POLICY_URL" \
             --build-number="$BUILD_NUMBER"
 
       - name: Archive
