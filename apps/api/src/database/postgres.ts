@@ -577,7 +577,7 @@ export class PostgresRepositories implements Repositories {
             `SELECT COALESCE(SUM(cost_usd) FILTER (WHERE day = $1::date), 0) AS day_total,
                     COALESCE(SUM(cost_usd), 0) AS month_total,
                     COALESCE(SUM(cost_usd) FILTER (WHERE day = $1::date AND provider = $3), 0) AS provider_day
-             FROM ai_spend_daily WHERE day >= $2::date`,
+             FROM ai_spend_daily WHERE day >= $2::date AND day < ($2::date + interval '1 month')`,
             [day, month, provider],
           )
         ).rows[0] as Row;

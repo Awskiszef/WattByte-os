@@ -278,7 +278,7 @@ export class MemoryRepositories implements Repositories {
       let providerDay = 0;
       for (const [key, spent] of this.spend) {
         const [d, who] = key.split('|') as [string, string];
-        if (d >= month) monthTotal += spent;
+        if (d >= month && d.slice(0, 7) === month.slice(0, 7)) monthTotal += spent;
         if (d === day) dayTotal += spent;
         if (d === day && who === provider) providerDay += spent;
       }

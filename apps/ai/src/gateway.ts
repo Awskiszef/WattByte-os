@@ -83,7 +83,7 @@ export interface GatewayOptions {
   readonly budget?: BudgetGuard;
   /** The ledger every provider call is booked on (held back before the call, settled after it). Without one nothing is booked here. */
   readonly ledger?: SpendLedger;
-  /** The ledger and the budget check must answer within this time, otherwise nothing is called. Default 2 000. */
+  /** The ledger and the budget check must answer within this time, otherwise nothing is called. Default 5 000 (the database pool's own connect timeout). */
   readonly ledgerTimeoutMs?: number;
   readonly now?: () => Date;
   /** Receives one `ai.attempt` entry per provider call; see `AttemptLogEntry` for the complete field list. */
@@ -228,7 +228,7 @@ export class AIGateway {
     this.defaultProvider = opts.defaultProvider;
     this.budget = opts.budget;
     this.ledger = opts.ledger;
-    this.ledgerTimeoutMs = positive('ledgerTimeoutMs', opts.ledgerTimeoutMs ?? 2_000);
+    this.ledgerTimeoutMs = positive('ledgerTimeoutMs', opts.ledgerTimeoutMs ?? 5_000);
     this.now = opts.now ?? (() => new Date());
     this.logger = opts.logger;
     this.modelPrices = opts.modelPrices;

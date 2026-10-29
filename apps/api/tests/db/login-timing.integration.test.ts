@@ -30,12 +30,13 @@ describe.skipIf(!DATABASE_URL)('login timing (PostgreSQL)', () => {
 
   it('unknown and known accounts cost the same order of time and answer identically', async () => {
     await attempt(emails[0]!); // warm-up: JIT, first scrypt, dummy hash
-    await attempt('nobody@test.wattbyte');
+    await attempt(uniqueEmail('nobody-warmup'));
     const known: number[] = [];
     const unknown: number[] = [];
     for (let i = 0; i < 7; i++) {
       const k = await attempt(emails[i + 1]!);
-      const u = await attempt(`nobody-${i}@test.wattbyte`);
+      // Unique per run: the throttle rows of the test database outlive runs, and a fixed address would end up locked.
+      const u = await attempt(uniqueEmail(`nobody-${i}`));
       known.push(k.ms);
       unknown.push(u.ms);
       for (const r of [k.res, u.res]) {
