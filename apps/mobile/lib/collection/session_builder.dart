@@ -22,8 +22,8 @@ class SessionBuilder {
     this.levelDropTolerance = 3,
   });
 
-  /// Two plugged samples further apart than this belong to different sessions.
-  /// Android (worker samples every minute): 30 min. iOS (sparse refreshes): hours.
+  /// Two plugged samples further apart than this belong to different sessions UNLESS the level and the counters did not
+  /// fall in between (see [_isSamplingGap]). Android (worker samples every minute): 30 min. iOS (sparse refreshes): hours.
   final Duration maxGap;
 
   /// Any gap above this marks the session as [ChargingSession.sparse].
@@ -46,17 +46,38 @@ class SessionBuilder {
 
     for (final s in sorted) {
       if (!s.plugged) {
+        // The phone was unplugged. An unplugged reading with a HIGHER level than the last plugged one still tells us how
+        // far the charge got (the usual iOS morning reading after a night in which nothing ran): it is the end of the
+        // session, a lower bound of what was charged. Without a rise it only closes the run.
+        if (run.isNotEmpty && s.level > run.last.level) run.add(s);
         if (run.isNotEmpty) close();
         continue;
       }
       if (run.isNotEmpty) {
         final last = run.last;
         final gap = s.time.difference(last.time);
-        if (gap > maxGap || s.level < last.level - levelDropTolerance) close();
+        if (s.level < last.level - levelDropTolerance) {
+          close();
+        } else if (gap > maxGap && !_isSamplingGap(last, s)) {
+          close();
+        }
       }
       run.add(s);
     }
     return SessionBuildResult(closed: closed, open: run);
+  }
+
+  /// [maxGap] is a hint, not a wall. Two PLUGGED samples further apart than that are still one charge when nothing
+  /// says otherwise: the level did not fall and the charge / energy counters did not fall. The worker was deferred or
+  /// killed, or (iOS) nothing ran overnight; cutting there threw away the charge between them. The longer gap makes
+  /// the session [ChargingSession.sparse] (every gap above [sparseGap] does).
+  static bool _isSamplingGap(BatterySample before, BatterySample after) {
+    if (after.level < before.level) return false;
+    final c0 = before.chargeUah, c1 = after.chargeUah;
+    if (c0 != null && c1 != null && c1 < c0) return false;
+    final e0 = before.energyNwh, e1 = after.energyNwh;
+    if (e0 != null && e1 != null && e1 < e0) return false;
+    return true;
   }
 
   /// Builds a session from one plugged run; `null` if it carries no information.

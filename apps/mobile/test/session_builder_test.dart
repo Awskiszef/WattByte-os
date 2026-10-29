@@ -35,16 +35,115 @@ void main() {
     expect(r.open, hasLength(2));
   });
 
-  test('splits on a long gap or a level drop between plugged samples', () {
+  test('splits on a level drop between plugged samples, however short the gap',
+      () {
     final r = builder.build([
       s(0, 10), s(5, 15),
-      s(100, 16), s(105, 20), // gap > 30 min -> new session
-      s(106, 10), s(110, 14), // drop > 3 points -> new session
-      s(111, 14, plugged: false),
+      s(6, 10), s(10, 14), // drop > 3 points -> new session
+      s(11, 14, plugged: false),
     ]);
-    expect(r.closed, hasLength(3));
-    expect(r.closed.map((c) => c.startLevel), [10, 16, 10]);
+    expect(r.closed, hasLength(2));
+    expect(r.closed.map((c) => c.startLevel), [10, 10]);
     expect(r.open, isEmpty);
+  });
+
+  group('a long gap between plugged samples (G-10)', () {
+    test(
+        'is bridged when the level and the counters did not fall: one sparse session',
+        () {
+      final r = builder.build([
+        s(0, 10, charge: 1000000), s(5, 15, charge: 1200000),
+        s(100, 16, charge: 1250000),
+        s(105, 20, charge: 1400000), // 95 min later, still plugged
+        s(106, 20, plugged: false),
+      ]);
+      expect(r.closed, hasLength(1));
+      final c = r.closed.single;
+      expect(c.startLevel, 10);
+      expect(c.endLevel, 20);
+      expect(c.chargeDeltaUah, 400000);
+      expect(c.sparse, isTrue);
+    });
+
+    test(
+        'with only two plugged samples hours apart the charge between them is a session',
+        () {
+      // iOS: one reading when the phone went on the charger, one when the app next ran.
+      final r = builder.build([s(0, 30), s(8 * 60 + 30, 100)]);
+      expect(r.open, hasLength(2));
+      final closed = builder.build([
+        s(0, 30),
+        s(8 * 60 + 30, 100),
+        s(8 * 60 + 31, 100, plugged: false)
+      ]).closed;
+      expect(closed, hasLength(1));
+      expect(closed.single.startLevel, 30);
+      expect(closed.single.endLevel, 100);
+      expect(closed.single.sparse, isTrue);
+    });
+
+    test('is a cut when the level fell in between (it was unplugged and used)',
+        () {
+      final r = builder.build([
+        s(0, 60),
+        s(5, 62),
+        s(200, 55),
+        s(205, 58),
+        s(206, 58, plugged: false)
+      ]);
+      expect(r.closed, hasLength(2));
+    });
+
+    test('is a cut when a charge counter fell in between', () {
+      final r = builder.build([
+        s(0, 50, charge: 2000000),
+        s(5, 51, charge: 2050000),
+        s(200, 52, charge: 1900000),
+        s(205, 53, charge: 1950000),
+        s(206, 53, plugged: false),
+      ]);
+      expect(r.closed, hasLength(2));
+    });
+
+    test('is a cut when an unplugged reading lies between the two', () {
+      final r = builder.build([
+        s(0, 40),
+        s(5, 45),
+        s(6, 45, plugged: false),
+        s(200, 45),
+        s(205, 50),
+        s(206, 50, plugged: false),
+      ]);
+      expect(r.closed, hasLength(2));
+    });
+  });
+
+  group('the unplugged reading that ends a session (G-10)', () {
+    test(
+        'with a higher level is the end of the session (lower bound), also after a single plugged sample',
+        () {
+      final r = builder.build([s(0, 20), s(9 * 60, 95, plugged: false)]);
+      expect(r.closed, hasLength(1));
+      expect(r.closed.single.startLevel, 20);
+      expect(r.closed.single.endLevel, 95);
+      expect(r.closed.single.sparse, isTrue);
+      expect(r.open, isEmpty);
+    });
+
+    test('with the same or a lower level only closes the run, as before', () {
+      final r = builder.build([s(0, 20), s(10, 30), s(11, 30, plugged: false)]);
+      expect(r.closed.single.endLevel, 30);
+      final r2 =
+          builder.build([s(0, 20), s(10, 30), s(11, 28, plugged: false)]);
+      expect(r2.closed.single.endLevel, 30);
+    });
+
+    test(
+        'a quick plug-unplug with a one-point rise inside a minute is still no session',
+        () {
+      expect(
+          builder.build([s(0, 50), s(0, 51, plugged: false)]).closed, isEmpty);
+    });
   });
 
   test('ignores single-sample runs and sub-minute blips', () {
