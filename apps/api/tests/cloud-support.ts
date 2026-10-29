@@ -166,7 +166,7 @@ export function postgresFixtureIn(schema: string): FixtureFactory {
     });
     const repos = new PostgresRepositories(url);
     const gateway = new AIGateway({ router: new ProviderRouter(AI_PROVIDER_IDS.map((id) => new MockProvider(id)), { cooldownMs: 0 }), sleep: async () => undefined });
-    const app = await buildApp({ env, repos, gateway, providerIds: [], logger: false, rateLimitMax: 100_000, aiRateLimitMax: 100_000, authRateLimitMax: 100_000 });
+    const app = await buildApp({ env, repos, gateway, providerIds: [], logger: false, rateLimitMax: 100_000, aiRateLimitMax: 100_000, authRateLimitMax: 100_000, refreshRateLimitMax: 100_000 });
     await app.ready();
     const pool = new pg.Pool({ connectionString: url, max: 2 });
     return {

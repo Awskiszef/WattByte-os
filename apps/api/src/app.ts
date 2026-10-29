@@ -11,14 +11,18 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 
-import type { Env } from './config/env.js';
+import { type Env, trustedProxyList } from './config/env.js';
 import type { Repositories } from './database/repositories.js';
 import { errorHandler, notFoundHandler, RouteTable } from './errors/http-error.js';
 import { featureFlagsFromEnv } from './features/flags.js';
 import { authenticateUnlessPublic } from './middleware/auth.js';
 import { rejectNulCharacters } from './middleware/input-guards.js';
 import { buildLoggerOptions } from './observability/logging.js';
+import { clientKey } from './middleware/client-key.js';
+import { GroupedLocalStore } from './middleware/rate-limit-store.js';
+import { configurePasswordHashing } from './modules/auth/password.js';
 import { requestBodyDeadline } from './middleware/request-deadline.js';
+import { makeViaTrustedProxy } from './middleware/trusted-proxy.js';
 import { generateRequestId } from './observability/request-id.js';
 import { aiRoutes } from './modules/ai/routes.js';
 import { AiService } from './modules/ai/service.js';
@@ -53,6 +57,8 @@ export interface AppDeps {
   aiRateLimitMax?: number;
   /** Per-IP requests per minute on credential endpoints; default 10. */
   authRateLimitMax?: number;
+  /** Per-IP requests per minute on /auth/refresh; default 60. */
+  refreshRateLimitMax?: number;
   now?: () => Date;
   /** Household price sources, first match wins; default: Eurostat. Tests pass fakes. */
   priceProviders?: ElectricityPriceProvider[];
@@ -88,7 +94,8 @@ export async function buildApp(deps: AppDeps): Promise<App> {
       errorHandler(error, request, reply);
     },
     // Only trust X-Forwarded-For when told how many proxies sit in front; otherwise clients could spoof the IP and dodge rate limits.
-    trustProxy: env.TRUST_PROXY_HOPS > 0 ? (_address: string, hop: number) => hop < env.TRUST_PROXY_HOPS : false,
+    // A proxy allow-list (TRUST_PROXY_CIDRS) verifies who forwards; a hop count only counts and trusts whoever connects.
+    trustProxy: trustedProxyList(env).length > 0 ? trustedProxyList(env) : env.TRUST_PROXY_HOPS > 0 ? (_address: string, hop: number) => hop < env.TRUST_PROXY_HOPS : false,
     // Every body of this API is tiny (the largest, /usage/sync, sets its own 64 KiB limit): a small default keeps
     // the work and memory an attacker-sized body can cause small (B-04).
     bodyLimit: 16_384,
@@ -105,6 +112,7 @@ export async function buildApp(deps: AppDeps): Promise<App> {
   app.server.maxConnections = env.MAX_CONNECTIONS;
   // Node enforces requestTimeout only until the headers are complete; this covers the body (B-06).
   app.addHook('onRequest', requestBodyDeadline(env.REQUEST_TIMEOUT_MS));
+  configurePasswordHashing({ concurrency: env.SCRYPT_CONCURRENCY, maxQueue: env.SCRYPT_MAX_QUEUE });
   const lifecycle: Lifecycle = { draining: false };
   app.decorate('lifecycle', lifecycle);
   // While draining every response asks the client (and the proxy) to take its next request elsewhere.
@@ -173,7 +181,14 @@ export async function buildApp(deps: AppDeps): Promise<App> {
     }),
   });
 
-  await app.register(rateLimit, { max: deps.rateLimitMax ?? env.RATE_LIMIT_PER_MIN, timeWindow: '1 minute' });
+  // The key is the client's /64 for IPv6 and the plain address for IPv4 (also inherited by the per-route limits).
+  await app.register(rateLimit, {
+    max: deps.rateLimitMax ?? env.RATE_LIMIT_PER_MIN,
+    timeWindow: '1 minute',
+    keyGenerator: (request) => clientKey(request.ip),
+    // Routes with the same `groupId` share one bucket (credential endpoints).
+    store: GroupedLocalStore as unknown as NonNullable<Parameters<typeof rateLimit>[1]>['store'],
+  });
 
   // Unknown paths and wrong methods answer with the error contract (404 / 405), rate limited like any route.
   app.setNotFoundHandler({ preHandler: app.rateLimit() }, notFoundHandler(routes));
@@ -218,13 +233,13 @@ export async function buildApp(deps: AppDeps): Promise<App> {
 
   await app.register(
     async (v1) => {
-      await v1.register(authRoutes, { service: auth, rateLimitMax: deps.authRateLimitMax ?? env.AUTH_RATE_LIMIT_PER_MIN });
+      await v1.register(authRoutes, { service: auth, rateLimitMax: deps.authRateLimitMax ?? env.AUTH_RATE_LIMIT_PER_MIN, refreshRateLimitMax: deps.refreshRateLimitMax ?? env.REFRESH_RATE_LIMIT_PER_MIN });
       await v1.register(usersRoutes, { repos, tokens });
       await v1.register(cloudRoutes, { repos, tokens });
       await v1.register(devicesRoutes, { repos, tokens });
       await v1.register(usageRoutes, { repos, tokens, features });
       await v1.register(electricityRoutes, { service: prices, repos, tokens });
-      await v1.register(regionRoutes, { countryHeader: env.COUNTRY_HEADER });
+      await v1.register(regionRoutes, { countryHeader: env.COUNTRY_HEADER, viaTrustedProxy: makeViaTrustedProxy(env) });
       await v1.register(aiRoutes, { service: ai, tokens, features, rateLimitMax: deps.aiRateLimitMax ?? env.AI_RATE_LIMIT_PER_MIN });
       await v1.register(configRoutes, { environment: env.APP_ENV, features, aiDailyLimits });
     },

@@ -7,13 +7,16 @@ import type { AuthService } from './service.js';
 
 export interface AuthRoutesOptions {
   service: AuthService;
-  /** Per-IP requests per minute on credential endpoints (default 10). */
+  /** Per-IP requests per minute on credential endpoints (default 10); one bucket shared by register, login and the OAuth routes. */
   rateLimitMax?: number;
+  /** Per-IP requests per minute on /auth/refresh (default 60); its own bucket. */
+  refreshRateLimitMax?: number;
 }
 
-export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (app, { service, rateLimitMax }) => {
+export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (app, { service, rateLimitMax, refreshRateLimitMax }) => {
   /** Stricter per-route limit: credential endpoints are the brute-force surface. Public: they are how a caller gets a token. */
-  const strict = { config: { public: true, rateLimit: { max: rateLimitMax ?? 10, timeWindow: '1 minute' } } };
+  // One `groupId` for all of them: a caller does not get a separate budget per credential route (A-02).
+  const strict = { config: { public: true, rateLimit: { max: rateLimitMax ?? 10, timeWindow: '1 minute', groupId: 'credentials' } } };
   app.post(
     '/auth/register',
     {
@@ -40,7 +43,7 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (app, 
   app.post(
     '/auth/refresh',
     {
-      ...strict,
+      config: { public: true, rateLimit: { max: refreshRateLimitMax ?? 60, timeWindow: '1 minute', groupId: 'refresh' } },
       schema: {
         tags: ['auth'],
         summary: 'Exchange a refresh token for a new pair (rotation)',

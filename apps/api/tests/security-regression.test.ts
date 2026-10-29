@@ -575,24 +575,28 @@ describe('authentication is required on every route that is not explicitly publi
 });
 
 describe('rate limiting on credential endpoints', () => {
-  it('login, register, refresh and the social sign-in stubs are throttled per IP; the limit applies to the 429 path too', async () => {
-    const limited = await buildTestApp({ authRateLimitMax: 3 });
+  it('login, register and the social sign-in stubs share ONE per-client bucket; refresh has its own; the limit applies to the 429 path too', async () => {
+    const limited = await buildTestApp({ authRateLimitMax: 3, refreshRateLimitMax: 3 });
     try {
       const hit = (url: string, payload: unknown) => limited.app.inject({ method: 'POST', url, payload: payload as object });
-      const cases: [string, unknown, number][] = [
+      const credentials: [string, unknown, number][] = [
         ['/api/v1/auth/login', { email: 'a@b.co', password: 'password123' }, 401],
-        ['/api/v1/auth/refresh', { refreshToken: 'x'.repeat(30) }, 401],
         ['/api/v1/auth/register', { email: 'nope', password: 'x' }, 400],
         ['/api/v1/auth/apple', { idToken: 'x'.repeat(20) }, 501],
-        ['/api/v1/auth/google', { idToken: 'x'.repeat(20) }, 501],
       ];
-      for (const [url, payload, status] of cases) {
-        for (let i = 0; i < 3; i++) expect((await hit(url, payload)).statusCode, `${url} #${i + 1}`).toBe(status);
+      // Three requests in total, spread over three routes, use up the whole budget (it is not 3 per route, A-02).
+      for (const [url, payload, status] of credentials) expect((await hit(url, payload)).statusCode, url).toBe(status);
+      for (const [url, payload] of [...credentials, ['/api/v1/auth/google', { idToken: 'x'.repeat(20) }] as [string, unknown]]) {
         const blocked = await hit(url, payload);
-        expect(blocked.statusCode, `${url} #4`).toBe(429);
+        expect(blocked.statusCode, `${url} after the budget`).toBe(429);
         expectErrorBody(blocked.json(), 'rate_limited');
         expect(Number(blocked.headers['retry-after'])).toBeGreaterThan(0);
       }
+      // Refresh is a different bucket: untouched by the credential traffic above, with its own limit.
+      for (let i = 0; i < 3; i++) expect((await hit('/api/v1/auth/refresh', { refreshToken: 'x'.repeat(30) })).statusCode, `refresh #${i + 1}`).toBe(401);
+      const blocked = await hit('/api/v1/auth/refresh', { refreshToken: 'x'.repeat(30) });
+      expect(blocked.statusCode).toBe(429);
+      expectErrorBody(blocked.json(), 'rate_limited');
     } finally {
       await limited.app.close();
     }

@@ -28,7 +28,7 @@ development profile explicitly (`NODE_ENV=development`; `pnpm --filter @wattbyte
 | `DATABASE_URL` | needed to start the server, not validated at load | **required** | **required** |
 | `DATABASE_URL` is not the docker-compose credentials (`wattbyte:wattbyte`) | – | **refused** | **refused** |
 | `DATABASE_SSL` set explicitly | – | default `0` + warning | **required** (`1` = TLS with certificate verification, `0` = a conscious "private link" choice, logged as a warning) |
-| `TRUST_PROXY_HOPS` set explicitly | – | **required** (`0` = deliberately no proxy, logged as a warning) | **required** (same) |
+| `TRUST_PROXY_CIDRS` or `TRUST_PROXY_HOPS` set explicitly | – | **required** (`TRUST_PROXY_HOPS=0` = deliberately no proxy, logged as a warning) | **required** (same) |
 | `ACCESS_TOKEN_TTL_SEC` above one hour | – | warning | warning |
 
 Why staging is held to the production bar: a staging that accepts a placeholder secret or the mock
@@ -53,6 +53,9 @@ Warnings are logged once at boot (`envWarnings`), they do not stop the server.
 | `DATABASE_URL` | – | PostgreSQL connection string. |
 | `DATABASE_SSL` | `0` | `1` = TLS with `rejectUnauthorized: true`. |
 | `READY_DB_TIMEOUT_MS` | `2000` | How long `GET /ready` waits for `SELECT 1` (100 to 30000). |
+| `REFRESH_RATE_LIMIT_PER_MIN` | `60` | Per-IP (IPv6: per /64) requests per minute on `POST /auth/refresh`. Register, login and the Apple/Google routes share one bucket per client (`AUTH_RATE_LIMIT_PER_MIN`). |
+| `SCRYPT_CONCURRENCY` | `2` | Password hashes that run at once (each uses 64 MiB and one libuv thread). Size the container for `SCRYPT_CONCURRENCY x 64 MiB`. |
+| `SCRYPT_MAX_QUEUE` | `8` | Hashes allowed to wait for a slot; beyond that register/login answer 503 `busy` with `Retry-After`. |
 | `REQUEST_TIMEOUT_MS` | `30000` | A client must deliver a whole request (headers + body) within this time, otherwise the connection is closed (slow-body / slowloris protection). |
 | `KEEP_ALIVE_TIMEOUT_MS` | `65000` | Idle keep-alive connections close after this; set it just above the load balancer's idle timeout. |
 | `MAX_CONNECTIONS` | `5000` | Open connections accepted at once (0 = no limit). |
@@ -65,6 +68,7 @@ Request bodies are limited to 16 KiB (`POST /usage/sync`: 64 KiB), arrays in a b
 | `ACCESS_TOKEN_TTL_SEC` | `900` | Access token lifetime. |
 | `REFRESH_TOKEN_TTL_DAYS` | `30` | Refresh token lifetime. |
 | `REFRESH_REUSE_GRACE_SEC` | `10` | A rotated refresh token presented again **less than** this many seconds after its rotation is a retry (rejected, nothing else touched); **at or after** it, it is theft and every session of the user is revoked. `0` disables the retry window. See `docs/security.md`. |
+| `TRUST_PROXY_CIDRS` | unset | Comma-separated addresses / CIDRs of the reverse proxies (`10.0.0.0/8,fd00::/8`). **Preferred over the hop count:** forwarded headers and `COUNTRY_HEADER` are honoured only on a connection from one of them, so a client that reaches the origin directly cannot choose its address or country. Staging/production need this or `TRUST_PROXY_HOPS`; both together are refused. |
 | `TRUST_PROXY_HOPS` | `0` (development only; **must be set in staging/production**) | Number of reverse proxies in front of the API. `0` ignores `X-Forwarded-For` (clients cannot spoof their IP); behind a proxy set it, or every client shares the proxy's rate-limit bucket. `/health` and `/ready` are exempt from the per-IP limiter. |
 | `RATE_LIMIT_PER_MIN` | `120` | Per IP, all routes (unknown paths included). |
 | `AUTH_RATE_LIMIT_PER_MIN` | `10` | Per IP, per credential route (register, login, refresh, social sign-in). |
@@ -89,7 +93,7 @@ Request bodies are limited to 16 KiB (`POST /usage/sync`: 64 KiB), arrays in a b
 | `AI_HISTORY_RETENTION_DAYS` | `90` | Read by the retention job: rows of `ai_generations` older than this are purged (1 to 3650). |
 | `ELECTRICITY_PRICE_CACHE_HOURS` | `168` | How long a fetched household price is reused. |
 | `EUROSTAT_BASE_URL` | Eurostat's public dissemination API | Override for the price source (tests, a mirror). |
-| `COUNTRY_HEADER` | empty | Request header carrying the caller's country (`cf-ipcountry` behind Cloudflare); empty disables `/region` detection. |
+| `COUNTRY_HEADER` | empty | Request header carrying the caller's country (`cf-ipcountry` behind Cloudflare); empty disables `/region` detection. Believed only when the request came through a trusted proxy (`TRUST_PROXY_CIDRS`, or `TRUST_PROXY_HOPS` above 0); otherwise `/region` answers `null`. |
 
 Used by tooling, not by the server: `TEST_DATABASE_URL` (the PostgreSQL integration suites in
 `apps/api/tests/db` run only when it is set), `WATTBYTE_E2E_API_URL` (Flutter end-to-end tests),

@@ -30,7 +30,7 @@ export async function makePgApp(overrides: Record<string, string> = {}, deps: { 
   const repos = new PostgresRepositories(DATABASE_URL);
   const providers = AI_PROVIDER_IDS.map((id) => new MockProvider(id));
   const gateway = new AIGateway({ router: new ProviderRouter(providers, { cooldownMs: 0 }), sleep: async () => undefined });
-  const app = await buildApp({ env, repos, gateway, providerIds: [], logger: false, rateLimitMax: 100_000, aiRateLimitMax: 100_000, authRateLimitMax: 100_000, ...deps });
+  const app = await buildApp({ env, repos, gateway, providerIds: [], logger: false, rateLimitMax: 100_000, aiRateLimitMax: 100_000, authRateLimitMax: 100_000, refreshRateLimitMax: 100_000, ...deps });
   await app.ready();
   return { app, repos, pool: new pg.Pool({ connectionString: DATABASE_URL, max: 2 }), providers };
 }

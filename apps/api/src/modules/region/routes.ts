@@ -1,9 +1,12 @@
 import { RegionResponse } from '@wattbyte/contracts';
+import type { FastifyRequest } from 'fastify';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 
 export interface RegionRoutesOptions {
   /** Request header carrying a country code, e.g. `cf-ipcountry` behind Cloudflare; empty = feature off. */
   countryHeader: string;
+  /** True when the request came through a proxy we trust; only then is the header believed (a client can send it too). */
+  viaTrustedProxy: (request: FastifyRequest) => boolean;
 }
 
 /**
@@ -11,7 +14,7 @@ export interface RegionRoutesOptions {
  * used only when the device's own region/locale settings give nothing. Nothing is
  * stored: the API never logs or keeps the client address or the derived country.
  */
-export const regionRoutes: FastifyPluginAsyncZod<RegionRoutesOptions> = async (app, { countryHeader }) => {
+export const regionRoutes: FastifyPluginAsyncZod<RegionRoutesOptions> = async (app, { countryHeader, viaTrustedProxy }) => {
   app.get(
     '/region',
     {
@@ -23,7 +26,7 @@ export const regionRoutes: FastifyPluginAsyncZod<RegionRoutesOptions> = async (a
       },
     },
     async (request) => {
-      if (!countryHeader) return { countryCode: null, source: 'none' as const };
+      if (!countryHeader || !viaTrustedProxy(request)) return { countryCode: null, source: 'none' as const };
       const raw = request.headers[countryHeader.toLowerCase()];
       const value = (Array.isArray(raw) ? raw[0] : raw)?.trim().toUpperCase();
       // Cloudflare sends "XX" for unknown and "T1" for Tor; only a real alpha-2 code is useful.

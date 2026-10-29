@@ -93,7 +93,7 @@ describe.each(['staging', 'production'] as const)('%s refuses unsafe configurati
 
   it('requires TRUST_PROXY_HOPS to be stated, 0 included (B-03)', () => {
     const { TRUST_PROXY_HOPS: _omitted, ...noHops } = production;
-    expect(() => loadEnv({ ...noHops, APP_ENV: appEnv })).toThrow(/TRUST_PROXY_HOPS must be set explicitly/);
+    expect(() => loadEnv({ ...noHops, APP_ENV: appEnv })).toThrow(/TRUST_PROXY_CIDRS .* or TRUST_PROXY_HOPS .* must be set explicitly/);
     expect(loadEnv({ ...noHops, APP_ENV: appEnv, TRUST_PROXY_HOPS: '0' }).TRUST_PROXY_HOPS).toBe(0);
     expect(loadEnv({ ...noHops, APP_ENV: appEnv, TRUST_PROXY_HOPS: '2' }).TRUST_PROXY_HOPS).toBe(2);
   });

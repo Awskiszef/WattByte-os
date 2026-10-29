@@ -14,7 +14,7 @@ describe('production environment guards', () => {
   it('rejects the mock AI provider and a missing database', () => {
     expect(() => loadEnv({ ...good, AI_MOCK: '1' })).toThrow(/AI_MOCK/);
     expect(() => loadEnv({ NODE_ENV: 'production', JWT_SECRET: good.JWT_SECRET })).toThrow(/DATABASE_URL/);
-    expect(() => loadEnv({ NODE_ENV: 'production', JWT_SECRET: good.JWT_SECRET })).toThrow(/TRUST_PROXY_HOPS must be set explicitly/);
+    expect(() => loadEnv({ NODE_ENV: 'production', JWT_SECRET: good.JWT_SECRET })).toThrow(/must be set explicitly/);
   });
   it('does not restrict development', () => {
     expect(loadEnv({ NODE_ENV: 'development', JWT_SECRET: 'change-me-to-a-long-random-secret-of-at-least-32-chars', AI_MOCK: '1' }).AI_MOCK).toBe('1');

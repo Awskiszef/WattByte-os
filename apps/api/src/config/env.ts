@@ -1,3 +1,5 @@
+import { isIPv4, isIPv6 } from 'node:net';
+
 import { AI_PROVIDER_IDS, providerEnvProblems } from '@wattbyte/ai';
 import { z } from 'zod';
 
@@ -62,9 +64,21 @@ const EnvSchema = z
     REFRESH_REUSE_GRACE_SEC: z.coerce.number().int().nonnegative().default(10),
     /** Set to the number of reverse proxies in front of the API; 0 trusts no forwarded header. */
     TRUST_PROXY_HOPS: z.coerce.number().int().nonnegative().default(0),
+    /**
+     * Alternative to TRUST_PROXY_HOPS that checks WHO the proxy is: comma-separated addresses / CIDRs of the reverse proxies
+     * (e.g. `10.0.0.0/8,fd00::/8`). Forwarded headers (and COUNTRY_HEADER) are honoured only on a connection from one of
+     * them; a client that reaches the origin directly cannot choose its address. Mutually exclusive with TRUST_PROXY_HOPS.
+     */
+    TRUST_PROXY_CIDRS: z.string().max(1024).optional(),
     /** Requests per minute per client IP: everything, credential endpoints, AI endpoints. */
     RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(120),
     AUTH_RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(10),
+    /** `POST /auth/refresh` has its own, higher bucket: many devices behind one NAT address refresh independently of logins. */
+    REFRESH_RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(60),
+    /** Password hashes (64 MiB scrypt each) running at once; more wait in a queue. */
+    SCRYPT_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(2),
+    /** Hashes allowed to wait; beyond that the API answers 503 with Retry-After instead of queueing without bound. */
+    SCRYPT_MAX_QUEUE: z.coerce.number().int().min(0).max(1_000).default(8),
     AI_RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(20),
     DATABASE_SSL: z.enum(['0', '1']).default('0'),
     /** How long GET /ready waits for `SELECT 1` before answering 503. */
@@ -140,6 +154,27 @@ export type Env = z.infer<typeof EnvSchema>;
 /** Every variable the server reads; `.env.example` and docs/CONFIGURATION.md are checked against this list. */
 export const ENV_VARIABLES: readonly string[] = Object.keys(EnvSchema.innerType().shape);
 
+/** The proxy allow-list as an array (empty when unset). Entries are trimmed; empty ones are dropped. */
+export function trustedProxyList(env: Pick<Env, 'TRUST_PROXY_CIDRS'>): string[] {
+  return (env.TRUST_PROXY_CIDRS ?? '').split(',').map((s) => s.trim()).filter((s) => s !== '');
+}
+
+/** Why an entry of TRUST_PROXY_CIDRS is not an IPv4/IPv6 address or CIDR (empty list when all are fine). */
+export function proxyCidrProblems(value: string): string[] {
+  const problems: string[] = [];
+  const entries = trustedProxyList({ TRUST_PROXY_CIDRS: value });
+  if (entries.length === 0) problems.push('TRUST_PROXY_CIDRS is set but lists no address');
+  for (const entry of entries) {
+    const [addr = '', prefix, ...extra] = entry.split('/');
+    const family = isIPv4(addr) ? 4 : isIPv6(addr) ? 6 : 0;
+    const max = family === 4 ? 32 : 128;
+    const prefixOk = prefix === undefined || (/^\d{1,3}$/.test(prefix) && Number(prefix) <= max);
+    if (family === 0 || extra.length > 0 || !prefixOk) problems.push(`TRUST_PROXY_CIDRS entry "${entry}" is not an IPv4/IPv6 address or CIDR`);
+    else if (prefix !== undefined && Number(prefix) === 0) problems.push(`TRUST_PROXY_CIDRS entry "${entry}" would trust every address`);
+  }
+  return problems;
+}
+
 /** Secrets that appear in docs or examples and must never run a real server. */
 const PLACEHOLDER_SECRET = /change-?me|example|placeholder|secret-secret|test-secret/i;
 
@@ -176,8 +211,8 @@ function strictEnvironmentProblems(env: Env, source: NodeJS.ProcessEnv): string[
   }
   // Behind a reverse proxy every client shares the proxy's address unless the hop count is set; with a wrong
   // one clients choose their own address. There is no safe default, so the operator must state it (B-03).
-  if (source.TRUST_PROXY_HOPS === undefined) {
-    problems.push('TRUST_PROXY_HOPS must be set explicitly (the number of reverse proxies in front of the API; 0 = deliberately none, clients connect directly)');
+  if (source.TRUST_PROXY_HOPS === undefined && source.TRUST_PROXY_CIDRS === undefined) {
+    problems.push('TRUST_PROXY_CIDRS (the proxies\' addresses, preferred) or TRUST_PROXY_HOPS (their number; 0 = deliberately none, clients connect directly) must be set explicitly');
   }
   // The default ('0') would silently send credentials and data in clear: the operator must choose.
   if (env.APP_ENV === 'production' && source.DATABASE_SSL === undefined) {
@@ -220,6 +255,13 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   }
   const env = parsed.data;
   const problems: string[] = [];
+  // The proxy allow-list is parsed here so that a typo fails the boot instead of silently trusting nothing or everything.
+  if (env.TRUST_PROXY_CIDRS !== undefined) {
+    if (cleaned.TRUST_PROXY_HOPS !== undefined && env.TRUST_PROXY_HOPS > 0) {
+      problems.push('TRUST_PROXY_CIDRS and TRUST_PROXY_HOPS are alternatives: set one (CIDRS verifies the proxy, HOPS only counts)');
+    }
+    problems.push(...proxyCidrProblems(env.TRUST_PROXY_CIDRS));
+  }
   // Guards keyed on one variable only could be bypassed by setting the other one.
   if (env.NODE_ENV === 'production' && env.APP_ENV === 'development') {
     problems.push('NODE_ENV=production with APP_ENV=development would skip the production guards');
@@ -240,7 +282,7 @@ export function envWarnings(env: Env): string[] {
   }
   if (env.APP_ENV === 'development') return out;
   if (env.DATABASE_SSL === '0') out.push('DATABASE_SSL=0: PostgreSQL traffic is not encrypted; acceptable only on a private link');
-  if (env.TRUST_PROXY_HOPS === 0) {
+  if (env.TRUST_PROXY_HOPS === 0 && !env.TRUST_PROXY_CIDRS) {
     out.push('TRUST_PROXY_HOPS=0: behind a reverse proxy every client shares the proxy address and one rate-limit bucket');
   }
   if (env.ACCESS_TOKEN_TTL_SEC > 3600) out.push('ACCESS_TOKEN_TTL_SEC is above one hour; a stolen access token cannot be revoked before it expires');

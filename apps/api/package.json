@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "NODE_ENV=${NODE_ENV:-development} node --conditions=development --import tsx --watch src/main.ts",
-    "start": "node dist/main.js",
+    "start": "UV_THREADPOOL_SIZE=${UV_THREADPOOL_SIZE:-8} node dist/main.js",
     "build": "tsc -p tsconfig.build.json && node ../../scripts/copy-migrations.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src tests",

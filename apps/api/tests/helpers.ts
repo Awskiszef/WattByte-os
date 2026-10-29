@@ -33,6 +33,7 @@ export async function makeApp(
     logger: false,
     rateLimitMax: 10_000,
     authRateLimitMax: 10_000,
+    refreshRateLimitMax: 10_000,
     // Unit tests never reach Eurostat: no provider unless the test passes one.
     priceProviders: deps.priceProviders ?? [],
   });

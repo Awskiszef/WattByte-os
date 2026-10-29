@@ -33,6 +33,7 @@ export interface BuildOptions {
   now?: () => Date;
   rateLimitMax?: number;
   authRateLimitMax?: number;
+  refreshRateLimitMax?: number;
   aiRateLimitMax?: number;
 }
 
@@ -67,6 +68,7 @@ export async function buildTestApp(opts: BuildOptions = {}): Promise<BuiltApp> {
     now: opts.now,
     rateLimitMax: opts.rateLimitMax ?? 100_000,
     authRateLimitMax: opts.authRateLimitMax ?? 100_000,
+    refreshRateLimitMax: opts.refreshRateLimitMax ?? 100_000,
     aiRateLimitMax: opts.aiRateLimitMax ?? 100_000,
     priceProviders: [],
   });

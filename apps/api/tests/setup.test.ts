@@ -86,7 +86,7 @@ describe('GET /api/v1/region', () => {
     expect(off.json()).toEqual({ countryCode: null, source: 'none' });
     await ctx.app.close();
 
-    ctx = await makeApp({ COUNTRY_HEADER: 'cf-ipcountry' });
+    ctx = await makeApp({ COUNTRY_HEADER: 'cf-ipcountry', TRUST_PROXY_HOPS: '1' });
     const on = await ctx.app.inject({ method: 'GET', url: '/api/v1/region', headers: { 'cf-ipcountry': 'pl' } });
     expect(on.json()).toEqual({ countryCode: 'PL', source: 'backendCountry' });
     for (const v of ['XX', 'T1', 'Poland', '']) {
