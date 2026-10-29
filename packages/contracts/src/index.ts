@@ -108,6 +108,21 @@ export const TokenPair = z.object({
 
 export const AuthResponse = z.object({ user: UserDto, tokens: TokenPair });
 
+/** Changing the password signs every device out and returns a fresh session for the one that asked. */
+export const ChangePasswordRequest = z.object({ currentPassword: z.string().min(1).max(200), newPassword: Password });
+
+/** One signed-in device (a refresh-token family). The id is only meaningful to `DELETE /me/sessions/{id}`. */
+export const SessionDto = z.object({
+  id: z.string().uuid(),
+  createdAt: z.string().datetime(),
+  /** The newest token rotation: the last time the device refreshed its session. */
+  lastUsedAt: z.string().datetime(),
+  expiresAt: z.string().datetime(),
+  /** True for the session the request was made with. */
+  current: z.boolean(),
+});
+export const SessionListResponse = z.object({ sessions: z.array(SessionDto) });
+
 export const UpdateMeRequest = z.object({ displayName: z.string().trim().min(1).max(60).nullable() });
 
 // --------------------------------------------------------- account settings

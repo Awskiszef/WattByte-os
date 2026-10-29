@@ -59,7 +59,7 @@ describe.skipIf(!DATABASE_URL)('retention (PostgreSQL)', () => {
   async function session(userId: string, now: Date, o: { expiresDaysAgo?: number; expiresInDays?: number; revokedDaysAgo?: number; createdDaysAgo?: number; replacedBy?: string }): Promise<string> {
     const expires = o.expiresDaysAgo !== undefined ? at(now, o.expiresDaysAgo) : new Date(now.getTime() + (o.expiresInDays ?? 10) * DAY);
     const res = await pool.query(
-      'INSERT INTO sessions(user_id, refresh_hash, expires_at, revoked_at, replaced_by, created_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+      'INSERT INTO sessions(id, family_id, family_started_at, user_id, refresh_hash, expires_at, revoked_at, replaced_by, created_at) VALUES (gen_random_uuid(), gen_random_uuid(), now(), $1, $2, $3, $4, $5, $6) RETURNING id',
       [userId, randomUUID(), expires, o.revokedDaysAgo === undefined ? null : at(now, o.revokedDaysAgo), o.replacedBy ?? null, at(now, o.createdDaysAgo ?? 1)],
     );
     return (res.rows[0] as { id: string }).id;

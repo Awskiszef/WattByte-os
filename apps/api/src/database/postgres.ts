@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import pg from 'pg';
 
 import { BASE_LOCK_SEC, FAILURE_WINDOW_SEC, LOCK_AFTER, MAX_LOCK_SEC } from '../modules/auth/login-throttle.js';
@@ -41,6 +43,7 @@ function toUser(r: Row): UserRow {
     displayName: (r.display_name as string | null) ?? null,
     plan: r.plan as UserRow['plan'],
     createdAt: r.created_at as Date,
+    tokensValidAfter: (r.tokens_valid_after as Date | null) ?? null,
   };
 }
 
@@ -53,6 +56,8 @@ function toSession(r: Row): SessionRow {
     revokedAt: (r.revoked_at as Date | null) ?? null,
     replacedBy: (r.replaced_by as string | null) ?? null,
     createdAt: r.created_at as Date,
+    familyId: r.family_id as string,
+    familyStartedAt: r.family_started_at as Date,
   };
 }
 
@@ -272,6 +277,11 @@ export class PostgresRepositories implements Repositories {
     findById: (id) => this.one('SELECT * FROM users WHERE id = $1', [id], toUser),
     updateDisplayName: (id, displayName) =>
       this.one('UPDATE users SET display_name = $2, updated_at = now() WHERE id = $1 RETURNING *', [id, displayName], toUser),
+    setPasswordHash: (id, passwordHash) =>
+      this.one('UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1 RETURNING *', [id, passwordHash], toUser),
+    invalidateTokensBefore: async (id, at) => {
+      await this.pool.query('UPDATE users SET tokens_valid_after = $2 WHERE id = $1', [id, at]).catch(translate);
+    },
     delete: async (id) => {
       await this.pool.query('DELETE FROM users WHERE id = $1', [id]);
     },
@@ -311,20 +321,44 @@ export class PostgresRepositories implements Repositories {
   };
 
   readonly sessions: SessionRepository = {
-    create: async ({ userId, refreshHash, expiresAt }) =>
-      (await this.one(
-        'INSERT INTO sessions(user_id, refresh_hash, expires_at) VALUES ($1, $2, $3) RETURNING *',
-        [userId, refreshHash, expiresAt],
+    create: async ({ userId, refreshHash, expiresAt, familyId, familyStartedAt }) => {
+      const id = randomUUID();
+      return (await this.one(
+        // A new sign-in starts its own family (family_id = its own id) unless it continues one.
+        `INSERT INTO sessions(id, user_id, refresh_hash, expires_at, family_id, family_started_at)
+         VALUES ($1, $2, $3, $4, $5, COALESCE($6::timestamptz, now())) RETURNING *`,
+        [id, userId, refreshHash, expiresAt, familyId ?? id, familyStartedAt ?? null],
         toSession,
-      ))!,
+      ))!;
+    },
     findByHash: (hash) => this.one('SELECT * FROM sessions WHERE refresh_hash = $1', [hash], toSession),
     revoke: async (id, replacedBy) => {
       await this.pool.query('UPDATE sessions SET revoked_at = now(), replaced_by = $2 WHERE id = $1', [id, replacedBy ?? null]);
     },
+    revokeFamily: async (familyId) => {
+      await this.pool.query('UPDATE sessions SET revoked_at = now() WHERE family_id = $1 AND revoked_at IS NULL', [familyId]);
+    },
     revokeAllForUser: async (userId) => {
       await this.pool.query('UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL', [userId]);
     },
-    rotate: async ({ oldHash, newHash, newExpiresAt, now, graceMs }): Promise<RotateResult> => {
+    familyLive: async (familyId, now) => {
+      const res = await this.pool.query('SELECT 1 FROM sessions WHERE family_id = $1 AND revoked_at IS NULL AND expires_at > $2 LIMIT 1', [familyId, now]);
+      return (res.rowCount ?? 0) > 0;
+    },
+    listFamilies: async (userId, now) => {
+      const res = await this.pool.query(
+        `SELECT family_id, family_started_at, created_at, expires_at FROM sessions
+         WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > $2 ORDER BY created_at DESC`,
+        [userId, now],
+      );
+      return res.rows.map((r: Row) => ({
+        id: r.family_id as string,
+        startedAt: r.family_started_at as Date,
+        lastRotatedAt: r.created_at as Date,
+        expiresAt: r.expires_at as Date,
+      }));
+    },
+    rotate: async ({ oldHash, newHash, newExpiresAt, now, graceMs, absoluteLifetimeMs }): Promise<RotateResult> => {
       return this.withTransaction<RotateResult>(async (client) => {
         // The row lock serialises concurrent presentations of the same token:
         // the first one consumes it, the others wake up and see it revoked.
@@ -334,27 +368,28 @@ export class PostgresRepositories implements Repositories {
           return { status: 'invalid' };
         }
         if (old.revokedAt) {
-          const rotatedRecently = old.replacedBy !== null && now.getTime() - old.revokedAt.getTime() < graceMs;
-          if (!rotatedRecently) {
-            await client.query('UPDATE sessions SET revoked_at = $2 WHERE user_id = $1 AND revoked_at IS NULL', [old.userId, now]);
-          }
-          return { status: 'reused', userId: old.userId, familyRevoked: !rotatedRecently };
+          // Revoked without a successor (logout, sign out everywhere, an earlier family revocation): a plain 401.
+          if (old.replacedBy === null) return { status: 'revoked' };
+          const successor = (await client.query('SELECT refresh_hash, revoked_at FROM sessions WHERE id = $1', [old.replacedBy])).rows[0] as Row | undefined;
+          const retry = now.getTime() - old.revokedAt.getTime() < graceMs && successor !== undefined && successor.revoked_at === null && successor.refresh_hash === newHash;
+          if (retry) return { status: 'replayed', userId: old.userId, familyId: old.familyId };
+          await client.query('UPDATE sessions SET revoked_at = $2 WHERE family_id = $1 AND revoked_at IS NULL', [old.familyId, now]);
+          return { status: 'reused', userId: old.userId, familyRevoked: true };
         }
         if (old.expiresAt <= now) {
           return { status: 'expired' };
         }
+        if (old.familyStartedAt.getTime() + absoluteLifetimeMs <= now.getTime()) {
+          return { status: 'expired' };
+        }
         const created = await client.query(
-          'INSERT INTO sessions(user_id, refresh_hash, expires_at) VALUES ($1, $2, $3) RETURNING id',
-          [old.userId, newHash, newExpiresAt],
+          'INSERT INTO sessions(user_id, refresh_hash, expires_at, family_id, family_started_at, created_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+          [old.userId, newHash, newExpiresAt, old.familyId, old.familyStartedAt, now],
         );
         // revoked_at is stamped with the API clock (`now`), the same clock the grace window is compared with:
-        // the database clock may differ between hosts and would shift the 10 s window by the skew.
-        await client.query('UPDATE sessions SET revoked_at = $3, replaced_by = $2 WHERE id = $1', [
-          old.id,
-          (created.rows[0] as Row).id,
-          now,
-        ]);
-        return { status: 'ok', userId: old.userId };
+        // the database clock may differ between hosts and would shift the window by the skew.
+        await client.query('UPDATE sessions SET revoked_at = $3, replaced_by = $2 WHERE id = $1', [old.id, (created.rows[0] as Row).id, now]);
+        return { status: 'ok', userId: old.userId, familyId: old.familyId };
       }).catch(translate);
     },
   };

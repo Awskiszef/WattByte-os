@@ -30,7 +30,6 @@ development profile explicitly (`NODE_ENV=development`; `pnpm --filter @wattbyte
 | `DATABASE_SSL` set explicitly | – | default `0` + warning | **required** (`1` = TLS with certificate verification, `0` = a conscious "private link" choice, logged as a warning) |
 | `AI_BUDGET_DAILY_USD` and an `AI_MODEL_PRICES` entry per configured model, when real AI providers are configured | – | **required** (or `AI_BUDGET_UNLIMITED=1`) | **required** (same) |
 | `TRUST_PROXY_CIDRS` or `TRUST_PROXY_HOPS` set explicitly | – | **required** (`TRUST_PROXY_HOPS=0` = deliberately no proxy, logged as a warning) | **required** (same) |
-| `ACCESS_TOKEN_TTL_SEC` above one hour | – | warning | warning |
 
 Why staging is held to the production bar: a staging that accepts a placeholder secret or the mock
 AI provider hides exactly the mistakes production must not make. Why `DATABASE_SSL` is *required*
@@ -66,9 +65,10 @@ Warnings are logged once at boot (`envWarnings`), they do not stop the server.
 
 Request bodies are limited to 16 KiB (`POST /usage/sync`: 64 KiB), arrays in a body to 1000 elements.
 | `JWT_SECRET` | – (required) | HS256 signing key for access tokens, 32+ characters: `openssl rand -base64 48`. |
-| `ACCESS_TOKEN_TTL_SEC` | `900` | Access token lifetime. |
+| `ACCESS_TOKEN_TTL_SEC` | `900` | Access token lifetime (1 to 3600 s). A token stops working earlier when its device is signed out, "sign out everywhere" is used or the password changes (checked on every request). |
 | `REFRESH_TOKEN_TTL_DAYS` | `30` | Refresh token lifetime. |
-| `REFRESH_REUSE_GRACE_SEC` | `10` | A rotated refresh token presented again **less than** this many seconds after its rotation is a retry (rejected, nothing else touched); **at or after** it, it is theft and every session of the user is revoked. `0` disables the retry window. See `docs/security.md`. |
+| `REFRESH_REUSE_GRACE_SEC` | `60` | A rotated refresh token presented again **less than** this many seconds after its rotation, while its successor is unused, is a retry after a lost response: it is answered with the SAME successor, nothing else touched. **At or after** it (or after the successor was used) it is suspected theft and the token's session family (that one device) is revoked. Keep it longer than the app's request timeout (20 s). `0` disables the retry window; max 600. See `docs/security.md`. |
+| `SESSION_ABSOLUTE_LIFETIME_DAYS` | `90` | A sign-in ends this many days after it started, however often its refresh token rotates (the sliding `REFRESH_TOKEN_TTL_DAYS` window cannot extend it). |
 | `TRUST_PROXY_CIDRS` | unset | Comma-separated addresses / CIDRs of the reverse proxies (`10.0.0.0/8,fd00::/8`). **Preferred over the hop count:** forwarded headers and `COUNTRY_HEADER` are honoured only on a connection from one of them, so a client that reaches the origin directly cannot choose its address or country. Staging/production need this or `TRUST_PROXY_HOPS`; both together are refused. |
 | `TRUST_PROXY_HOPS` | `0` (development only; **must be set in staging/production**) | Number of reverse proxies in front of the API. `0` ignores `X-Forwarded-For` (clients cannot spoof their IP); behind a proxy set it, or every client shares the proxy's rate-limit bucket. `/health` and `/ready` are exempt from the per-IP limiter. |
 | `RATE_LIMIT_PER_MIN` | `120` | Per IP, all routes (unknown paths included). |

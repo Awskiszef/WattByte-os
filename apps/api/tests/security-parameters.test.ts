@@ -18,6 +18,7 @@ describe('defaults that protect the API', () => {
       ACCESS_TOKEN_TTL_SEC: env.ACCESS_TOKEN_TTL_SEC,
       REFRESH_TOKEN_TTL_DAYS: env.REFRESH_TOKEN_TTL_DAYS,
       REFRESH_REUSE_GRACE_SEC: env.REFRESH_REUSE_GRACE_SEC,
+      SESSION_ABSOLUTE_LIFETIME_DAYS: env.SESSION_ABSOLUTE_LIFETIME_DAYS,
       TRUST_PROXY_HOPS: env.TRUST_PROXY_HOPS,
       TRUST_PROXY_CIDRS: env.TRUST_PROXY_CIDRS,
       RATE_LIMIT_PER_MIN: env.RATE_LIMIT_PER_MIN,
@@ -30,7 +31,8 @@ describe('defaults that protect the API', () => {
     }).toEqual({
       ACCESS_TOKEN_TTL_SEC: 900,
       REFRESH_TOKEN_TTL_DAYS: 30,
-      REFRESH_REUSE_GRACE_SEC: 10,
+      REFRESH_REUSE_GRACE_SEC: 60,
+      SESSION_ABSOLUTE_LIFETIME_DAYS: 90,
       TRUST_PROXY_HOPS: 0,
       TRUST_PROXY_CIDRS: undefined,
       RATE_LIMIT_PER_MIN: 120,
@@ -77,7 +79,7 @@ describe('tokens', () => {
     const issued = await service.signAccess(user, new Date(Date.now() - 901_000));
     expect(await service.verifyAccess(issued)).toBeNull();
     const fresh = await service.signAccess(user);
-    expect(await service.verifyAccess(fresh)).toEqual(user);
+    expect(await service.verifyAccess(fresh)).toMatchObject(user);
     expect(await new TokenService('another-secret-another-secret-another!', 900, 30).verifyAccess(fresh)).toBeNull();
   });
 });

@@ -13,6 +13,8 @@ export interface UserRow {
   displayName: string | null;
   plan: Plan;
   createdAt: Date;
+  /** Access tokens issued before this instant are refused (sign out everywhere, password change); null = none. */
+  tokensValidAfter: Date | null;
 }
 
 export interface SessionRow {
@@ -24,6 +26,19 @@ export interface SessionRow {
   revokedAt: Date | null;
   replacedBy: string | null;
   createdAt: Date;
+  /** All refresh tokens that descend from one sign-in share a family: one family = one signed-in device. */
+  familyId: string;
+  /** When the family was started (the sign-in); the absolute session lifetime counts from here. */
+  familyStartedAt: Date;
+}
+
+/** One signed-in device, as the owner sees it in the session list. */
+export interface SessionFamilyInfo {
+  id: string;
+  startedAt: Date;
+  /** The newest rotation (a proxy for "last used"). */
+  lastRotatedAt: Date;
+  expiresAt: Date;
 }
 
 /** Where the DESIGN capacity (nominal figure of the model) came from. No measurement member, on purpose. */
@@ -206,28 +221,48 @@ export interface UserRepository {
   findByEmail(email: string): Promise<UserRow | null>;
   findById(id: string): Promise<UserRow | null>;
   updateDisplayName(id: string, displayName: string | null): Promise<UserRow | null>;
+  /** Sets the password hash (null = none). */
+  setPasswordHash(id: string, passwordHash: string): Promise<UserRow | null>;
+  /** Refuses every access token issued before `at` (sign out everywhere, password change). */
+  invalidateTokensBefore(id: string, at: Date): Promise<void>;
   delete(id: string): Promise<void>;
 }
 
 export type RotateResult =
-  | { status: 'ok'; userId: string }
+  | { status: 'ok'; userId: string; familyId: string }
+  /**
+   * The same token was presented again within the grace window and its successor has not been used yet: a client retry
+   * after a lost response. The successor that was already issued is the answer (same token, nothing else is touched).
+   */
+  | { status: 'replayed'; userId: string; familyId: string }
   /** Unknown token. */
   | { status: 'invalid' }
+  /** Past its expiry, or past the absolute lifetime of its family. */
   | { status: 'expired' }
-  /** The token was already used or revoked; `family` tells whether every session of the user was revoked. */
-  | { status: 'reused'; userId: string; familyRevoked: boolean };
+  /** Revoked by logout, "sign out this device/everywhere" or an earlier theft response: 401, nothing else is touched. */
+  | { status: 'revoked' }
+  /** A rotated token was presented again after its grace window, or after its successor had been used: suspected theft; its family was revoked (only that family). */
+  | { status: 'reused'; userId: string; familyRevoked: true };
 
 export interface SessionRepository {
-  create(input: { userId: string; refreshHash: string; expiresAt: Date }): Promise<SessionRow>;
+  /** Starts a new family (a new sign-in) unless `familyId` is given. */
+  create(input: { userId: string; refreshHash: string; expiresAt: Date; familyId?: string; familyStartedAt?: Date }): Promise<SessionRow>;
   findByHash(refreshHash: string): Promise<SessionRow | null>;
   revoke(id: string, replacedBy?: string): Promise<void>;
+  /** Revokes every live token of one family (one device); other families are untouched. Idempotent. */
+  revokeFamily(familyId: string): Promise<void>;
   revokeAllForUser(userId: string): Promise<void>;
+  /** True while the family still has a live (not revoked, not expired) token: the check behind access-token revocation. */
+  familyLive(familyId: string, now: Date): Promise<boolean>;
+  /** The user's live families, newest first. */
+  listFamilies(userId: string, now: Date): Promise<SessionFamilyInfo[]>;
   /**
-   * Atomically consumes `oldHash` and creates the next session. Exactly one of any
-   * number of concurrent callers presenting the same token gets `ok`.
-   * A token rotated less than `graceMs` ago (`now - revokedAt < graceMs`; exactly `graceMs` is theft) is rejected without revoking the user's
-   * other sessions (a client retry after a lost response); an older one is theft:
-   * every session of the user is revoked.
+   * Atomically consumes `oldHash` and creates the next session. Exactly one of any number of concurrent callers presenting
+   * the same token gets `ok`; the others, within `graceMs` of the rotation and while the successor is unused, get `replayed`
+   * (the successor `newHash` names is already there: the caller derived the same one). A rotated token presented
+   * at or after `graceMs`, or after its successor was used, is suspected theft: its FAMILY is revoked. A token that
+   * was revoked without a successor (logout) is `revoked`: nothing else is touched. `absoluteLifetimeMs` caps a family's
+   * age however often it rotates.
    */
   rotate(input: {
     oldHash: string;
@@ -235,6 +270,7 @@ export interface SessionRepository {
     newExpiresAt: Date;
     now: Date;
     graceMs: number;
+    absoluteLifetimeMs: number;
   }): Promise<RotateResult>;
 }
 

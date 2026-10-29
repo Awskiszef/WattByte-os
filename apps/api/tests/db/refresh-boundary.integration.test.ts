@@ -34,7 +34,7 @@ describe.skipIf(!DATABASE_URL)('refresh reuse boundary (PostgreSQL)', () => {
     let clock = new Date();
     const repos = new PostgresRepositories(DATABASE_URL!);
     closers.push(() => repos.close());
-    const ctx = await buildTestApp({ repos, now: () => clock });
+    const ctx = await buildTestApp({ repos, now: () => clock, env: { REFRESH_REUSE_GRACE_SEC: '10' } });
     closers.push(() => ctx.app.close());
     return {
       app: ctx.app,

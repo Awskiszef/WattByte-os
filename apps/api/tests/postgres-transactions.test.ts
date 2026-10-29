@@ -55,7 +55,7 @@ const dieOn = (when: (sql: string) => boolean): Step => (sql, client) => {
 
 const operations = {
   'sessions.rotate': (r: PostgresRepositories) =>
-    r.sessions.rotate({ oldHash: 'a', newHash: 'b', newExpiresAt: new Date(Date.now() + 1e6), now: new Date(), graceMs: 10_000 }),
+    r.sessions.rotate({ oldHash: 'a', newHash: 'b', newExpiresAt: new Date(Date.now() + 1e6), now: new Date(), graceMs: 10_000, absoluteLifetimeMs: 86_400_000 }),
   'usage.upsertDaily': (r: PostgresRepositories) => r.usage.upsertDaily([ROW]),
   'cloud.deleteData': (r: PostgresRepositories) => r.cloud.deleteData('u1'),
   'cloud.exportData': (r: PostgresRepositories) => r.cloud.exportData('u1', 100),

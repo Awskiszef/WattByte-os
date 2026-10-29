@@ -58,12 +58,24 @@ export class MemoryRepositories implements Repositories {
         displayName: displayName ?? null,
         plan: 'free',
         createdAt: new Date(),
+        tokensValidAfter: null,
       };
       this.userRows.set(row.id, row);
       return row;
     },
     findByEmail: async (email) => [...this.userRows.values()].find((u) => u.email === email.toLowerCase()) ?? null,
     findById: async (id) => this.userRows.get(id) ?? null,
+    setPasswordHash: async (id, passwordHash) => {
+      const row = this.userRows.get(id);
+      if (!row) return null;
+      const next = { ...row, passwordHash };
+      this.userRows.set(id, next);
+      return next;
+    },
+    invalidateTokensBefore: async (id, at) => {
+      const row = this.userRows.get(id);
+      if (row) this.userRows.set(id, { ...row, tokensValidAfter: at });
+    },
     updateDisplayName: async (id, displayName) => {
       const row = this.userRows.get(id);
       if (!row) return null;
@@ -83,15 +95,18 @@ export class MemoryRepositories implements Repositories {
   };
 
   readonly sessions: SessionRepository = {
-    create: async ({ userId, refreshHash, expiresAt }) => {
+    create: async ({ userId, refreshHash, expiresAt, familyId, familyStartedAt }) => {
+      const id = randomUUID();
       const row: SessionRow = {
-        id: randomUUID(),
+        id,
         userId,
         refreshHash,
         expiresAt,
         revokedAt: null,
         replacedBy: null,
         createdAt: new Date(),
+        familyId: familyId ?? id,
+        familyStartedAt: familyStartedAt ?? new Date(),
       };
       this.sessionRows.set(row.id, row);
       return row;
@@ -101,25 +116,41 @@ export class MemoryRepositories implements Repositories {
       const row = this.sessionRows.get(id);
       if (row) this.sessionRows.set(id, { ...row, revokedAt: new Date(), replacedBy: replacedBy ?? null });
     },
+    revokeFamily: async (familyId) => {
+      const now = new Date();
+      for (const [id, s] of this.sessionRows) {
+        if (s.familyId === familyId && !s.revokedAt) this.sessionRows.set(id, { ...s, revokedAt: now });
+      }
+    },
     revokeAllForUser: async (userId) => {
       for (const [id, s] of this.sessionRows) {
         if (s.userId === userId && !s.revokedAt) this.sessionRows.set(id, { ...s, revokedAt: new Date() });
       }
     },
+    familyLive: async (familyId, now) => [...this.sessionRows.values()].some((s) => s.familyId === familyId && !s.revokedAt && s.expiresAt > now),
+    listFamilies: async (userId, now) => {
+      const live = [...this.sessionRows.values()].filter((s) => s.userId === userId && !s.revokedAt && s.expiresAt > now);
+      return live
+        .map((s) => ({ id: s.familyId, startedAt: s.familyStartedAt, lastRotatedAt: s.createdAt, expiresAt: s.expiresAt }))
+        .sort((x, y) => y.lastRotatedAt.getTime() - x.lastRotatedAt.getTime());
+    },
     // No await between the check and the writes: atomic on the single JS thread.
-    rotate: async ({ oldHash, newHash, newExpiresAt, now, graceMs }): Promise<RotateResult> => {
+    rotate: async ({ oldHash, newHash, newExpiresAt, now, graceMs, absoluteLifetimeMs }): Promise<RotateResult> => {
       const old = [...this.sessionRows.values()].find((s) => s.refreshHash === oldHash);
       if (!old) return { status: 'invalid' };
       if (old.revokedAt) {
-        const rotatedRecently = old.replacedBy !== null && now.getTime() - old.revokedAt.getTime() < graceMs;
-        if (!rotatedRecently) {
-          for (const [id, s] of this.sessionRows) {
-            if (s.userId === old.userId && !s.revokedAt) this.sessionRows.set(id, { ...s, revokedAt: now });
-          }
+        // Revoked without a successor (logout, sign out everywhere, an earlier family revocation): a plain 401.
+        if (old.replacedBy === null) return { status: 'revoked' };
+        const successor = this.sessionRows.get(old.replacedBy);
+        const retry = now.getTime() - old.revokedAt.getTime() < graceMs && successor && !successor.revokedAt && successor.refreshHash === newHash;
+        if (retry) return { status: 'replayed', userId: old.userId, familyId: old.familyId };
+        for (const [id, s] of this.sessionRows) {
+          if (s.familyId === old.familyId && !s.revokedAt) this.sessionRows.set(id, { ...s, revokedAt: now });
         }
-        return { status: 'reused', userId: old.userId, familyRevoked: !rotatedRecently };
+        return { status: 'reused', userId: old.userId, familyRevoked: true };
       }
       if (old.expiresAt <= now) return { status: 'expired' };
+      if (old.familyStartedAt.getTime() + absoluteLifetimeMs <= now.getTime()) return { status: 'expired' };
       const next: SessionRow = {
         id: randomUUID(),
         userId: old.userId,
@@ -128,10 +159,12 @@ export class MemoryRepositories implements Repositories {
         revokedAt: null,
         replacedBy: null,
         createdAt: now,
+        familyId: old.familyId,
+        familyStartedAt: old.familyStartedAt,
       };
       this.sessionRows.set(next.id, next);
       this.sessionRows.set(old.id, { ...old, revokedAt: now, replacedBy: next.id });
-      return { status: 'ok', userId: old.userId };
+      return { status: 'ok', userId: old.userId, familyId: old.familyId };
     },
   };
 

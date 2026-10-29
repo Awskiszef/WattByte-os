@@ -1,16 +1,26 @@
-import { ErrorResponse, UpdateMeRequest, UpdateUserSettingsRequest, UserDto, UserSettingsDto } from '@wattbyte/contracts';
+import {
+  AuthResponse,
+  ChangePasswordRequest,
+  ErrorResponse,
+  SessionListResponse,
+  UpdateMeRequest,
+  UpdateUserSettingsRequest,
+  UserDto,
+  UserSettingsDto,
+} from '@wattbyte/contracts';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
 import type { Repositories, SettingOrigin, UserSettingsRow } from '../../database/repositories.js';
 import { HttpError } from '../../errors/http-error.js';
 import { currentUser, requireAuth } from '../../middleware/auth.js';
-import { toUserDto } from '../auth/service.js';
+import { type AuthService, toUserDto } from '../auth/service.js';
 import type { TokenService } from '../auth/tokens.js';
 
 export interface UsersRoutesOptions {
   repos: Repositories;
   tokens: TokenService;
+  auth: AuthService;
 }
 
 export function toSettingsDto(s: UserSettingsRow | null, userId: string) {
@@ -52,7 +62,7 @@ function nextSource(given: SettingOrigin | null | undefined, changed: boolean, c
   return changed ? null : undefined;
 }
 
-export const usersRoutes: FastifyPluginAsyncZod<UsersRoutesOptions> = async (app, { repos, tokens }) => {
+export const usersRoutes: FastifyPluginAsyncZod<UsersRoutesOptions> = async (app, { repos, tokens, auth: authService }) => {
   const auth = requireAuth(tokens);
   const security = [{ bearerAuth: [] }];
 
@@ -146,6 +156,58 @@ export const usersRoutes: FastifyPluginAsyncZod<UsersRoutesOptions> = async (app
     },
     async (request, reply) => {
       await repos.users.delete(currentUser(request).userId);
+      return reply.status(204).send(null);
+    },
+  );
+
+  app.post(
+    '/me/password',
+    {
+      preHandler: auth,
+      // Guessing the current password through a stolen access token is a login attack: same per-client budget as login.
+      config: { rateLimit: { max: 10, timeWindow: '1 minute', groupId: 'credentials' } },
+      schema: {
+        tags: ['account'],
+        summary: 'Change the password; every device is signed out and a fresh session is returned for this one',
+        security,
+        body: ChangePasswordRequest,
+        response: { 200: AuthResponse, 400: ErrorResponse, 401: ErrorResponse, 429: ErrorResponse },
+      },
+    },
+    async (request) => authService.changePassword(currentUser(request).userId, request.body),
+  );
+
+  app.get(
+    '/me/sessions',
+    {
+      preHandler: auth,
+      schema: {
+        tags: ['account'],
+        summary: 'The devices that are signed in (one entry per sign-in), newest first',
+        security,
+        response: { 200: SessionListResponse, 401: ErrorResponse },
+      },
+    },
+    async (request) => {
+      const { userId, sid } = currentUser(request);
+      return { sessions: await authService.listSessions(userId, sid) };
+    },
+  );
+
+  app.delete(
+    '/me/sessions/:id',
+    {
+      preHandler: auth,
+      schema: {
+        tags: ['account'],
+        summary: 'Sign one device out (its refresh tokens and access tokens stop working at once)',
+        security,
+        params: z.object({ id: z.string().uuid() }),
+        response: { 204: z.null(), 401: ErrorResponse, 404: ErrorResponse },
+      },
+    },
+    async (request, reply) => {
+      await authService.revokeSession(currentUser(request).userId, request.params.id);
       return reply.status(204).send(null);
     },
   );

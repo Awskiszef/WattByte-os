@@ -39,7 +39,7 @@ describe('auth', () => {
     expect(anon.statusCode).toBe(401);
   });
 
-  it('rotates refresh tokens and revokes everything on reuse (outside the retry grace window)', async () => {
+  it('rotates refresh tokens and revokes THE DEVICE on reuse outside the retry grace window (not the account)', async () => {
     await ctx.app.close();
     ctx = await makeApp({ REFRESH_REUSE_GRACE_SEC: '0' });
     const reg = await registerUser(ctx.app);
@@ -48,24 +48,50 @@ describe('auth', () => {
     const next = first.json().tokens.refreshToken as string;
     expect(next).not.toBe(reg.tokens.refreshToken);
 
-    // Reusing the rotated token is treated as theft: the whole family dies.
+    // A second device of the same account.
+    const second = await ctx.app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email: reg.user.email, password: 'password123' } });
+    expect(second.statusCode).toBe(200);
+
+    // Reusing the rotated token is treated as theft: that device's session family dies, the other device lives on.
     const reuse = await ctx.app.inject({ method: 'POST', url: '/api/v1/auth/refresh', payload: { refreshToken: reg.tokens.refreshToken } });
     expect(reuse.statusCode).toBe(401);
     expect(reuse.json().error.code).toBe('refresh_token_reused');
     const afterReuse = await ctx.app.inject({ method: 'POST', url: '/api/v1/auth/refresh', payload: { refreshToken: next } });
     expect(afterReuse.statusCode).toBe(401);
+    const otherDevice = await ctx.app.inject({ method: 'POST', url: '/api/v1/auth/refresh', payload: { refreshToken: second.json().tokens.refreshToken } });
+    expect(otherDevice.statusCode).toBe(200);
   });
 
-  it('a concurrent retry with a just-rotated token is rejected without logging the user out', async () => {
+  it('a retry with a just-rotated token (a lost response) gets the same successor: no sign-out (A-05, C-03)', async () => {
     const reg = await registerUser(ctx.app);
     const results = await Promise.all(
       Array.from({ length: 10 }, () => ctx.app.inject({ method: 'POST', url: '/api/v1/auth/refresh', payload: { refreshToken: reg.tokens.refreshToken } })),
     );
-    expect(results.filter((r) => r.statusCode === 200)).toHaveLength(1);
-    expect(results.filter((r) => r.statusCode === 401)).toHaveLength(9);
-    const winner = results.find((r) => r.statusCode === 200)!.json().tokens.refreshToken as string;
-    const again = await ctx.app.inject({ method: 'POST', url: '/api/v1/auth/refresh', payload: { refreshToken: winner } });
+    expect(results.map((r) => r.statusCode)).toEqual(Array(10).fill(200));
+    const refreshTokens = new Set(results.map((r) => r.json().tokens.refreshToken as string));
+    expect(refreshTokens.size).toBe(1); // one successor, however many times the response was asked for
+    const again = await ctx.app.inject({ method: 'POST', url: '/api/v1/auth/refresh', payload: { refreshToken: [...refreshTokens][0] } });
     expect(again.statusCode).toBe(200);
+  });
+
+  it('logout with a stale (already rotated) token still signs the device out: its current token and access token stop working (A-06, A-08)', async () => {
+    const reg = await registerUser(ctx.app);
+    const rotated = await ctx.app.inject({ method: 'POST', url: '/api/v1/auth/refresh', payload: { refreshToken: reg.tokens.refreshToken } });
+    const current = rotated.json().tokens as { accessToken: string; refreshToken: string };
+    const other = await ctx.app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email: reg.user.email, password: 'password123' } });
+
+    // The sign-in-time token is what a device that never persisted its rotations would send.
+    const out = await ctx.app.inject({ method: 'POST', url: '/api/v1/auth/logout', payload: { refreshToken: reg.tokens.refreshToken } });
+    expect(out.statusCode).toBe(204);
+
+    expect((await ctx.app.inject({ method: 'POST', url: '/api/v1/auth/refresh', payload: { refreshToken: current.refreshToken } })).statusCode).toBe(401);
+    // the access token of that device is refused at once, not after it expires
+    const me = await ctx.app.inject({ method: 'GET', url: '/api/v1/me', headers: { authorization: `Bearer ${current.accessToken}` } });
+    expect(me.statusCode).toBe(401);
+    expect(me.json().error.code).toBe('session_revoked');
+    // another device of the same account is untouched
+    const otherMe = await ctx.app.inject({ method: 'GET', url: '/api/v1/me', headers: { authorization: `Bearer ${other.json().tokens.accessToken}` } });
+    expect(otherMe.statusCode).toBe(200);
   });
 
   it('logout revokes the refresh token and is idempotent', async () => {

@@ -19,7 +19,7 @@ describe('refresh reuse boundary (MemoryRepositories)', () => {
 
   defineRefreshEndpointBoundaryTests(async () => {
     let clock = new Date();
-    const ctx = await buildTestApp({ now: () => clock });
+    const ctx = await buildTestApp({ now: () => clock, env: { REFRESH_REUSE_GRACE_SEC: '10' } });
     return {
       app: ctx.app,
       repos: ctx.repos,

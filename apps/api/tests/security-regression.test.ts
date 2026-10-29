@@ -510,7 +510,8 @@ describe('authentication is required on every route that is not explicitly publi
     const printed = ctx.app.printRoutes({ commonPrefix: false });
     for (const { url } of table) {
       const last = url.split('/').filter(Boolean).pop() ?? '';
-      expect(printed, url).toContain(last.replace(/^:/, ':'));
+      // The radix tree prints shared prefixes once ('logout' with '-all' under it): look for the tail of the segment.
+      expect(printed, url).toContain(last.length > 4 ? last.slice(-4) : last);
     }
   });
 
@@ -559,7 +560,7 @@ describe('authentication is required on every route that is not explicitly publi
     const { errorHandler } = await import('../src/errors/http-error.js');
     const app = Fastify();
     app.setErrorHandler(errorHandler);
-    app.addHook('preParsing', authenticateUnlessPublic(new TokenService(TEST_SECRET, 900, 30), { users: { findById: async () => null } as never }));
+    app.addHook('preParsing', authenticateUnlessPublic(new TokenService(TEST_SECRET, 900, 30), { users: { findById: async () => null } as never, sessions: {} as never }));
     app.get('/forgot-auth', async () => ({ secret: true }));
     app.get('/meant-public', { config: { public: true } }, async () => ({ ok: true }));
     await app.ready();

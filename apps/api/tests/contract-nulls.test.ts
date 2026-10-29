@@ -113,6 +113,8 @@ const BODIES: Record<string, Body> = {
   'POST /api/v1/auth/apple': { auth: false, expect: [501], body: () => ({ idToken: 'x'.repeat(20) }) },
   'POST /api/v1/auth/google': { auth: false, expect: [501], body: () => ({ idToken: 'x'.repeat(20) }) },
   'PATCH /api/v1/me': { auth: true, body: () => ({ displayName: 'New Name' }) },
+  // A wrong current password: a valid shape with no side effect (a right one would sign every probe's own token out).
+  'POST /api/v1/me/password': { auth: true, expect: [401], body: () => ({ currentPassword: 'definitely not the password', newPassword: 'another long password' }) },
   'PUT /api/v1/me/settings': {
     auth: true,
     body: () => ({

@@ -34,6 +34,11 @@ const AUTHENTICATED: Record<string, Sample> = {
   'GET /api/v1/me': { live: [200] },
   'PATCH /api/v1/me': { payload: () => ({ displayName: 'Renamed' }), live: [200] },
   'DELETE /api/v1/me': { live: [204], destructive: true },
+  'GET /api/v1/me/sessions': { live: [200] },
+  'DELETE /api/v1/me/sessions/{id}': { url: () => `/api/v1/me/sessions/${UNKNOWN_UUID}`, live: [404] },
+  // A wrong current password: shape-valid, no side effect.
+  'POST /api/v1/me/password': { payload: () => ({ currentPassword: 'definitely not the password', newPassword: 'another long password' }), live: [401] },
+  'POST /api/v1/auth/logout-all': { live: [204], destructive: true },
   'GET /api/v1/me/settings': { live: [200] },
   // No country on purpose: a saved country would send the price route below to a price source.
   'PUT /api/v1/me/settings': { payload: () => ({ currencyCode: 'PLN' }), live: [200] },

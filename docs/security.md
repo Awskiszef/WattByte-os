@@ -79,7 +79,7 @@ leaks: no stack, SQL, constraint name, SQLSTATE, library wording or provider res
 | 400 | route codes | `invalid_ai_input`, `manual_price_required`, `invalid_range`, `duplicate_date`, ... |
 | 401 | `unauthorized` / `invalid_token` | no or bad bearer token |
 | 401 | `account_not_found` | valid token of a deleted account |
-| 401 | `invalid_credentials`, `invalid_refresh_token`, `refresh_token_expired`, `refresh_token_reused` | auth routes |
+| 401 | `invalid_credentials`, `invalid_refresh_token`, `refresh_token_expired`, `refresh_token_reused`, `refresh_token_revoked`, `session_revoked` | auth routes, any signed-out device's access token |
 | 403 | `forbidden` | reserved (no route answers it today) |
 | 404 | `not_found` | unknown path |
 | 404 | route codes | `device_not_found`, `device_not_registered`, `electricity_price_unavailable`, ... |
@@ -91,36 +91,51 @@ leaks: no stack, SQL, constraint name, SQLSTATE, library wording or provider res
 | 500 | `internal` | anything unexpected; message is always `Internal error` |
 | 503 | `ai_unavailable`, `feature_disabled` | the AI provider(s) the policy allowed failed, none is configured, or a spend limit is used up (the log tells which; the client is told nothing more); the feature flag is off |
 
-### Refresh token rotation and reuse (the real policy)
+### Sessions, refresh token rotation and reuse (the real policy)
 
-`POST /auth/refresh` consumes the presented token and issues a new pair. The consumed session row
-gets `revoked_at` (the rotation time) and `replaced_by` (its successor). Presenting a token whose
-row is already revoked is judged by **one rule**, with `gap = presentation time - rotation time`
-and `grace = REFRESH_REUSE_GRACE_SEC` (default 10 s):
+A sign-in (register, login, change of password) starts a **session family**: the refresh tokens that descend from it by
+rotation. One family is one signed-in device, and it is what logout, "sign out this device" and theft detection act on;
+`family_started_at` is the sign-in time. `POST /auth/refresh` consumes the presented token and issues a new pair: the
+consumed row gets `revoked_at` (the rotation time) and `replaced_by` (its successor). The successor is a keyed function
+of the old token (`TokenService.successorRefreshToken`, HMAC with the server secret), not a fresh random value, so a
+retry can be answered with the same one. Presenting a token whose row is already revoked is judged by **one rule**, with
+`gap = presentation time - rotation time` and `grace = REFRESH_REUSE_GRACE_SEC` (default **60 s**, longer than the app's
+20 s request timeout):
 
 | Case | Result | Effect |
 |---|---|---|
-| `gap < grace` and the token was rotated (it has a successor) | `401 refresh_token_reused`, message "Refresh token was already used" | **retry**: nothing else is revoked, the successor and the user's other sessions stay valid |
-| `gap >= grace`, or the token was revoked without a successor (logout, earlier theft response) | `401 refresh_token_reused`, message "...all sessions were revoked" | **theft**: every live session of the user is revoked |
+| rotated token, `gap < grace`, successor still unused | `200` with **the same refresh token** as the first answer (and a new access token) | **retry after a lost response**: nothing is revoked, the device continues |
+| rotated token, `gap >= grace`, or its successor was already used | `401 refresh_token_reused` ("...this session was revoked") | **suspected theft**: the token's **family** (that one device) is revoked; the user's other devices are untouched |
+| token revoked without a successor (logout, sign out everywhere, an earlier theft response) | `401 refresh_token_revoked` | nothing else changes (a stale device waking up cannot kill the session the user just created) |
 | unknown token | `401 invalid_refresh_token` | nothing changes |
-| expired token | `401 refresh_token_expired` | nothing changes |
+| expired token, or a family older than `SESSION_ABSOLUTE_LIFETIME_DAYS` (default 90) | `401 refresh_token_expired` | nothing changes |
 
-The boundary belongs to theft: with the default grace, **9.9 s is a retry, 10.0 s is theft, 10.1 s
-is theft** (1 ms below the grace is still a retry). `REFRESH_REUSE_GRACE_SEC=0` turns the retry
-window off. The rule is implemented once in `SessionRepository.rotate({ now, graceMs })` (compare
-`now - revoked_at < graceMs`) and decided by the injected clock, so
-`apps/api/tests/refresh-boundary.shared.ts` checks it to the millisecond for `MemoryRepositories`
-and PostgreSQL, and through `POST /auth/refresh` with a fake clock.
+The boundary belongs to theft: with a grace of 10 s, **9.9 s is a retry, 10.0 s is theft, 10.1 s is theft** (1 ms
+below the grace is still a retry). `REFRESH_REUSE_GRACE_SEC=0` turns the retry window off. The rule is implemented once in
+`SessionRepository.rotate({ now, graceMs, absoluteLifetimeMs })` and decided by the injected clock, so
+`apps/api/tests/refresh-boundary.shared.ts` checks it to the millisecond for `MemoryRepositories` and PostgreSQL, and
+through `POST /auth/refresh` with a fake clock.
 
 Consequences worth knowing:
 
-* Of N concurrent refreshes with one token exactly one succeeds (row lock); the others are retries.
-* A retry is **rejected, not answered**: the server never keeps a token it could replay. A client
-  that lost the response of the winning refresh therefore cannot recover with the old token and has
-  to sign in again; its other devices stay signed in. Clients must treat `refresh_token_reused` as
-  "sign in again".
-* A token revoked by **logout** that is presented again is treated as theft (it has no successor):
-  a stale background refresh after logout revokes the user's other sessions as well.
+* Of N concurrent refreshes with one token exactly one rotates (row lock); the others are retries and receive the same
+  successor. Only a presenter of the old token within the grace window can obtain it: that window is the price of making
+  a lost response harmless, and a stolen old token used inside it yields the same successor the real client holds (the
+  next legitimate refresh by either party continues the chain; a second use of the old token after the window revokes it).
+* A device that lost a response and only comes back **after** the grace window cannot recover: its family is revoked and
+  it signs in again. Its other devices stay signed in (this used to sign out the whole account).
+* **Sign out** revokes the whole family of whichever token the device presents, the sign-in-time one included
+  (`POST /auth/logout`); `POST /auth/logout-all` revokes every family of the account and `DELETE /me/sessions/{id}` one device.
+* **Access tokens** carry the family id (`sid`) and are checked on every request against the account and the family: a
+  token of a signed-out device, and every token issued before "sign out everywhere" or a password change
+  (`users.tokens_valid_after`, second resolution), stops working at once instead of living on until it expires. Tokens
+  issued before families existed have no `sid` and are accepted until they expire (at most `ACCESS_TOKEN_TTL_SEC`,
+  which is capped at one hour).
+* `POST /me/password` needs the current password (throttled like a login), signs every device out and returns a fresh
+  session for the caller. `GET /me/sessions` lists the live devices.
+* Not done: `DELETE /me` still needs only a bearer token (adding a password would break installed apps; it needs a
+  coordinated client change), and there is no e-mail verification or password reset (needs an outbound e-mail
+  provider, see `docs/remediation/BLOCKERS.md`).
 
 ### Logging
 
@@ -170,10 +185,9 @@ authenticated-by-default route audit, and rate limiting of the credential routes
 - Sign in with Apple / Google (routes answer 501 until configured).
 - Store receipt verification for subscriptions (table exists, no endpoint).
 - Secret management / TLS termination belong to the deployment, not to this repo.
-- Clock source of the refresh reuse window: PostgreSQL stamps `sessions.revoked_at` with its own
-  `now()` while the comparison uses the API's clock. With skew between the two hosts the effective grace
-  shifts by the skew (keep both NTP-synced). The fix is to write the `now` that `rotate()` already
-  receives instead of `now()`; the boundary tests pin `revoked_at` explicitly, so they hold either way.
+- Clock source of the refresh reuse window: `rotate()` stamps `revoked_at` with the `now` it receives (the API's clock), the
+  same clock the grace window is compared with; `revoke`/`revokeFamily` (logout) use the database's `now()`, which only
+  matters for the retention cut-off.
 - No per-account login throttle: the credential limiter is per IP, so a distributed guess against one
   account is not slowed beyond scrypt's cost.
 - Access tokens cannot be revoked before they expire (default 15 min); a deleted account's token is

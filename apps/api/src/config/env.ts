@@ -55,13 +55,15 @@ const EnvSchema = z
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
     DATABASE_URL: z.string().url().optional(),
     JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
-    ACCESS_TOKEN_TTL_SEC: z.coerce.number().int().positive().default(900),
+    ACCESS_TOKEN_TTL_SEC: z.coerce.number().int().positive().max(3600).default(900),
     REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
     /**
      * A rotated refresh token presented again less than this long after its rotation is a retry
      * (rejected, no other session touched); at or beyond it, it is treated as theft.
      */
-    REFRESH_REUSE_GRACE_SEC: z.coerce.number().int().nonnegative().default(10),
+    REFRESH_REUSE_GRACE_SEC: z.coerce.number().int().nonnegative().max(600).default(60),
+    /** A sign-in (a session family) ends this long after it started, however often its refresh token rotates. */
+    SESSION_ABSOLUTE_LIFETIME_DAYS: z.coerce.number().int().min(1).max(3650).default(90),
     /** Set to the number of reverse proxies in front of the API; 0 trusts no forwarded header. */
     TRUST_PROXY_HOPS: z.coerce.number().int().nonnegative().default(0),
     /**
@@ -331,6 +333,5 @@ export function envWarnings(env: Env): string[] {
   if (env.TRUST_PROXY_HOPS === 0 && !env.TRUST_PROXY_CIDRS) {
     out.push('TRUST_PROXY_HOPS=0: behind a reverse proxy every client shares the proxy address and one rate-limit bucket');
   }
-  if (env.ACCESS_TOKEN_TTL_SEC > 3600) out.push('ACCESS_TOKEN_TTL_SEC is above one hour; a stolen access token cannot be revoked before it expires');
   return out;
 }

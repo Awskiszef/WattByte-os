@@ -158,6 +158,9 @@ export async function buildApp(deps: AppDeps): Promise<App> {
         UserDto: contracts.UserDto,
         TokenPair: contracts.TokenPair,
         AuthResponse: contracts.AuthResponse,
+        ChangePasswordRequest: contracts.ChangePasswordRequest,
+        SessionDto: contracts.SessionDto,
+        SessionListResponse: contracts.SessionListResponse,
         UpdateMeRequest: contracts.UpdateMeRequest,
         DeviceRegisterRequest: contracts.DeviceRegisterRequest,
         DeviceDto: contracts.DeviceDto,
@@ -208,7 +211,7 @@ export async function buildApp(deps: AppDeps): Promise<App> {
   app.addHook('preParsing', authenticateUnlessPublic(tokens, repos));
   // PostgreSQL text cannot hold U+0000: refuse it as invalid input instead of letting the insert fail as a 500.
   app.addHook('preValidation', rejectNulCharacters);
-  const auth = new AuthService(repos, tokens, deps.now, env.REFRESH_REUSE_GRACE_SEC * 1000);
+  const auth = new AuthService(repos, tokens, deps.now, env.REFRESH_REUSE_GRACE_SEC * 1000, env.SESSION_ABSOLUTE_LIFETIME_DAYS * 86_400_000);
   // The AI routes pass `request.log` per call, so AI log lines carry the request id.
   const ai = new AiService(repos, deps.gateway, aiDailyLimits, deps.now);
 
@@ -233,8 +236,8 @@ export async function buildApp(deps: AppDeps): Promise<App> {
 
   await app.register(
     async (v1) => {
-      await v1.register(authRoutes, { service: auth, rateLimitMax: deps.authRateLimitMax ?? env.AUTH_RATE_LIMIT_PER_MIN, refreshRateLimitMax: deps.refreshRateLimitMax ?? env.REFRESH_RATE_LIMIT_PER_MIN });
-      await v1.register(usersRoutes, { repos, tokens });
+      await v1.register(authRoutes, { service: auth, tokens, rateLimitMax: deps.authRateLimitMax ?? env.AUTH_RATE_LIMIT_PER_MIN, refreshRateLimitMax: deps.refreshRateLimitMax ?? env.REFRESH_RATE_LIMIT_PER_MIN });
+      await v1.register(usersRoutes, { repos, tokens, auth });
       await v1.register(cloudRoutes, { repos, tokens });
       await v1.register(devicesRoutes, { repos, tokens });
       await v1.register(usageRoutes, { repos, tokens, features });

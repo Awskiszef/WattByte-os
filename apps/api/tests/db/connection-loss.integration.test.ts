@@ -48,7 +48,7 @@ describe.skipIf(!DATABASE_URL)('lost connection during a transaction (PostgreSQL
     const userId = (user.rows[0] as { id: string }).id;
     userIds.push(userId);
     const hash = randomUUID();
-    await admin.query('INSERT INTO sessions(user_id, refresh_hash, expires_at) VALUES ($1, $2, now() + interval \'1 day\')', [userId, hash]);
+    await admin.query("INSERT INTO sessions(id, family_id, family_started_at, user_id, refresh_hash, expires_at) VALUES (gen_random_uuid(), gen_random_uuid(), now(), $1, $2, now() + interval '1 day')", [userId, hash]);
 
     // Hold the row lock so rotate()'s SELECT ... FOR UPDATE blocks inside its transaction.
     const blocker = await admin.connect();
@@ -56,7 +56,7 @@ describe.skipIf(!DATABASE_URL)('lost connection during a transaction (PostgreSQL
       await blocker.query('BEGIN');
       await blocker.query('SELECT 1 FROM sessions WHERE refresh_hash = $1 FOR UPDATE', [hash]);
 
-      const rotation = repos.sessions.rotate({ oldHash: hash, newHash: randomUUID(), newExpiresAt: new Date(Date.now() + 1e6), now: new Date(), graceMs: 10_000 });
+      const rotation = repos.sessions.rotate({ oldHash: hash, newHash: randomUUID(), newExpiresAt: new Date(Date.now() + 1e6), now: new Date(), graceMs: 10_000, absoluteLifetimeMs: 86_400_000 });
       const settled = rotation.then(() => 'resolved' as const, (e: unknown) => e);
       const pid = await waitingBackend();
       await admin.query('SELECT pg_terminate_backend($1)', [pid]);

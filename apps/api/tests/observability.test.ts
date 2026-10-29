@@ -78,7 +78,8 @@ describe('logs never contain secrets, personal data or AI text', () => {
 
   it('survives register, login, refresh, logout, an AI call, a sync and every kind of error', async () => {
     const log = new LogCapture();
-    const { app, memory, providers } = await make({ logStream: log });
+    // Grace 0: presenting the rotated token again is the error path (a 401 with a token in the request) this test logs.
+    const { app, memory, providers } = await make({ logStream: log, env: { REFRESH_REUSE_GRACE_SEC: '0' } });
     const trigger = memory.users.findByEmail;
     memory.users.findByEmail = async (email) => {
       if (email.startsWith('boom.')) throw pgStyleError(email);
@@ -123,21 +124,23 @@ describe('logs never contain secrets, personal data or AI text', () => {
     expect(malformed.statusCode).toBe(400);
     const unknownRoute = await app.inject({ method: 'GET', url: `/api/v1/users/${EMAIL}/profile?email=${EMAIL}&token=${tokens[0]}` });
     expect(unknownRoute.statusCode).toBe(404);
-    const reuse = await app.inject({ method: 'POST', url: '/api/v1/auth/refresh', payload: { refreshToken: login.json().tokens.refreshToken } });
-    expect(reuse.statusCode).toBe(401);
     const badToken = await app.inject({ method: 'GET', url: '/api/v1/me', headers: { authorization: `Bearer ${tokens[0]!.slice(0, -4)}xxxx` } });
     expect(badToken.statusCode).toBe(401);
     const boom = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email: `boom.${EMAIL}`, password: PASSWORD } });
     expect(boom.statusCode).toBe(500);
     const badAi = await app.inject({ method: 'POST', url: '/api/v1/ai/insight', headers, payload: { input: { ...sampleAiInput, email: EMAIL } } });
     expect(badAi.statusCode).toBe(400);
-    const logout = await app.inject({ method: 'POST', url: '/api/v1/auth/logout', payload: { refreshToken: refresh.json().tokens.refreshToken } });
-    expect(logout.statusCode).toBe(204);
 
     // an AI failure whose provider text echoes the prompt
     for (const [id, p] of Object.entries(providers)) p.set({ fail: new ProviderError(id as 'openai', `HTTP 400 ${PROVIDER_ERROR_CANARY} ${AI_INPUT_CANARY_GB}`, 400) });
     const failing = await app.inject({ method: 'POST', url: '/api/v1/ai/weekly-summary', headers, payload: { input: { ...sampleAiInput, mobileDataGb: AI_INPUT_CANARY_GB } } });
     expect(failing.statusCode).toBe(503);
+
+    // Last: both end the device's session, which also ends its access token (A-08).
+    const reuse = await app.inject({ method: 'POST', url: '/api/v1/auth/refresh', payload: { refreshToken: login.json().tokens.refreshToken } });
+    expect(reuse.statusCode).toBe(401);
+    const logout = await app.inject({ method: 'POST', url: '/api/v1/auth/logout', payload: { refreshToken: refresh.json().tokens.refreshToken } });
+    expect(logout.statusCode).toBe(204);
 
     const text = log.text();
     expect(log.lines.length).toBeGreaterThan(30);

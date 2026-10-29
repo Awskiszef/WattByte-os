@@ -158,11 +158,14 @@ describe('development stays permissive', () => {
 });
 
 describe('warnings for allowed-but-risky production settings', () => {
-  it('flags an unconfigured proxy count and very long access tokens', () => {
-    const warnings = envWarnings(loadEnv({ ...production, TRUST_PROXY_HOPS: '0', ACCESS_TOKEN_TTL_SEC: '7200' })).join('\n');
-    expect(warnings).toMatch(/TRUST_PROXY_HOPS=0/);
-    expect(warnings).toMatch(/ACCESS_TOKEN_TTL_SEC/);
+  it('flags an unconfigured proxy count', () => {
+    expect(envWarnings(loadEnv({ ...production, TRUST_PROXY_HOPS: '0' })).join('\n')).toMatch(/TRUST_PROXY_HOPS=0/);
     expect(envWarnings(loadEnv({ ...production, TRUST_PROXY_HOPS: '1' })).join('\n')).not.toMatch(/TRUST_PROXY_HOPS/);
+  });
+
+  it('an access token cannot be configured to live longer than an hour (A-08): it can only be revoked through its device', () => {
+    expect(() => loadEnv({ ...production, ACCESS_TOKEN_TTL_SEC: '7200' })).toThrow(/ACCESS_TOKEN_TTL_SEC/);
+    expect(loadEnv({ ...production, ACCESS_TOKEN_TTL_SEC: '3600' }).ACCESS_TOKEN_TTL_SEC).toBe(3600);
   });
 });
 
@@ -176,7 +179,7 @@ describe('new settings', () => {
 
   it('retention, readiness timeout and log level have safe defaults and bounds', () => {
     const env = loadEnv({ ...base, NODE_ENV: 'development' });
-    expect(env).toMatchObject({ AI_HISTORY_RETENTION_DAYS: 90, READY_DB_TIMEOUT_MS: 2000, LOG_LEVEL: 'info', REFRESH_REUSE_GRACE_SEC: 10 });
+    expect(env).toMatchObject({ AI_HISTORY_RETENTION_DAYS: 90, READY_DB_TIMEOUT_MS: 2000, LOG_LEVEL: 'info', REFRESH_REUSE_GRACE_SEC: 60, SESSION_ABSOLUTE_LIFETIME_DAYS: 90 });
     expect(() => loadEnv({ ...base, NODE_ENV: 'development', AI_HISTORY_RETENTION_DAYS: '0' })).toThrow(/AI_HISTORY_RETENTION_DAYS/);
     expect(() => loadEnv({ ...base, NODE_ENV: 'development', AI_HISTORY_RETENTION_DAYS: '1.5' })).toThrow(/AI_HISTORY_RETENTION_DAYS/);
     expect(() => loadEnv({ ...base, NODE_ENV: 'development', READY_DB_TIMEOUT_MS: '5' })).toThrow(/READY_DB_TIMEOUT_MS/);

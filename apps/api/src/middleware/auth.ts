@@ -50,13 +50,24 @@ export function requireAuth(tokens: TokenService) {
  * quotas is read from that same row, so a downgrade applies at once instead of when the token expires.
  * Cost: one primary-key lookup per authenticated request.
  */
-export function authenticateUnlessPublic(tokens: TokenService, repos: Pick<Repositories, 'users'>) {
+export function authenticateUnlessPublic(tokens: TokenService, repos: Pick<Repositories, 'users' | 'sessions'>) {
   return async (request: FastifyRequest, _reply: FastifyReply): Promise<void> => {
     if (request.is404 || request.routeOptions.config?.public) return;
     const claims = await authenticate(tokens, request);
     const user = await repos.users.findById(claims.userId);
     if (!user) throw HttpError.unauthorized('account_not_found', 'The account no longer exists');
-    request.user = { userId: user.id, plan: user.plan };
+    // "Sign out everywhere" and a password change refuse the access tokens issued before them (second resolution: a
+    // token issued in the same second as the cut-off is still accepted, which is what lets a fresh sign-in through).
+    if (user.tokensValidAfter && claims.iat !== undefined && claims.iat < Math.floor(user.tokensValidAfter.getTime() / 1000)) {
+      throw HttpError.unauthorized('session_revoked', 'This session was signed out');
+    }
+    // An access token belongs to a device (its session family): once that device is signed out the token stops working at
+    // once instead of living on until it expires (A-08). Tokens from before families existed carry no `sid` and are
+    // accepted until they expire (at most ACCESS_TOKEN_TTL_SEC).
+    if (claims.sid && !(await repos.sessions.familyLive(claims.sid, new Date()))) {
+      throw HttpError.unauthorized('session_revoked', 'This session was signed out');
+    }
+    request.user = { userId: user.id, plan: user.plan, ...(claims.sid ? { sid: claims.sid } : {}) };
   };
 }
 
