@@ -101,8 +101,12 @@ class AuthController extends AsyncNotifier<AuthState> {
   Future<void> signOut() async {
     final current = state.value;
     if (current is SignedIn) {
+      // The token the store holds NOW: the one captured at sign-in is stale after the first silent refresh (F-01).
+      // The server revokes the whole device, so even a stale one would work, but the current one is the right one.
+      final token = (await _sessions.current())?.refreshToken ??
+          current.session.refreshToken;
       try {
-        await _repo.signOut(current.session.refreshToken);
+        await _repo.signOut(token);
       } on AuthException {
         // Local sign-out still proceeds; the server token expires on its own.
       }

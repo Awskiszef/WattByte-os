@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../core/error_log.dart';
 import '../features/auth/domain/auth_models.dart';
 import 'api_failure.dart';
 
@@ -62,20 +63,52 @@ class SessionManager {
   /// Number of refresh requests actually sent (diagnostics and tests).
   int refreshCalls = 0;
 
-  Future<AuthSession?> current() async => _session ??= await _store.read();
+  /// The active session: the one in memory, else the stored one.
+  ///
+  /// A read that was in flight while the session was cleared or replaced must not bring the old session back
+  /// (F-16): the epoch tells whether anything changed meanwhile. A store that cannot be read (Keychain locked,
+  /// Keystore error) is "no session" for this call, never an exception: the form must still be usable.
+  Future<AuthSession?> current() async {
+    final cached = _session;
+    if (cached != null) return cached;
+    final epoch = _epoch;
+    final read = await _readStore();
+    if (_epoch != epoch) return _session;
+    return _session ??= read;
+  }
+
+  Future<AuthSession?> _readStore() async {
+    try {
+      return await _store.read();
+    } catch (e, st) {
+      reportError(e, st, 'token store read');
+      return null;
+    }
+  }
 
   /// Makes [session] the active one (after sign-in) and persists it.
+  ///
+  /// A store that cannot be written does not fail the sign-in (an endless spinner): the session works in memory
+  /// for this run, and the failure is recorded (F-10).
   Future<void> adopt(AuthSession session) async {
     if (_session?.user.id != session.user.id) _epoch++;
     _session = session;
-    await _store.write(session);
+    try {
+      await _store.write(session);
+    } catch (e, st) {
+      reportError(e, st, 'token store write');
+    }
   }
 
-  /// Forgets the session locally.
+  /// Forgets the session locally. Never throws: a Keychain that refuses to delete must not make sign-out impossible.
   Future<void> clear() async {
     _epoch++;
     _session = null;
-    await _store.clear();
+    try {
+      await _store.clear();
+    } catch (e, st) {
+      reportError(e, st, 'token store clear');
+    }
   }
 
   /// The stored session with a usable access token, refreshing it if needed.
@@ -114,7 +147,7 @@ class SessionManager {
       if (_epoch != epoch) {
         throw const AuthException(AuthError.sessionExpired);
       }
-      final stored = await _store.read();
+      final stored = await _readStore();
       if (stored != null &&
           stored.refreshToken != used.refreshToken &&
           !stored.isExpired(_clock())) {

@@ -77,17 +77,21 @@ class SecureTokenStore implements TokenStore {
     );
   }
 
+  /// One key after the other, the refresh token FIRST. The record is seven items and a write can be cut short (the
+  /// app is killed): in that order the worst case is a new refresh token with an old, already expired access token,
+  /// which the next start simply refreshes. The reverse (a consumed refresh token next to a fresh access token) would
+  /// be a session that only the server's retry window can still save.
   @override
-  Future<void> write(AuthSession s) => Future.wait([
-        _storage.write(key: _access, value: s.accessToken),
-        _storage.write(key: _refresh, value: s.refreshToken),
-        _storage.write(
-            key: _expires, value: s.expiresAt.toUtc().toIso8601String()),
-        _storage.write(key: _userId, value: s.user.id),
-        _storage.write(key: _email, value: s.user.email),
-        _storage.write(key: _name, value: s.user.displayName ?? ''),
-        _storage.write(key: _plan, value: s.user.plan.name),
-      ]);
+  Future<void> write(AuthSession s) async {
+    await _storage.write(key: _refresh, value: s.refreshToken);
+    await _storage.write(key: _access, value: s.accessToken);
+    await _storage.write(
+        key: _expires, value: s.expiresAt.toUtc().toIso8601String());
+    await _storage.write(key: _userId, value: s.user.id);
+    await _storage.write(key: _email, value: s.user.email);
+    await _storage.write(key: _name, value: s.user.displayName ?? '');
+    await _storage.write(key: _plan, value: s.user.plan.name);
+  }
 
   @override
   Future<void> clear() => Future.wait([

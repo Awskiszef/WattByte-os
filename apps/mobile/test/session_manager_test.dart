@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wattbyte/api/api_failure.dart';
 import 'package:wattbyte/api/session_manager.dart';
@@ -8,6 +10,8 @@ import 'package:wattbyte/generated/api/api.dart';
 import 'support/fake_auth.dart';
 
 void main() {
+  sessionStoreRobustness();
+
   late InMemoryTokenStore store;
   late FakeAuthRepository repo;
   late SessionManager manager;
@@ -353,6 +357,93 @@ void main() {
       expect((await manager.current())!.user.id, 'b');
       expect((await store.read())!.user.id, 'b');
       expect(signedOut, 0, reason: 'no "signed out" event for B');
+    });
+  });
+}
+
+/// A token store whose operations can be made slow or failing, for the cases a Keychain/Keystore really produces.
+class _FlakyStore implements TokenStore {
+  _FlakyStore(this._inner);
+  final InMemoryTokenStore _inner;
+  Future<void>? readGate;
+  bool failRead = false;
+  bool failWrite = false;
+  bool failClear = false;
+
+  @override
+  Future<AuthSession?> read() async {
+    final gate = readGate;
+    final value =
+        await _inner.read(); // the value as it was when the read started
+    if (gate != null) await gate;
+    if (failRead) throw StateError('keychain locked');
+    return value;
+  }
+
+  @override
+  Future<void> write(AuthSession s) async {
+    if (failWrite) throw StateError('keystore write failed');
+    await _inner.write(s);
+  }
+
+  @override
+  Future<void> clear() async {
+    if (failClear) throw StateError('keychain delete failed');
+    await _inner.clear();
+  }
+}
+
+void sessionStoreRobustness() {
+  group('a slow or failing token store (F-16, F-10)', () {
+    late InMemoryTokenStore inner;
+    late _FlakyStore store;
+    late SessionManager manager;
+
+    setUp(() {
+      inner = InMemoryTokenStore();
+      store = _FlakyStore(inner);
+      manager = SessionManager(store: store, repository: FakeAuthRepository());
+    });
+
+    test(
+        'a store read that is still in flight when the user signs out does not bring the old session back',
+        () async {
+      await inner.write(session('old'));
+      final gate = Completer<void>();
+      store.readGate = gate.future;
+      final reading =
+          manager.current(); // starts the read of the stored session
+      await manager.clear(); // sign-out while it is in flight
+      gate.complete();
+      expect(await reading, isNull);
+      store.readGate = null;
+      expect(await manager.current(),
+          isNull); // and nothing was cached from the stale read
+    });
+
+    test('a store that cannot be read is "no session", not an exception',
+        () async {
+      await inner.write(session('old'));
+      store.failRead = true;
+      expect(await manager.current(), isNull);
+    });
+
+    test(
+        'a store that cannot be written does not fail the sign-in: the session works in memory',
+        () async {
+      store.failWrite = true;
+      await manager.adopt(session('new'));
+      expect((await manager.current())?.accessToken, 'access-new');
+      expect((await manager.validSession()).accessToken, 'access-new');
+    });
+
+    test('a store that cannot be cleared does not block sign-out', () async {
+      await manager.adopt(session('new'));
+      store.failClear = true;
+      await manager.clear();
+      expect(manager.accountEpoch, greaterThan(0));
+      store.failRead = true; // the stale record cannot be read back either
+      expect(await manager.current(), isNull);
     });
   });
 }

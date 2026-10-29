@@ -6,6 +6,17 @@ import 'package:wattbyte/features/auth/domain/auth_models.dart';
 import 'package:wattbyte/cloud_providers.dart' show accountDeletedHookProvider;
 import 'package:wattbyte/features/auth/presentation/auth_controller.dart';
 
+/// Records the refresh token the app asks the server to revoke.
+class _RecordingRepo extends MockAuthRepository {
+  final signedOutWith = <String>[];
+
+  @override
+  Future<void> signOut(String refreshToken) async {
+    signedOutWith.add(refreshToken);
+    await super.signOut(refreshToken);
+  }
+}
+
 void main() {
   ProviderContainer make({AuthRepository? repo, TokenStore? store}) =>
       ProviderContainer(overrides: [
@@ -114,5 +125,27 @@ void main() {
       await auth.signOut();
       expect(calls, isEmpty);
     });
+  });
+
+  test(
+      'sign-out sends the refresh token the store holds now, not the one captured at sign-in (F-01)',
+      () async {
+    final repo = _RecordingRepo();
+    final c = make(repo: repo);
+    await c.read(authControllerProvider.future);
+    await c
+        .read(authControllerProvider.notifier)
+        .signInWithEmail('a@b.c', 'password');
+    final signedIn = (c.read(authControllerProvider).value as SignedIn).session;
+
+    // A silent refresh rotated the token: the store has a new one, the controller state still holds the first.
+    await c.read(sessionManagerProvider).adopt(AuthSession(
+        accessToken: 'rotated-access',
+        refreshToken: 'rotated-refresh',
+        expiresAt: DateTime.now().add(const Duration(minutes: 15)),
+        user: signedIn.user));
+
+    await c.read(authControllerProvider.notifier).signOut();
+    expect(repo.signedOutWith, ['rotated-refresh']);
   });
 }
