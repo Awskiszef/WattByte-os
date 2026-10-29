@@ -67,6 +67,33 @@ class SessionBuilder {
     return SessionBuildResult(closed: closed, open: run);
   }
 
+  /// Samples of a charge still in progress that can be dropped without changing the session it will become: the first
+  /// and the last samples, everything within [keepRecent] of the end, and every sample whose removal would open a gap
+  /// above [sparseGap] are kept (so start, end, levels, counters and the sparse flag stay what they are). A phone that
+  /// stays plugged in for days otherwise carries (and re-reads on every refresh) a sample per minute for all of it (G-18).
+  static List<BatterySample> redundantSamples(
+    List<BatterySample> run, {
+    Duration sparseGap = const Duration(minutes: 15),
+    Duration keepRecent = const Duration(minutes: 30),
+  }) {
+    if (run.length < 3) return const [];
+    final cutoff = run.last.time.subtract(keepRecent);
+    final drop = <BatterySample>[];
+    var lastKept = run.first;
+    for (var i = 1; i < run.length - 1; i++) {
+      final s = run[i];
+      if (!s.time.isBefore(cutoff)) break;
+      final next = run[i + 1];
+      // Dropping [s] leaves lastKept -> next as one step: allowed while it stays within the sparse gap.
+      if (next.time.difference(lastKept.time) <= sparseGap) {
+        drop.add(s);
+      } else {
+        lastKept = s;
+      }
+    }
+    return drop;
+  }
+
   /// [maxGap] is a hint, not a wall. Two PLUGGED samples further apart than that are still one charge when nothing
   /// says otherwise: the level did not fall and the charge / energy counters did not fall. The worker was deferred or
   /// killed, or (iOS) nothing ran overnight; cutting there threw away the charge between them. The longer gap makes

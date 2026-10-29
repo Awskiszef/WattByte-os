@@ -430,6 +430,17 @@ class WattByteDb {
               ))
           .toList();
 
+  /// Deletes exactly these samples (same instant and source).
+  Future<void> deleteSamples(Iterable<BatterySample> samples) async {
+    final b = _db.batch();
+    for (final s in samples) {
+      b.delete('battery_samples',
+          where: 'time_ms = ? AND source = ?',
+          whereArgs: [s.time.millisecondsSinceEpoch, s.source]);
+    }
+    await b.commit(noResult: true);
+  }
+
   Future<void> deleteSamplesBefore(DateTime t) => _db.delete('battery_samples',
       where: 'time_ms < ?', whereArgs: [t.millisecondsSinceEpoch]);
 
@@ -647,7 +658,11 @@ class WattByteDb {
   /// device ids. They are consent and identity records, not statistics: wiping them
   /// would silently switch cloud sync off for everyone and register this phone as a
   /// new device in every account.
-  Future<void> resetAll() => _db.transaction((txn) async {
+  ///
+  /// The instant of the reset is kept ([metaResetAtMs]): Android re-reads up to 90 days of history from the system, and
+  /// the charging worker's file may still hold samples, which would bring back what was just erased (G-17). The collector
+  /// never goes behind it.
+  Future<void> resetAll({DateTime? at}) => _db.transaction((txn) async {
         for (final t in [
           'daily_data',
           'battery_samples',
@@ -659,17 +674,33 @@ class WattByteDb {
           await txn.delete(t);
         }
         await txn.delete('meta',
-            where: 'key != ? AND key != ? AND substr(key, 1, ?) != ? '
-                'AND substr(key, 1, ?) != ?',
+            where: 'key != ? AND key != ? AND key != ? '
+                'AND substr(key, 1, ?) != ? AND substr(key, 1, ?) != ?',
             whereArgs: [
               metaInstallationId,
               metaLegacyOwner,
+              metaResetAtMs,
               metaAccountPrefix.length,
               metaAccountPrefix,
               metaDevicePrefix.length,
               metaDevicePrefix,
             ]);
+        await txn.insert(
+            'meta',
+            {
+              'key': metaResetAtMs,
+              'value': (at ?? DateTime.now()).millisecondsSinceEpoch.toString(),
+            },
+            conflictAlgorithm: ConflictAlgorithm.replace);
       });
+
+  /// Epoch milliseconds of the last "Reset statistics"; absent when it was never used.
+  static const metaResetAtMs = 'reset_at_ms';
+
+  Future<DateTime?> resetAt() async {
+    final v = int.tryParse(await meta(metaResetAtMs) ?? '');
+    return v == null ? null : DateTime.fromMillisecondsSinceEpoch(v);
+  }
 
   static Map<String, Object?> _dailyToMap(DailyData r) => {
         'day': dayKey(r.day),

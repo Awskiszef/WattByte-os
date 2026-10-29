@@ -44,6 +44,9 @@ class Collector {
   static const androidHistoryDays = 90;
   static const metaIface = 'iface_counters';
 
+  /// An open charge with more samples than this is thinned after every pass (see [SessionBuilder.redundantSamples]).
+  static const thinOpenRunAbove = 180;
+
   // The estimated full-charge capacity of this battery
   // ([EstimatedFullChargeCapacity]) is kept in the meta table. The key strings
   // still say "calibrated capacity" so existing installs keep their reading;
@@ -82,8 +85,14 @@ class Collector {
     if (caps.isAndroid) {
       if (!caps.usageAccessGranted) return;
       final latest = await db.latestDay();
-      final floor =
+      var floor =
           DateTime(today.year, today.month, today.day - androidHistoryDays);
+      // "Reset statistics" is not undone by the next pass: the system's history before it stays out (G-17).
+      final resetAt = await db.resetAt();
+      if (resetAt != null) {
+        final resetDay = dayOf(resetAt);
+        if (resetDay.isAfter(floor)) floor = resetDay;
+      }
       // Re-read the last two stored days: the system flushes stats with a delay.
       var from = latest == null
           ? floor
@@ -123,9 +132,13 @@ class Collector {
     // before any other call that can fail, and the native side deletes them only after that succeeded (H-05, G-11). If
     // anything here throws, the next pass receives the same batch again; storing a sample twice is a no-op.
     final batch = await system.peekSamples();
-    if (batch.samples.isNotEmpty) {
-      await db.insertSamples([for (final r in batch.samples) _sample(r)]);
-    }
+    // Samples taken before the last "Reset statistics" belong to what the user erased: acknowledged below, not stored.
+    final resetAtMs = (await db.resetAt())?.millisecondsSinceEpoch ?? 0;
+    final kept = [
+      for (final r in batch.samples)
+        if (r.timeMs >= resetAtMs) _sample(r),
+    ];
+    if (kept.isNotEmpty) await db.insertSamples(kept);
     try {
       await system.ackSamples(batch.token);
     } catch (e, st) {
@@ -149,6 +162,10 @@ class Collector {
       final keepFrom =
           res.open.isNotEmpty ? res.open.first.time : all.last.time;
       await db.deleteSamplesBefore(keepFrom);
+      // A long charge in progress: thin out what a session no longer needs (the 'open' list returned is the full one).
+      if (res.open.length > thinOpenRunAbove) {
+        await db.deleteSamples(SessionBuilder.redundantSamples(res.open));
+      }
     }
     return CollectResult(
       capabilities: caps,

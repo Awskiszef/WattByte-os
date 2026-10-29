@@ -205,6 +205,8 @@ void main() {
             'sync_account:a',
             'server_device_id:a',
             'sync_legacy_owner',
+            // When the statistics were reset: the Android collector must not bring back what was erased (G-17).
+            'reset_at_ms',
           ]));
     });
 

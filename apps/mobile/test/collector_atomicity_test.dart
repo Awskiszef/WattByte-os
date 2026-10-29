@@ -155,13 +155,14 @@ void main() {
         () async {
       fake.counters = reading(1000);
       await collector.collect(now: now);
-      // Break the meta table so the baseline write fails after the increment would have been added.
-      await db.rawDatabase.execute('ALTER TABLE meta RENAME TO meta_away');
+      // Make the baseline write fail after the increment would have been added (reads of meta keep working).
+      await db.rawDatabase.execute(
+          "CREATE TRIGGER fail_baseline BEFORE INSERT ON meta WHEN NEW.key = 'iface_counters' BEGIN SELECT RAISE(ABORT, 'baseline write refused'); END");
       now = t0.add(const Duration(hours: 1));
       fake.counters = reading(5000, minutes: 60);
       // The data step fails (and is reported) but the pass itself completes: the battery step is independent.
       await collector.collect(now: now);
-      await db.rawDatabase.execute('ALTER TABLE meta_away RENAME TO meta');
+      await db.rawDatabase.execute('DROP TRIGGER fail_baseline');
       expect((await db.allDaily()).fold<int>(0, (a, d) => a + d.wifi), 0,
           reason: 'the 4000 bytes were not added without their baseline');
 

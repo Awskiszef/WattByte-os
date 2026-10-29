@@ -153,4 +153,75 @@ void main() {
     ]);
     expect(r.closed, isEmpty);
   });
+
+  group('thinning a long charge in progress (G-18)', () {
+    List<BatterySample> minuteByMinute(int minutes,
+            {int skipFrom = -1, int skipTo = -1}) =>
+        [
+          for (var m = 0; m < minutes; m++)
+            if (m < skipFrom || m > skipTo)
+              s(m, 20 + m ~/ 30, charge: 1000000 + m * 100),
+        ];
+
+    test(
+        'drops most samples of a multi-day plug-in and the session stays the same',
+        () {
+      final run = minuteByMinute(3 * 24 * 60);
+      final drop = SessionBuilder.redundantSamples(run);
+      final kept = run.where((x) => !drop.contains(x)).toList();
+      expect(kept.length, lessThan(run.length ~/ 10),
+          reason: 'about one sample per 15 minutes');
+      expect(kept.first, run.first);
+      expect(kept.last, run.last);
+      // The last 30 minutes are untouched.
+      expect(run.sublist(run.length - 31).every(kept.contains), isTrue);
+
+      final end = s(3 * 24 * 60, 100, plugged: false);
+      final full = builder.build([...run, end]).closed.single;
+      final thin = builder.build([...kept, end]).closed.single;
+      expect(thin.start, full.start);
+      expect(thin.end, full.end);
+      expect(thin.startLevel, full.startLevel);
+      expect(thin.endLevel, full.endLevel);
+      expect(thin.chargeDeltaUah, full.chargeDeltaUah);
+      expect(thin.sparse, full.sparse);
+    });
+
+    test('never opens a gap above the sparse gap that was not there', () {
+      final run = minuteByMinute(600);
+      final drop = SessionBuilder.redundantSamples(run);
+      final kept = run.where((x) => !drop.contains(x)).toList();
+      for (var i = 1; i < kept.length; i++) {
+        expect(kept[i].time.difference(kept[i - 1].time),
+            lessThanOrEqualTo(const Duration(minutes: 15)));
+      }
+    });
+
+    test('keeps both sides of a real gap, so the session is still sparse', () {
+      final run = minuteByMinute(600,
+          skipFrom: 200, skipTo: 260); // an hour without samples
+      final drop = SessionBuilder.redundantSamples(run);
+      final kept = run.where((x) => !drop.contains(x)).toList();
+      expect(
+          kept.contains(run.firstWhere(
+              (x) => x.time == run[0].time.add(const Duration(minutes: 199)))),
+          isTrue);
+      expect(
+          kept.contains(run.firstWhere(
+              (x) => x.time == run[0].time.add(const Duration(minutes: 261)))),
+          isTrue);
+      expect(
+          builder
+              .build([...kept, s(700, 70, plugged: false)])
+              .closed
+              .single
+              .sparse,
+          isTrue);
+    });
+
+    test('short runs are left alone', () {
+      expect(SessionBuilder.redundantSamples(minuteByMinute(2)), isEmpty);
+      expect(SessionBuilder.redundantSamples(minuteByMinute(25)), isEmpty);
+    });
+  });
 }
