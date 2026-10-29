@@ -331,7 +331,19 @@ export interface CloudDataRepository {
   exportData(userId: string, maxRowsPerCollection: number): Promise<CloudExportData | null>;
 }
 
+export interface LoginThrottleRepository {
+  /** `lockedUntil` is set while attempts for this key are refused. */
+  status(key: string, now: Date): Promise<{ lockedUntil: Date | null }>;
+  /** Counts one failed sign-in atomically (shared by all instances) and returns the resulting state. */
+  recordFailure(key: string, now: Date): Promise<{ failures: number; lockedUntil: Date | null }>;
+  /** A successful sign-in forgets the failures. */
+  clear(key: string): Promise<void>;
+  /** Removes rows untouched since `before`; returns how many. */
+  purge(before: Date): Promise<number>;
+}
+
 export interface Repositories {
+  readonly loginThrottle: LoginThrottleRepository;
   readonly users: UserRepository;
   readonly sessions: SessionRepository;
   readonly devices: DeviceRepository;

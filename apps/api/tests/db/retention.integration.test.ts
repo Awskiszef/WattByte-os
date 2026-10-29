@@ -168,7 +168,7 @@ describe.skipIf(!DATABASE_URL)('retention (PostgreSQL)', () => {
     expect(await alive('ai_generations', old)).toEqual([]);
     expect(await alive('sessions', [dead])).toEqual([]);
     const second = await runRetention(pool, { now });
-    expect(second.rows).toEqual({ aiGenerations: 0, sessions: 0, aiQuotaUsage: 0 });
+    expect(second.rows).toEqual({ aiGenerations: 0, sessions: 0, aiQuotaUsage: 0, loginThrottle: 0 });
   });
 
   it('deletes in batches until nothing is left', async () => {
@@ -191,7 +191,7 @@ describe.skipIf(!DATABASE_URL)('retention (PostgreSQL)', () => {
     const { stdout } = await run(process.execPath, ['--import', 'tsx', 'src/scripts/retention.ts', '--dry-run'], { cwd: apiRoot, env });
     const result = JSON.parse(stdout.trim()) as { dryRun: boolean; rows: Record<string, number>; cutoffs: Record<string, string> };
     expect(result.dryRun).toBe(true);
-    expect(Object.keys(result.rows).sort()).toEqual(['aiGenerations', 'aiQuotaUsage', 'sessions']);
+    expect(Object.keys(result.rows).sort()).toEqual(['aiGenerations', 'aiQuotaUsage', 'loginThrottle', 'sessions']);
     expect(result.cutoffs.aiGenerations).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   }, 30_000);
 

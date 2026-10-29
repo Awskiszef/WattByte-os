@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
+import { FAILURE_WINDOW_SEC, lockSeconds } from '../modules/auth/login-throttle.js';
 import type {
+  LoginThrottleRepository,
   AiGenerationRepository,
   AiGenerationRow,
   ChargingSummaryRow,
@@ -40,6 +42,7 @@ export class MemoryRepositories implements Repositories {
   private readonly chargingRows = new Map<string, ChargingSummaryRow>();
   private readonly monthlyRows = new Map<string, MonthlySummaryRow>();
   private readonly subscriptionRows = new Map<string, SubscriptionRow>();
+  private readonly throttle = new Map<string, { failures: number; lockedUntil: Date | null; updatedAt: Date }>();
 
   readonly users: UserRepository = {
     create: async ({ email, passwordHash, displayName }) => {
@@ -351,6 +354,24 @@ export class MemoryRepositories implements Repositories {
       devices: 0,
     };
   }
+
+  readonly loginThrottle: LoginThrottleRepository = {
+    status: async (key, now) => {
+      const row = this.throttle.get(key);
+      return { lockedUntil: row?.lockedUntil && row.lockedUntil > now ? row.lockedUntil : null };
+    },
+    recordFailure: async (key, now) => {
+      const row = this.throttle.get(key);
+      const expired = !row || now.getTime() - row.updatedAt.getTime() > FAILURE_WINDOW_SEC * 1000;
+      const failures = expired ? 1 : row.failures + 1;
+      const seconds = lockSeconds(failures);
+      const lockedUntil = seconds > 0 ? new Date(now.getTime() + seconds * 1000) : null;
+      this.throttle.set(key, { failures, lockedUntil, updatedAt: now });
+      return { failures, lockedUntil };
+    },
+    clear: async (key) => void this.throttle.delete(key),
+    purge: async (before) => removeWhere(this.throttle, (r) => r.updatedAt < before),
+  };
 
   async ping(): Promise<boolean> {
     return true;

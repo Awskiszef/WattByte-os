@@ -82,8 +82,10 @@ describe.skipIf(!DATABASE_URL)('migration 0007 setting sources (PostgreSQL)', ()
     if (scratch) rmSync(scratch, { recursive: true, force: true });
   });
 
-  it('applies exactly the new migration to the legacy database, and every migration to the fresh one', () => {
-    expect(appliedByUpgrade).toEqual([TARGET]);
+  it('applies the new migration (and any later one) to the legacy database, and every migration to the fresh one', () => {
+    // Not a fixed list: the next migration must not break this test (H-09).
+    const fromTarget = readdirSync(MIGRATIONS).filter((n) => n.endsWith('.sql') && n >= TARGET).sort();
+    expect(appliedByUpgrade).toEqual(fromTarget);
     expect(appliedByFresh).toContain(TARGET);
   });
 

@@ -1,16 +1,24 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { closePgApp, DATABASE_URL, makePgApp, type PgContext, register, uniqueEmail } from './helpers.js';
+import { hashPassword } from '../../src/modules/auth/password.js';
+import { closePgApp, DATABASE_URL, makePgApp, type PgContext, uniqueEmail } from './helpers.js';
 
 const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]!;
 
 describe.skipIf(!DATABASE_URL)('login timing (PostgreSQL)', () => {
   let ctx: PgContext;
-  let email: string;
+  let emails: string[];
   beforeAll(async () => {
     ctx = await makePgApp();
-    email = uniqueEmail('timing');
-    await register(ctx.app, email);
+    // Known accounts, one per attempt: repeated failures on ONE e-mail trip the per-account lock (A-02), which is
+    // exactly what this timing comparison must not measure. Created directly: one hash, no per-account scrypt.
+    const passwordHash = await hashPassword('password123');
+    emails = [];
+    for (let i = 0; i < 9; i++) {
+      const email = uniqueEmail(`timing${i}`);
+      await ctx.repos.users.create({ email, passwordHash });
+      emails.push(email);
+    }
   });
   afterAll(() => closePgApp(ctx));
 
@@ -21,12 +29,12 @@ describe.skipIf(!DATABASE_URL)('login timing (PostgreSQL)', () => {
   };
 
   it('unknown and known accounts cost the same order of time and answer identically', async () => {
-    await attempt(email); // warm-up: JIT, first scrypt, dummy hash
+    await attempt(emails[0]!); // warm-up: JIT, first scrypt, dummy hash
     await attempt('nobody@test.wattbyte');
     const known: number[] = [];
     const unknown: number[] = [];
     for (let i = 0; i < 7; i++) {
-      const k = await attempt(email);
+      const k = await attempt(emails[i + 1]!);
       const u = await attempt(`nobody-${i}@test.wattbyte`);
       known.push(k.ms);
       unknown.push(u.ms);

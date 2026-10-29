@@ -1,7 +1,9 @@
 import pg from 'pg';
 
+import { BASE_LOCK_SEC, FAILURE_WINDOW_SEC, LOCK_AFTER, MAX_LOCK_SEC } from '../modules/auth/login-throttle.js';
 import { ForeignKeyViolation, UniqueViolation } from './memory.js';
 import type {
+  LoginThrottleRepository,
   AiGenerationRepository,
   AiGenerationRow,
   ChargingSummaryRow,
@@ -269,6 +271,39 @@ export class PostgresRepositories implements Repositories {
       this.one('UPDATE users SET display_name = $2, updated_at = now() WHERE id = $1 RETURNING *', [id, displayName], toUser),
     delete: async (id) => {
       await this.pool.query('DELETE FROM users WHERE id = $1', [id]);
+    },
+  };
+
+  readonly loginThrottle: LoginThrottleRepository = {
+    status: async (key, now) => {
+      const res = await this.pool.query('SELECT locked_until FROM login_throttle WHERE key = $1 AND locked_until > $2', [key, now]).catch(translate);
+      return { lockedUntil: (res.rows[0]?.locked_until as Date | undefined) ?? null };
+    },
+    // One statement, so concurrent failures from any number of instances all count (no read-modify-write race).
+    recordFailure: async (key, now) => {
+      const next = `CASE WHEN login_throttle.updated_at < $2::timestamptz - make_interval(secs => $3) THEN 1 ELSE login_throttle.failures + 1 END`;
+      const res = await this.pool
+        .query(
+          `INSERT INTO login_throttle(key, failures, locked_until, updated_at) VALUES ($1, 1, NULL, $2)
+           ON CONFLICT (key) DO UPDATE SET
+             failures = ${next},
+             locked_until = CASE WHEN ${next} >= $4
+               THEN $2::timestamptz + make_interval(secs => LEAST($6::double precision, $5::double precision * power(2, LEAST(${next} - $4, 20))))
+               ELSE NULL END,
+             updated_at = $2
+           RETURNING failures, locked_until`,
+          [key, now, FAILURE_WINDOW_SEC, LOCK_AFTER, BASE_LOCK_SEC, MAX_LOCK_SEC],
+        )
+        .catch(translate);
+      const row = res.rows[0] as Row;
+      return { failures: row.failures as number, lockedUntil: (row.locked_until as Date | null) ?? null };
+    },
+    clear: async (key) => {
+      await this.pool.query('DELETE FROM login_throttle WHERE key = $1', [key]).catch(translate);
+    },
+    purge: async (before) => {
+      const res = await this.pool.query('DELETE FROM login_throttle WHERE updated_at < $1', [before]).catch(translate);
+      return res.rowCount ?? 0;
     },
   };
 

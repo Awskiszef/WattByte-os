@@ -44,9 +44,9 @@ export interface RetentionResult {
   dryRun: boolean;
   ranAt: string;
   /** Rows older than these instants / days are purged. */
-  cutoffs: { aiGenerations: string; sessions: string; aiQuotaDay: string };
+  cutoffs: { aiGenerations: string; sessions: string; aiQuotaDay: string; loginThrottle: string };
   /** Rows purged (or, with `dryRun`, rows that would be). */
-  rows: { aiGenerations: number; sessions: number; aiQuotaUsage: number };
+  rows: { aiGenerations: number; sessions: number; aiQuotaUsage: number; loginThrottle: number };
 }
 
 /** A pool or a single client: all the script needs. */
@@ -110,11 +110,22 @@ export async function runRetention(db: Queryable, options: RetentionOptions = {}
     dryRun,
   );
 
+  // Sign-in throttle rows: a row only matters for FAILURE_WINDOW_SEC (1 h); a day old is long dead.
+  const throttleCutoff = new Date(now.getTime() - DAY_MS);
+  const loginThrottle = await purge(
+    db,
+    'SELECT key FROM login_throttle WHERE updated_at < $1',
+    [throttleCutoff],
+    'DELETE FROM login_throttle WHERE key IN (SELECT key FROM login_throttle WHERE updated_at < $1 LIMIT $2)',
+    batchSize,
+    dryRun,
+  );
+
   return {
     dryRun,
     ranAt: now.toISOString(),
-    cutoffs: { aiGenerations: aiCutoff.toISOString(), sessions: sessionCutoff.toISOString(), aiQuotaDay: quotaCutoffDay },
-    rows: { aiGenerations, sessions, aiQuotaUsage },
+    cutoffs: { aiGenerations: aiCutoff.toISOString(), sessions: sessionCutoff.toISOString(), aiQuotaDay: quotaCutoffDay, loginThrottle: throttleCutoff.toISOString() },
+    rows: { aiGenerations, sessions, aiQuotaUsage, loginThrottle },
   };
 }
 

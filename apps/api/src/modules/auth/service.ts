@@ -3,6 +3,7 @@ import type { AuthResponse, UserDto } from '@wattbyte/contracts';
 import { UniqueViolation } from '../../database/memory.js';
 import type { Repositories, UserRow } from '../../database/repositories.js';
 import { HttpError } from '../../errors/http-error.js';
+import { loginThrottleKey } from './login-throttle.js';
 import { hashPassword, verifyPassword } from './password.js';
 import { TokenService } from './tokens.js';
 
@@ -40,10 +41,22 @@ export class AuthService {
    * which accounts exist. The error is always `invalid_credentials`.
    */
   async login(input: { email: string; password: string }): Promise<AuthResponse> {
+    // Per-account throttle (see login-throttle.ts): keyed on the e-mail whether or not it exists, checked before any
+    // hashing, so a distributed guess against one account is slowed whatever the source addresses and costs no scrypt.
+    const key = loginThrottleKey(input.email);
+    const now = this.now();
+    const lock = await this.repos.loginThrottle.status(key, now);
+    if (lock.lockedUntil) {
+      throw HttpError.tooMany('rate_limited', 'Too many failed sign-in attempts. Try again later', (lock.lockedUntil.getTime() - now.getTime()) / 1000);
+    }
     const user = await this.repos.users.findByEmail(input.email);
     const hash = user?.passwordHash ?? (await dummyHash());
     const ok = await verifyPassword(input.password, hash);
-    if (!user || !user.passwordHash || !ok) throw HttpError.unauthorized('invalid_credentials', 'Wrong email or password');
+    if (!user || !user.passwordHash || !ok) {
+      await this.repos.loginThrottle.recordFailure(key, now);
+      throw HttpError.unauthorized('invalid_credentials', 'Wrong email or password');
+    }
+    await this.repos.loginThrottle.clear(key);
     return (await this.issue(user)).response;
   }
 
