@@ -15,6 +15,7 @@ import type { Repositories } from '../src/database/repositories.js';
 import { PostgresRepositories } from '../src/database/postgres.js';
 import { makeApp, sampleInput } from './helpers.js';
 import { DATABASE_URL, uniqueEmail } from './db/helpers.js';
+import { spendLedger } from '../src/modules/ai/gateway.js';
 
 export interface Auth {
   userId: string;
@@ -165,7 +166,7 @@ export function postgresFixtureIn(schema: string): FixtureFactory {
       ...overrides,
     });
     const repos = new PostgresRepositories(url);
-    const gateway = new AIGateway({ router: new ProviderRouter(AI_PROVIDER_IDS.map((id) => new MockProvider(id)), { cooldownMs: 0 }), sleep: async () => undefined });
+    const gateway = new AIGateway({ router: new ProviderRouter(AI_PROVIDER_IDS.map((id) => new MockProvider(id)), { cooldownMs: 0 }), sleep: async () => undefined, ledger: spendLedger(env, repos) });
     const app = await buildApp({ env, repos, gateway, providerIds: [], logger: false, rateLimitMax: 100_000, aiRateLimitMax: 100_000, authRateLimitMax: 100_000, refreshRateLimitMax: 100_000 });
     await app.ready();
     const pool = new pg.Pool({ connectionString: url, max: 2 });

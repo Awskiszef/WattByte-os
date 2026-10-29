@@ -6,6 +6,7 @@ import {
   type AIProviderId,
   type GatewayLogger,
   type GatewayOptions,
+  type SpendLedger,
 } from '@wattbyte/ai';
 
 import type { Env } from '../../config/env.js';
@@ -28,6 +29,30 @@ export function gatewayOptionsFromEnv(env: Env): EnvGatewayOptions {
   };
 }
 
+/** The spend ledger of the gateway on top of the repositories (atomic hold against the AI_BUDGET_* limits, then settle). */
+export function spendLedger(env: Env, repos: Repositories): SpendLedger {
+  return {
+    async reserve({ provider, estimateUsd, now }) {
+      const day = now.toISOString().slice(0, 10);
+      const held = await repos.ai.reserveSpend({
+        day,
+        provider,
+        usd: estimateUsd,
+        limits: { dailyUsd: env.AI_BUDGET_DAILY_USD, monthlyUsd: env.AI_BUDGET_MONTHLY_USD, providerDailyUsd: env.AI_BUDGET_PROVIDER_DAILY_USD?.[provider] },
+      });
+      if (!held.ok) return held;
+      return {
+        ok: true,
+        reservation: {
+          // The hold was the worst case; the difference to the real cost goes back (or stays, when nothing is known).
+          settle: (actualUsd, billed) =>
+            repos.ai.adjustSpend({ day, provider, deltaUsd: (billed ? actualUsd : 0) - estimateUsd, deltaRequests: billed ? 0 : -1 }),
+        },
+      };
+    },
+  };
+}
+
 /**
  * The production gateway: the providers that have keys, the policy from the environment, spend limits
  * checked against the daily spend table. `main.ts` builds it before the Fastify app exists, so the
@@ -42,5 +67,8 @@ export function buildGateway(env: Env, repos: Repositories, providers: readonly 
       { dailyUsd: env.AI_BUDGET_DAILY_USD, monthlyUsd: env.AI_BUDGET_MONTHLY_USD, providerDailyUsd: env.AI_BUDGET_PROVIDER_DAILY_USD },
       { spentUsd: (sinceDay, provider?: AIProviderId) => repos.ai.spentUsd(sinceDay, provider) },
     ),
+    // Always present, limits or not: every provider call is held on the ledger before it is made and settled after,
+    // so spend is recorded (and limits hold under concurrency) whatever happens to the request afterwards.
+    ledger: spendLedger(env, repos),
   });
 }

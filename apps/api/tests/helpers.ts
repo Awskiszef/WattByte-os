@@ -4,6 +4,7 @@ import { type App, buildApp } from '../src/app.js';
 import { loadEnv } from '../src/config/env.js';
 import { MemoryRepositories } from '../src/database/memory.js';
 import type { ElectricityPriceProvider } from '../src/modules/electricity/provider.js';
+import { spendLedger } from '../src/modules/ai/gateway.js';
 
 export interface TestContext {
   app: App;
@@ -24,7 +25,7 @@ export async function makeApp(
   });
   const providers = Object.fromEntries(AI_PROVIDER_IDS.map((id) => [id, new MockProvider(id)])) as Record<AIProviderId, MockProvider>;
   const repos = new MemoryRepositories();
-  const gateway = new AIGateway({ router: new ProviderRouter(Object.values(providers), { cooldownMs: 0 }), sleep: async () => undefined, ...deps.gatewayOptions?.(repos) });
+  const gateway = new AIGateway({ router: new ProviderRouter(Object.values(providers), { cooldownMs: 0 }), sleep: async () => undefined, ledger: spendLedger(env, repos), ...deps.gatewayOptions?.(repos) });
   const app = await buildApp({
     env,
     repos,

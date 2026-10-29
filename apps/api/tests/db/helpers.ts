@@ -5,6 +5,7 @@ import { type App, buildApp } from '../../src/app.js';
 import { loadEnv } from '../../src/config/env.js';
 import { migrate } from '../../src/database/migrate.js';
 import { PostgresRepositories } from '../../src/database/postgres.js';
+import { spendLedger } from '../../src/modules/ai/gateway.js';
 
 /** Integration tests run against a real PostgreSQL when TEST_DATABASE_URL is set (CI provides one). */
 export const DATABASE_URL = process.env.TEST_DATABASE_URL;
@@ -29,7 +30,7 @@ export async function makePgApp(overrides: Record<string, string> = {}, deps: { 
   });
   const repos = new PostgresRepositories(DATABASE_URL);
   const providers = AI_PROVIDER_IDS.map((id) => new MockProvider(id));
-  const gateway = new AIGateway({ router: new ProviderRouter(providers, { cooldownMs: 0 }), sleep: async () => undefined });
+  const gateway = new AIGateway({ router: new ProviderRouter(providers, { cooldownMs: 0 }), sleep: async () => undefined, ledger: spendLedger(env, repos) });
   const app = await buildApp({ env, repos, gateway, providerIds: [], logger: false, rateLimitMax: 100_000, aiRateLimitMax: 100_000, authRateLimitMax: 100_000, refreshRateLimitMax: 100_000, ...deps });
   await app.ready();
   return { app, repos, pool: new pg.Pool({ connectionString: DATABASE_URL, max: 2 }), providers };

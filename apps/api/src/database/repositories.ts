@@ -149,7 +149,7 @@ export interface AiGenerationRow {
   /** 0 when `costBasis` is 'unknown'. */
   estimatedCostUsd: number;
   /** How the cost was derived; 'unknown' = the provider sent no usage, so 0 does not mean free. */
-  costBasis: 'provider_reported' | 'model_price' | 'provider_estimate' | 'unknown';
+  costBasis: 'provider_reported' | 'model_price' | 'provider_estimate' | 'conservative_estimate' | 'unknown';
   /** False when the provider reported no token counts (they are stored as 0). */
   usageReported: boolean;
   latencyMs: number;
@@ -252,6 +252,23 @@ export interface UsageRepository {
   listDaily(userId: string, from: string, to: string): Promise<DailyUsageRow[]>;
 }
 
+export interface SpendLimits {
+  /** All providers together, per UTC day. */
+  dailyUsd?: number;
+  /** All providers together, per UTC month. */
+  monthlyUsd?: number;
+  /** This provider, per UTC day. */
+  providerDailyUsd?: number;
+}
+
+export interface SpendReservationRequest {
+  /** UTC day `YYYY-MM-DD`. */
+  day: string;
+  provider: string;
+  usd: number;
+  limits: SpendLimits;
+}
+
 export interface AiGenerationRepository {
   /**
    * Atomically takes one quota slot for `day` (UTC `YYYY-MM-DD`).
@@ -260,8 +277,20 @@ export interface AiGenerationRepository {
   reserve(userId: string, day: string, limit: number): Promise<number | null>;
   /** Gives a slot back (the provider call failed, the user got nothing). */
   release(userId: string, day: string): Promise<void>;
-  /** Stores the row and adds its cost to the day's spend (one operation: the log and the budget never disagree). */
-  insert(row: AiGenerationRow): Promise<void>;
+  /**
+   * Stores the row and, unless `spend` is false, adds its cost to the day's spend (one operation: the log and the budget
+   * never disagree). The API books spend through `reserveSpend`/`adjustSpend` before and after each provider call and
+   * passes `spend: false`; the default is for callers that have no reservation.
+   */
+  insert(row: AiGenerationRow, options?: { spend?: boolean }): Promise<void>;
+  /**
+   * Holds `usd` on the day's spend for `provider`, atomically against the limits: it succeeds only when the day's total,
+   * the month's total and the provider's day all stay within their limits afterwards. Concurrent callers are serialised,
+   * so a burst cannot overshoot a limit together. Counts one request.
+   */
+  reserveSpend(request: SpendReservationRequest): Promise<{ ok: true } | { ok: false; exceeded: 'daily' | 'monthly' | 'provider' }>;
+  /** Corrects a hold by `deltaUsd` (negative = give back) and the request count by `deltaRequests`; never below zero. */
+  adjustSpend(adjustment: { day: string; provider: string; deltaUsd: number; deltaRequests: number }): Promise<void>;
   /**
    * USD spent from the start of UTC day `sinceDay` (`YYYY-MM-DD`) up to now, for one provider or all of them.
    * Read from the daily spend table, which survives data erasure and retention (it holds no user id).

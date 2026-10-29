@@ -262,10 +262,35 @@ export class MemoryRepositories implements Repositories {
       const key = `${userId}|${day}`;
       this.quota.set(key, Math.max(0, (this.quota.get(key) ?? 0) - 1));
     },
-    insert: async (row) => {
+    insert: async (row, { spend = true } = {}) => {
       this.aiRows.push({ ...row });
+      if (!spend) return;
       const key = `${row.createdAt.toISOString().slice(0, 10)}|${row.provider}`;
       this.spend.set(key, (this.spend.get(key) ?? 0) + row.estimatedCostUsd);
+    },
+    // No await inside: atomic on the single JS thread, like the serialised PostgreSQL transaction.
+    reserveSpend: async ({ day, provider, usd, limits }) => {
+      const month = `${day.slice(0, 8)}01`;
+      let dayTotal = 0;
+      let monthTotal = 0;
+      let providerDay = 0;
+      for (const [key, spent] of this.spend) {
+        const [d, who] = key.split('|') as [string, string];
+        if (d >= month) monthTotal += spent;
+        if (d === day) dayTotal += spent;
+        if (d === day && who === provider) providerDay += spent;
+      }
+      const over = (spent: number, limit: number | undefined): boolean => limit !== undefined && spent + usd > limit + 1e-9;
+      if (over(dayTotal, limits.dailyUsd)) return { ok: false, exceeded: 'daily' };
+      if (over(monthTotal, limits.monthlyUsd)) return { ok: false, exceeded: 'monthly' };
+      if (over(providerDay, limits.providerDailyUsd)) return { ok: false, exceeded: 'provider' };
+      const key = `${day}|${provider}`;
+      this.spend.set(key, (this.spend.get(key) ?? 0) + usd);
+      return { ok: true };
+    },
+    adjustSpend: async ({ day, provider, deltaUsd }) => {
+      const key = `${day}|${provider}`;
+      this.spend.set(key, Math.max(0, (this.spend.get(key) ?? 0) + deltaUsd));
     },
     spentUsd: async (sinceDay, provider) => {
       let total = 0;

@@ -26,14 +26,23 @@ export interface AiGeneratedEvent {
 export interface AiFailedEvent {
   task: AITask;
   /** Why the gateway gave up: the provider(s) the policy allowed failed, a spend limit is used up, or nothing is configured. */
-  status: 'all_providers_failed' | 'budget_exceeded' | 'no_provider' | 'aborted';
+  status: 'all_providers_failed' | 'budget_exceeded' | 'budget_unavailable' | 'no_provider' | 'aborted';
+  /** Provider calls that were billed although nothing was delivered (their cost is on the spend ledger, the user's slot stays used). */
+  billedAttempts?: number;
   /** One entry per provider that was asked: who, what failed (`kind`, `category`) and the HTTP status they answered with (if any). */
   attempts: { provider?: string; httpStatus?: number; kind: string; category?: string }[];
+}
+
+/** A bookkeeping step that failed after the provider call; the request itself is not affected. */
+export interface AiBookkeepingFailure {
+  step: 'usage_log' | 'quota_release';
+  task: AITask;
 }
 
 export interface AiLog {
   generated(event: AiGeneratedEvent): void;
   failed(event: AiFailedEvent): void;
+  bookkeepingFailed?(event: AiBookkeepingFailure): void;
 }
 
 /** Adapts a pino-style logger (typically `request.log`, so the lines carry the request id) to `AiLog`. */
@@ -41,6 +50,7 @@ export function aiLogFrom(logger: { info(fields: object, msg: string): void; err
   return {
     generated: (e) => logger.info({ ai: e }, 'ai generation'),
     failed: (e) => logger.error({ ai: e }, 'ai generation failed'),
+    bookkeepingFailed: (e) => logger.error({ ai: e }, 'ai bookkeeping failed'),
   };
 }
 
@@ -79,8 +89,13 @@ export class AiService {
     try {
       outcome = await this.gateway.generate(task, mode, body.input, { userRef: userId, plan, locale: body.locale ?? 'en' });
     } catch (e) {
-      // The user got nothing, so the slot goes back.
-      await this.repos.ai.release(userId, day);
+      const billed = e instanceof AIGatewayError ? e.billed.length : 0;
+      // The slot goes back only when the user got nothing AND nothing was billed: a refused or cut-off answer is paid
+      // for, and handing the slot back would let a client repeat a failing request for free (D-01). A release that
+      // fails must not replace the real answer with a 500 (D-04).
+      if (billed === 0) {
+        await this.repos.ai.release(userId, day).catch(() => log?.bookkeepingFailed?.({ step: 'quota_release', task }));
+      }
       if (e instanceof AIGatewayError) {
         if (e.code === 'invalid_input') throw HttpError.badRequest('invalid_ai_input', e.message);
         // Provider detail stays in the log (content-free: ids, kinds, categories, statuses); the client learns nothing of it.
@@ -88,25 +103,35 @@ export class AiService {
           task,
           status: e.code,
           attempts: e.attempts.map((a) => ({ provider: a.providerId, httpStatus: a.status, kind: a.kind, category: a.category })),
+          ...(billed > 0 ? { billedAttempts: billed } : {}),
         });
         throw HttpError.unavailable('ai_unavailable', 'AI providers are unavailable right now');
       }
       throw e;
     }
-    await this.repos.ai.insert({
-      userId,
-      task,
-      mode,
-      provider: outcome.providerId,
-      model: outcome.model,
-      inputTokens: outcome.usage.inputTokens,
-      outputTokens: outcome.usage.outputTokens,
-      estimatedCostUsd: outcome.usage.estimatedCostUsd,
-      costBasis: outcome.usage.costBasis,
-      usageReported: outcome.usage.usageReported,
-      latencyMs: outcome.usage.latencyMs,
-      createdAt: outcome.usage.createdAt,
-    });
+    // The provider is paid and its cost is already on the spend ledger (held before the call, settled after). The log
+    // row is bookkeeping: if it cannot be written the user still gets the answer they paid a quota slot for (D-04).
+    try {
+      await this.repos.ai.insert(
+        {
+          userId,
+          task,
+          mode,
+          provider: outcome.providerId,
+          model: outcome.model,
+          inputTokens: outcome.usage.inputTokens,
+          outputTokens: outcome.usage.outputTokens,
+          estimatedCostUsd: outcome.usage.estimatedCostUsd,
+          costBasis: outcome.usage.costBasis,
+          usageReported: outcome.usage.usageReported,
+          latencyMs: outcome.usage.latencyMs,
+          createdAt: outcome.usage.createdAt,
+        },
+        { spend: false },
+      );
+    } catch {
+      log?.bookkeepingFailed?.({ step: 'usage_log', task });
+    }
     log?.generated({
       task,
       provider: outcome.providerId,

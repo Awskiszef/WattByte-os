@@ -27,7 +27,7 @@ describe.skipIf(!DATABASE_URL)('AI cost basis (PostgreSQL)', () => {
     expect(['model_price', 'provider_estimate']).toContain(known.cost_basis);
   });
 
-  it('a call without token usage is recorded as unknown cost, not as a free call', async () => {
+  it('a call without token usage is booked at its worst case (conservative estimate), not as a free call (D-07)', async () => {
     const reg = await register(ctx.app, uniqueEmail('cost-unknown'));
     const originals = ctx.providers.map((p) => p.generate.bind(p));
     ctx.providers.forEach((p: MockProvider, i) => {
@@ -45,8 +45,8 @@ describe.skipIf(!DATABASE_URL)('AI cost basis (PostgreSQL)', () => {
     }
     const row = (await ctx.pool.query('SELECT input_tokens, output_tokens, estimated_cost_usd, cost_basis, usage_reported FROM ai_generations WHERE user_id = $1', [reg.user.id])).rows[0];
     expect(row.usage_reported).toBe(false);
-    expect(row.cost_basis).toBe('unknown');
-    expect(Number(row.estimated_cost_usd)).toBe(0);
+    expect(row.cost_basis).toBe('conservative_estimate');
+    expect(Number(row.estimated_cost_usd)).toBeGreaterThan(0);
     expect(row.input_tokens).toBe(0);
   });
 });

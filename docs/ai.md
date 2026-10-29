@@ -199,8 +199,12 @@ Worst case for one request is therefore `AI_REQUEST_TIMEOUT_MS`, not providers �
 - The provider(s) the policy allowed failed: one `AIGatewayError{code:'all_providers_failed', message:'all AI providers failed'}`.
   The message is generic on purpose. Per-provider detail is limited to the typed, content-free
   `attempts: {providerId, kind, category, status?}[]` (one per provider asked); `causes` carries the sanitized
-  `ProviderError`s for operator logs. The API turns every one of these into HTTP 503 `ai_unavailable` (and gives the
-  quota slot back); no provider text, status or prompt echo reaches the client.
+  `ProviderError`s for operator logs. The API turns every one of these into HTTP 503 `ai_unavailable`; no provider text,
+  status or prompt echo reaches the client. The quota slot goes back only when nothing was billed:
+  `AIGatewayError.billed` lists the calls that were paid for although no answer was delivered (refusal, cut-off or invalid
+  output, or a 2xx answer without usage), and for those the slot stays used (D-01).
+- `AIGatewayError{code:'budget_unavailable'}`: the spend ledger could not be read or held within `ledgerTimeoutMs`;
+  nothing was called (fails closed, D-06).
 - `AIGatewayError{code:'aborted'}` when the caller cancelled.
 
 Error categories (`categorize()` in `src/errors.ts`, exported as `AIErrorCategory`): `authentication`, `rate_limit`,
@@ -270,7 +274,11 @@ time; no prompt, no answer) and adds its cost to `ai_spend_daily` in the same st
 
 `AI_BUDGET_DAILY_USD`, `AI_BUDGET_MONTHLY_USD` (all providers together, per UTC day / month) and
 `AI_BUDGET_PROVIDER_DAILY_USD` (`{"openai":5,"xai":2}`). Checked before any provider is called, against
-`ai_spend_daily`, a table of daily totals per provider written together with each answer's log row (migration 0005).
+`ai_spend_daily`, a table of daily totals per provider (migration 0005). Every provider call is a **hold** on that
+table: before the call the worst case (the whole prompt as input plus the full output cap, at the dearest price that
+could apply) is reserved atomically against the three limits, after the call the hold is replaced by the real cost
+(billed, including a rejected answer), or returned in full when provably nothing was billed (no connection, 401/403/429,
+5xx without token counts, our own timeout). A call without usable token counts is booked at the worst case, never at $0.
 It holds no user id on purpose: summing `ai_generations` would shrink when users erase their data or the retention job
 purges old rows, and a budget that can be reset that way is no budget. Reaching a limit (`>=`):
 
@@ -280,11 +288,12 @@ purges old rows, and a budget that can be reset that way is no budget. Reaching 
   the others keep answering, so one spent provider never blocks the app. All of them spent counts as `budget_exceeded`.
 - A limit of `0` switches the provider (or everything) off.
 
-Limits to know about: the figures are estimates unless prices are configured or the provider reports the charge; the
-check happens before the call and the cost is added after it, so concurrent requests can overshoot a limit by the cost of
-the requests in flight; a rejected-but-billed answer (refusal, invalid output) is logged with its tokens but not added to
-the spend, since only delivered answers are stored; a spend table that cannot be read fails open and logs
-`ai.budget_check_failed`. **Per user** there is no cost limit: the quota (free 3, premium 50 answers per UTC day) and the
+Limits to know about: the figures are estimates unless prices are configured or the provider reports the charge; holds
+are made under one database lock, so concurrent requests cannot overshoot a limit together (a call that does not fit
+under the limit with its worst case is refused a little before the limit is reached); a spend table that cannot be read
+or held in time **fails closed** (503, nothing is called) and logs `ai.budget_check_failed` / `ai.ledger_reserve_failed`;
+a hold whose settlement fails stays booked (the ledger over-counts rather than under-counts); a timeout may still have been
+billed by the provider, which only a provider-side limit can cover. **Per user** there is no cost limit: the quota (free 3, premium 50 answers per UTC day) and the
 per-answer output cap (220 / 400 tokens, plus the reasoning headroom) bound what one user can spend. For a hard ceiling set
 a spending limit at the providers too (OpenAI project budget, xAI team spending limit): it is the only guard that does
 not depend on this code.
@@ -348,7 +357,7 @@ implementation detail.
 
 Quota per user and day (atomic reserve/release) and rate limiting are enforced by `apps/api`,
 before the gateway is called. What the gateway exposes for that: `AIGatewayError.code`
-(`invalid_input` → 400, everything else → release the slot, 503), `GenerateOutcome.usage`
+(`invalid_input` → 400, everything else → 503, the slot is released unless `billed` is non-empty), `GenerateOutcome.usage`
 (tokens, cost, basis, latency), `ProviderRouter.health()` / `AIGateway.status()` and the `logger` hook.
 
 ## Modes

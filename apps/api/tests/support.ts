@@ -5,6 +5,7 @@ import { type Env, loadEnv } from '../src/config/env.js';
 import { MemoryRepositories } from '../src/database/memory.js';
 import type { Repositories } from '../src/database/repositories.js';
 import { TokenService } from '../src/modules/auth/tokens.js';
+import { spendLedger } from '../src/modules/ai/gateway.js';
 
 export const TEST_SECRET = 'test-secret-test-secret-test-secret-test-secret';
 
@@ -57,7 +58,7 @@ export async function buildTestApp(opts: BuildOptions = {}): Promise<BuiltApp> {
   const providers = Object.fromEntries(AI_PROVIDER_IDS.map((id) => [id, new MockProvider(id)])) as Record<AIProviderId, MockProvider>;
   const memory = new MemoryRepositories();
   const repos = opts.repos ?? memory;
-  const gateway = new AIGateway({ router: new ProviderRouter(Object.values(providers), { cooldownMs: 0 }), sleep: async () => undefined });
+  const gateway = new AIGateway({ router: new ProviderRouter(Object.values(providers), { cooldownMs: 0 }), sleep: async () => undefined, ledger: spendLedger(env, repos) });
   const app = await buildApp({
     env,
     repos,
