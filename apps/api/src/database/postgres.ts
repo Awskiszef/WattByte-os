@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { LIMITS } from '@wattbyte/contracts';
 import pg from 'pg';
 
 import { DEFAULT_POOL_TUNING, poolSettings } from './connection.js';
@@ -574,18 +575,26 @@ export class PostgresRepositories implements Repositories {
         [userId, from, to],
         toUsage,
       ),
+    // SQL twin of mergeByDate: one row per day; the day's currency is the one with the largest cost (ties: smaller code) and only
+    // that currency's cost is summed; every sum is capped at the contract maximum.
     listDailyTotals: async (userId, from, to) => {
       const res = await this.pool
         .query(
-          `SELECT date,
-                  SUM(mobile_bytes) AS mobile_bytes, SUM(wifi_bytes) AS wifi_bytes,
-                  ROUND(SUM(charged_wh), 3) AS charged_wh, ROUND(SUM(wall_wh), 3) AS wall_wh,
-                  SUM(charging_sessions) AS charging_sessions, ROUND(SUM(estimated_cost), 4) AS estimated_cost,
-                  (array_agg(currency ORDER BY device_id))[1] AS currency,
-                  bool_or(data_estimated) AS data_estimated, bool_or(energy_estimated) AS energy_estimated
-           FROM daily_usage WHERE user_id = $1 AND date BETWEEN $2 AND $3
-           GROUP BY date ORDER BY date`,
-          [userId, from, to],
+          `WITH totals AS (
+             SELECT date,
+                    LEAST(SUM(mobile_bytes), $4::numeric) AS mobile_bytes, LEAST(SUM(wifi_bytes), $4::numeric) AS wifi_bytes,
+                    LEAST(ROUND(SUM(charged_wh), 3), $5::numeric) AS charged_wh, LEAST(ROUND(SUM(wall_wh), 3), $5::numeric) AS wall_wh,
+                    LEAST(SUM(charging_sessions), $6::numeric) AS charging_sessions,
+                    bool_or(data_estimated) AS data_estimated, bool_or(energy_estimated) AS energy_estimated
+             FROM daily_usage WHERE user_id = $1 AND date BETWEEN $2 AND $3 GROUP BY date),
+           costs AS (
+             SELECT DISTINCT ON (date) date, currency, cost FROM (
+               SELECT date, currency, SUM(estimated_cost) AS cost FROM daily_usage
+               WHERE user_id = $1 AND date BETWEEN $2 AND $3 GROUP BY date, currency) per_currency
+             ORDER BY date, cost DESC, currency)
+           SELECT t.*, c.currency, LEAST(ROUND(c.cost, 4), $7::numeric) AS estimated_cost
+           FROM totals t JOIN costs c USING (date) ORDER BY t.date`,
+          [userId, from, to, LIMITS.bytesPerDay, LIMITS.whPerDay, LIMITS.sessionsPerDay, LIMITS.costPerDay],
         )
         .catch(translate);
       return (res.rows as Row[]).map((r) => ({

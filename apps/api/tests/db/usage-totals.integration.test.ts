@@ -1,5 +1,6 @@
 import { randomInt, randomUUID } from 'node:crypto';
 
+import { DailyUsageDto, LIMITS } from '@wattbyte/contracts';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -41,7 +42,8 @@ describe.skipIf(!DATABASE_URL)('daily usage totals and batched upsert (PostgreSQ
           mobileBytes: randomInt(0, 5_000_000_000), wifiBytes: randomInt(0, 9_000_000_000),
           chargedWh: randomInt(0, 40_000) / 1000, wallWh: randomInt(0, 50_000) / 1000,
           chargingSessions: randomInt(0, 6), estimatedCost: randomInt(0, 90_000) / 10_000,
-          currency: 'PLN', dataEstimated: randomInt(0, 5) === 0, energyEstimated: randomInt(0, 2) === 0,
+          // A fifth of the rows come from a phone set to another currency (C-13).
+          currency: randomInt(0, 5) === 0 ? 'EUR' : 'PLN', dataEstimated: randomInt(0, 5) === 0, energyEstimated: randomInt(0, 2) === 0,
         });
       }
     }
@@ -73,6 +75,32 @@ describe.skipIf(!DATABASE_URL)('daily usage totals and batched upsert (PostgreSQ
       expect(t.dataEstimated).toBe(r.dataEstimated);
       expect(t.energyEstimated).toBe(r.energyEstimated);
     });
+  });
+
+  it('a day with two currencies keeps one currency and its cost only, never the sum of both (C-13)', async () => {
+    const day = dayOf(400);
+    const base = { userId, mobileBytes: 1, wifiBytes: 1, chargedWh: 1, wallWh: 1, chargingSessions: 1, dataEstimated: false, energyEstimated: true };
+    await repos.usage.upsertDaily([
+      { ...base, deviceId: devices[2]!, date: day, estimatedCost: 3, currency: 'PLN' },
+      { ...base, deviceId: devices[3]!, date: day, estimatedCost: 5, currency: 'EUR' },
+      { ...base, deviceId: devices[4]!, date: day, estimatedCost: 1, currency: 'EUR' },
+    ]);
+    const [total] = await repos.usage.listDailyTotals(userId, day, day);
+    expect(total).toMatchObject({ currency: 'EUR', estimatedCost: 6, mobileBytes: 3, chargingSessions: 3 });
+    expect(total).toEqual(mergeByDate(await repos.usage.listDaily(userId, day, day))[0]);
+  });
+
+  it('implausible rows are capped at the contract maximum instead of failing the response (C-13)', async () => {
+    const day = dayOf(401);
+    const huge = { userId, mobileBytes: 9_000_000_000_000, wifiBytes: 1, chargedWh: 90_000, wallWh: 1, chargingSessions: 900, estimatedCost: 90_000, currency: 'PLN', dataEstimated: false, energyEstimated: true };
+    await repos.usage.upsertDaily([
+      { ...huge, deviceId: devices[5]!, date: day },
+      { ...huge, deviceId: devices[6]!, date: day },
+    ]);
+    const [total] = await repos.usage.listDailyTotals(userId, day, day);
+    expect(total).toMatchObject({ mobileBytes: LIMITS.bytesPerDay, chargedWh: LIMITS.whPerDay, chargingSessions: LIMITS.sessionsPerDay, estimatedCost: LIMITS.costPerDay });
+    expect(total).toEqual(mergeByDate(await repos.usage.listDaily(userId, day, day))[0]);
+    expect(() => DailyUsageDto.parse(total)).not.toThrow();
   });
 
   it('honours the range and the owner', async () => {
