@@ -638,8 +638,10 @@ export class PostgresRepositories implements Repositories {
     },
     adjustSpend: async ({ day, provider, plan, deltaUsd, deltaRequests }) => {
       await this.withTransaction(async (client) => {
-        await client.query('UPDATE ai_spend_daily SET cost_usd = GREATEST(cost_usd + $3, 0), requests = GREATEST(requests + $4, 0) WHERE day = $1::date AND provider = $2', [day, provider, deltaUsd, deltaRequests]);
+        // Same row order as reserveSpend (plan row, then provider row): the reverse order deadlocked against a reservation
+        // running at the same time, and PostgreSQL aborted one of the two. Both statements stay in one transaction.
         await client.query('UPDATE ai_spend_plan_daily SET cost_usd = GREATEST(cost_usd + $3, 0) WHERE day = $1::date AND plan = $2', [day, plan, deltaUsd]);
+        await client.query('UPDATE ai_spend_daily SET cost_usd = GREATEST(cost_usd + $3, 0), requests = GREATEST(requests + $4, 0) WHERE day = $1::date AND provider = $2', [day, provider, deltaUsd, deltaRequests]);
       }).catch(translate);
     },
     spentUsd: async (sinceDay, provider) => {
