@@ -21,6 +21,9 @@ class PendingNotification {
   final double value;
 }
 
+/// The weekly energy summary is not sent before this local hour (not at midnight, not with the sound at night).
+const weeklySummaryFromHour = 8;
+
 /// Decides which optional notifications are due. Pure; the caller shows them.
 List<PendingNotification> evaluateNotifications({
   required Settings settings,
@@ -33,6 +36,9 @@ List<PendingNotification> evaluateNotifications({
 
   /// Android posts "charging completed" natively from the worker.
   required bool nativeChargingAlerts,
+
+  /// A charge is in progress (a plugged phone, an open run of samples): its energy is not in any closed session yet.
+  bool chargeInProgress = false,
 }) {
   final out = <PendingNotification>[];
   void add(NotificationKind k, String key, double v) {
@@ -59,11 +65,22 @@ List<PendingNotification> evaluateNotifications({
     }
   }
 
-  if (settings.notifyWeeklyEnergy && now.weekday == DateTime.monday) {
-    final lastWeek =
-        DateRange(DateTime(today.year, today.month, today.day - 7), today);
+  // The summary of the week that just ended. It used to fire on the first pass after Monday 00:00 from the CLOSED sessions
+  // only: a charge that started on Sunday evening was missing from the figure, the dedupe key was spent on that
+  // understated number, and the notification arrived at five past midnight (G-07). Now it waits for a civil hour and for
+  // the charge to finish, and Tuesday still delivers it if Monday never had a quiet moment.
+  if (settings.notifyWeeklyEnergy &&
+      (now.weekday == DateTime.monday || now.weekday == DateTime.tuesday) &&
+      now.hour >= weeklySummaryFromHour &&
+      !chargeInProgress) {
+    final thisMonday =
+        DateTime(today.year, today.month, today.day - (now.weekday - 1));
+    final lastWeek = DateRange(
+        DateTime(thisMonday.year, thisMonday.month, thisMonday.day - 7),
+        thisMonday);
     final e = calc.total(sessionsIn(sessions, lastWeek));
-    if (e.wallWh > 0) {
+    // An unknown energy is not announced as 0 kWh, and a week without any is not announced at all.
+    if (!e.isUnknown && e.wallWh > 0) {
       add(NotificationKind.weeklyEnergy, 'week:${dayKey(lastWeek.start)}',
           e.wallKwh);
     }

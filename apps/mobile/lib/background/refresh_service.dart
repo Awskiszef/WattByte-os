@@ -104,6 +104,7 @@ class RefreshService {
       now: now,
       alreadySent: store.sentNotifications,
       nativeChargingAlerts: result.capabilities.isAndroid,
+      chargeInProgress: result.chargingNow || result.open.isNotEmpty,
     );
     await notifier.showAll(pending,
         store: store, l10n: l10n, units: units, currency: settings.currency);
