@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show File;
 import 'dart:math';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
@@ -99,6 +100,24 @@ class WattByteDb {
   static Future<WattByteDb> open({String? path}) async {
     final file = path ?? p.join(await getDatabasesPath(), 'wattbyte.db');
     return _open(file, singleInstance: true);
+  }
+
+  /// Moves a database that cannot be opened out of the way (never deletes it): the file, its write-ahead log and shared
+  /// memory file get the suffix `.broken-<epoch ms>` so the next open creates an empty database. Returns the new name of
+  /// the main file, or null when there was none.
+  static Future<String?> moveBrokenFileAside(
+      {String? path, DateTime? at}) async {
+    final file = path ?? p.join(await getDatabasesPath(), 'wattbyte.db');
+    final stamp = (at ?? DateTime.now()).millisecondsSinceEpoch;
+    String? moved;
+    for (final suffix in const ['', '-wal', '-shm', '-journal']) {
+      final source = File('$file$suffix');
+      if (!await source.exists()) continue;
+      final target = '$file$suffix.broken-$stamp';
+      await source.rename(target);
+      if (suffix.isEmpty) moved = target;
+    }
+    return moved;
   }
 
   /// A connection of its own for work that runs beside the foreground isolate

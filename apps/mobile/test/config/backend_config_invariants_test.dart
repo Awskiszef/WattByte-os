@@ -584,11 +584,18 @@ void _c1(_Lib lib) {
           'config.isValid guard: nothing asynchronous may run before an '
           'invalid build is stopped');
 
-  // The first app that is started is the error app, and there are only two.
+  // The first app that is started is the error app. The real app is started only through `startGuarded` (a storage
+  // failure shows a recovery screen instead of leaving the launch screen, F-07), after the guard.
   final runs = RegExp(r'\brunApp\s*\(').allMatches(code).toList();
-  expect(runs, hasLength(2),
-      reason: '[rule C1] lib/main.dart should call runApp exactly twice '
-          '(ConfigErrorApp, then the app); found ${runs.length}');
+  expect(runs, hasLength(1),
+      reason: '[rule C1] lib/main.dart should call runApp exactly once '
+          '(ConfigErrorApp); the app starts through startGuarded; '
+          'found ${runs.length}');
+  final guarded = code.indexOf('startGuarded(');
+  expect(guarded, isNonNegative,
+      reason: '[rule C1] the app must be started through startGuarded');
+  expect(guard.end, lessThan(guarded),
+      reason: '[rule C1] startGuarded runs after the config.isValid guard');
   final bodyOffset = guard.start + guard.group(0)!.indexOf('{') + 1;
   expect(runs.first.start, bodyOffset + run.start,
       reason: '[rule C1] the first runApp must be the ConfigErrorApp one');

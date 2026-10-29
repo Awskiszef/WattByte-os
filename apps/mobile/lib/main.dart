@@ -9,6 +9,7 @@ import 'background/background_tasks.dart';
 import 'config/app_config.dart';
 import 'config/config_error_app.dart';
 import 'config/startup.dart';
+import 'config/startup_failure.dart';
 import 'core/error_log.dart';
 import 'providers.dart';
 import 'settings/settings.dart';
@@ -35,23 +36,29 @@ Future<void> main() async {
   }
   // Portrait only, like the native projects; must be in place before the first frame.
   await lockOrientation();
-  final prefs = await SharedPreferences.getInstance();
-  final db = await WattByteDb.open();
-  await SettingsStore(prefs)
-      .setLocale(_localeTag(PlatformDispatcher.instance.locale));
-  try {
-    await registerBackgroundRefresh();
-  } catch (e, st) {
-    // Background refresh is best-effort; the app works without it, but the failure is logged.
-    reportError(e, st, 'background registration');
-  }
-  runApp(ProviderScope(
-    overrides: [
-      prefsProvider.overrideWithValue(prefs),
-      dbProvider.overrideWithValue(db),
-    ],
-    child: const WattByteApp(),
-  ));
+  // Storage can fail to open (corrupt file, full disk, failed upgrade): a recovery screen, not a blank launch screen.
+  await startGuarded(
+    build: () async {
+      final prefs = await SharedPreferences.getInstance();
+      final db = await WattByteDb.open();
+      await SettingsStore(prefs)
+          .setLocale(_localeTag(PlatformDispatcher.instance.locale));
+      try {
+        await registerBackgroundRefresh();
+      } catch (e, st) {
+        // Background refresh is best-effort; the app works without it, but the failure is logged.
+        reportError(e, st, 'background registration');
+      }
+      return ProviderScope(
+        overrides: [
+          prefsProvider.overrideWithValue(prefs),
+          dbProvider.overrideWithValue(db),
+        ],
+        child: const WattByteApp(),
+      );
+    },
+    resetLocalData: WattByteDb.moveBrokenFileAside,
+  );
 }
 
 String _localeTag(Locale l) => l.countryCode == null
