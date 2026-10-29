@@ -127,7 +127,7 @@ class DevicesApi {
 
   /// Register (or refresh) this installation; idempotent per installationId
   ///
-  /// Battery capacity travels in two groups that are stored atomically: the design capacity of the model (designCapacityMah / designCapacityWh / designCapacitySource) and the estimated full-charge capacity of this battery (estimatedFullChargeCapacityMah / estimatedFullChargeCapacityWh / fullChargeCapacitySource / fullChargeCapacityConfidence). A group whose source is given replaces the stored group as a whole (nulls included); a group with a null source leaves the stored one untouched. A design capacity needs a source other than unknown; an estimate needs source androidChargeCounter and a confidence; Wh needs mAh. Violations are 400 validation.
+  /// An account holds at most MAX_DEVICES_PER_ACCOUNT installations: registering one more answers 409 device_limit_reached (delete an old device with DELETE /devices/{id}); refreshing an installation the account already has always works. Battery capacity travels in two groups that are stored atomically: the design capacity of the model (designCapacityMah / designCapacityWh / designCapacitySource) and the estimated full-charge capacity of this battery (estimatedFullChargeCapacityMah / estimatedFullChargeCapacityWh / fullChargeCapacitySource / fullChargeCapacityConfidence). A group whose source is given replaces the stored group as a whole (nulls included); a group with a null source leaves the stored one untouched. A design capacity needs a source other than unknown; an estimate needs source androidChargeCounter and a confidence; Wh needs mAh. Violations are 400 validation.
   ///
   /// Note: This method returns the HTTP [Response].
   ///
@@ -164,7 +164,7 @@ class DevicesApi {
 
   /// Register (or refresh) this installation; idempotent per installationId
   ///
-  /// Battery capacity travels in two groups that are stored atomically: the design capacity of the model (designCapacityMah / designCapacityWh / designCapacitySource) and the estimated full-charge capacity of this battery (estimatedFullChargeCapacityMah / estimatedFullChargeCapacityWh / fullChargeCapacitySource / fullChargeCapacityConfidence). A group whose source is given replaces the stored group as a whole (nulls included); a group with a null source leaves the stored one untouched. A design capacity needs a source other than unknown; an estimate needs source androidChargeCounter and a confidence; Wh needs mAh. Violations are 400 validation.
+  /// An account holds at most MAX_DEVICES_PER_ACCOUNT installations: registering one more answers 409 device_limit_reached (delete an old device with DELETE /devices/{id}); refreshing an installation the account already has always works. Battery capacity travels in two groups that are stored atomically: the design capacity of the model (designCapacityMah / designCapacityWh / designCapacitySource) and the estimated full-charge capacity of this battery (estimatedFullChargeCapacityMah / estimatedFullChargeCapacityWh / fullChargeCapacitySource / fullChargeCapacityConfidence). A group whose source is given replaces the stored group as a whole (nulls included); a group with a null source leaves the stored one untouched. A design capacity needs a source other than unknown; an estimate needs source androidChargeCounter and a confidence; Wh needs mAh. Violations are 400 validation.
   ///
   /// Parameters:
   ///

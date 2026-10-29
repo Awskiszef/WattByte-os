@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { FAILURE_WINDOW_SEC, lockSeconds } from '../modules/auth/login-throttle.js';
+import { mergeByDate } from '../modules/usage/merge.js';
 import type {
   LoginThrottleRepository,
   AiGenerationRepository,
@@ -169,11 +170,15 @@ export class MemoryRepositories implements Repositories {
   };
 
   readonly devices: DeviceRepository = {
-    upsert: async (input) => {
+    upsert: async (input, options = {}) => {
       if (!this.userRows.has(input.userId)) throw new ForeignKeyViolation('devices.user_id');
       const existing = [...this.deviceRows.values()].find(
         (d) => d.userId === input.userId && d.installationId === input.installationId,
       );
+      if (!existing && options.maxDevices !== undefined) {
+        const held = [...this.deviceRows.values()].filter((d) => d.userId === input.userId).length;
+        if (held >= options.maxDevices) throw new DeviceLimitReached(options.maxDevices);
+      }
       const base: DeviceRow = existing ?? {
         id: randomUUID(),
         userId: input.userId,
@@ -282,6 +287,12 @@ export class MemoryRepositories implements Repositories {
       [...this.usageRows.values()]
         .filter((r) => r.userId === userId && r.date >= from && r.date <= to)
         .sort((a, b) => a.date.localeCompare(b.date)),
+    listDailyTotals: async (userId, from, to) =>
+      mergeByDate(
+        [...this.usageRows.values()]
+          .filter((r) => r.userId === userId && r.date >= from && r.date <= to)
+          .sort((a, b) => a.date.localeCompare(b.date) || a.deviceId.localeCompare(b.deviceId)),
+      ),
   };
 
   readonly ai: AiGenerationRepository = {
@@ -477,6 +488,14 @@ export class UniqueViolation extends Error {
   constructor(readonly constraint: string) {
     super(`unique violation: ${constraint}`);
     this.name = 'UniqueViolation';
+  }
+}
+
+/** An account that already holds the maximum number of devices tried to register one more installation. */
+export class DeviceLimitReached extends Error {
+  constructor(readonly max: number) {
+    super(`device limit reached (${max})`);
+    this.name = 'DeviceLimitReached';
   }
 }
 

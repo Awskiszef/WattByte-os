@@ -90,6 +90,10 @@ const EnvSchema = z
     DATABASE_SSL: z.enum(['0', '1']).default('0'),
     /** PEM file with the CA that signed the database certificate (private-CA / managed databases); needs DATABASE_SSL=1. */
     DATABASE_SSL_CA_FILE: z.string().max(1024).optional(),
+    /** Installations one account may register; the next one is refused with 409 device_limit_reached (re-registering a known one always works). */
+    MAX_DEVICES_PER_ACCOUNT: z.coerce.number().int().min(1).max(1_000).default(25),
+    /** Registrations and syncs per signed-in account per minute (on top of the per-client limit). */
+    CLOUD_WRITE_RATE_LIMIT_PER_MIN: z.coerce.number().int().min(1).max(10_000).default(30),
     /** Connections the API keeps to PostgreSQL. */
     DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(200).default(10),
     /** A statement running longer is cancelled by the server (the client gives up 5 s later). */

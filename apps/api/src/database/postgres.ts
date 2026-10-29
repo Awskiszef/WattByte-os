@@ -4,7 +4,7 @@ import pg from 'pg';
 
 import { DEFAULT_POOL_TUNING, poolSettings } from './connection.js';
 import { BASE_LOCK_SEC, FAILURE_WINDOW_SEC, LOCK_AFTER, MAX_LOCK_SEC } from '../modules/auth/login-throttle.js';
-import { ForeignKeyViolation, UniqueViolation } from './memory.js';
+import { DeviceLimitReached, ForeignKeyViolation, UniqueViolation } from './memory.js';
 import type {
   LoginThrottleRepository,
   AiGenerationRepository,
@@ -401,12 +401,11 @@ export class PostgresRepositories implements Repositories {
   };
 
   readonly devices: DeviceRepository = {
-    upsert: async (d) =>
-      (await this.one(
+    upsert: async (d, options = {}) => {
         // Each battery group (design / estimate) is replaced as a whole, nulls included, when its SOURCE is
         // given; with a null source the stored group stays untouched. A per-column COALESCE would mix a new
         // value with a stale one (a design figure of one source next to a number of another).
-        `INSERT INTO devices(user_id, installation_id, platform, model, model_identifier,
+      const sql = `INSERT INTO devices(user_id, installation_id, platform, model, model_identifier,
                              design_capacity_mah, design_capacity_wh, design_capacity_source,
                              estimated_full_charge_capacity_mah, estimated_full_charge_capacity_wh,
                              full_charge_capacity_source, full_charge_capacity_confidence)
@@ -434,8 +433,8 @@ export class PostgresRepositories implements Repositories {
                                                       THEN EXCLUDED.full_charge_capacity_confidence
                                                       ELSE devices.full_charge_capacity_confidence END,
                last_seen_at = now()
-         RETURNING *`,
-        [
+         RETURNING *`;
+      const params = [
           d.userId,
           d.installationId,
           d.platform,
@@ -449,12 +448,24 @@ export class PostgresRepositories implements Repositories {
           ...(d.fullChargeCapacitySource != null
             ? [d.estimatedFullChargeCapacityMah ?? null, d.estimatedFullChargeCapacityWh ?? null, d.fullChargeCapacitySource, d.fullChargeCapacityConfidence ?? null]
             : [null, null, null, null]),
-        ],
-        toDevice,
-      ))!,
+        ];
+      if (options.maxDevices === undefined) return (await this.one(sql, params, toDevice))!;
+      const max = options.maxDevices;
+      return this.withTransaction(async (client) => {
+        // One account registers one new installation at a time, so two concurrent registrations cannot both pass the count.
+        await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1::text, 727276))', [d.userId]);
+        const known = await client.query('SELECT 1 FROM devices WHERE user_id = $1 AND installation_id = $2', [d.userId, d.installationId]);
+        if (known.rowCount === 0) {
+          const held = (await client.query('SELECT count(*)::int AS n FROM devices WHERE user_id = $1', [d.userId])).rows[0] as { n: number };
+          if (held.n >= max) throw new DeviceLimitReached(max);
+        }
+        return toDevice((await client.query(sql, params)).rows[0] as Row);
+      }).catch(translate);
+    },
     findForUser: (userId, installationId) =>
       this.one('SELECT * FROM devices WHERE user_id = $1 AND installation_id = $2', [userId, installationId], toDevice),
-    listForUser: (userId) => this.many('SELECT * FROM devices WHERE user_id = $1 ORDER BY created_at', [userId], toDevice),
+    // LIMIT: an account above the cap (rows from before the cap existed) cannot make this response unbounded.
+    listForUser: (userId) => this.many('SELECT * FROM devices WHERE user_id = $1 ORDER BY created_at LIMIT 500', [userId], toDevice),
     delete: async (userId, id) => {
       const res = await this.pool.query('DELETE FROM devices WHERE user_id = $1 AND id = $2', [userId, id]);
       return (res.rowCount ?? 0) > 0;
@@ -521,36 +532,41 @@ export class PostgresRepositories implements Repositories {
 
   readonly usage: UsageRepository = {
     upsertDaily: async (rows) => {
-      return this.withTransaction(async (client) => {
-        for (const r of rows) {
-          await client.query(
-            `INSERT INTO daily_usage(user_id, device_id, date, mobile_bytes, wifi_bytes, charged_wh, wall_wh,
-               charging_sessions, estimated_cost, currency, data_estimated, energy_estimated)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-             ON CONFLICT (user_id, device_id, date) DO UPDATE SET
-               mobile_bytes = EXCLUDED.mobile_bytes, wifi_bytes = EXCLUDED.wifi_bytes,
-               charged_wh = EXCLUDED.charged_wh, wall_wh = EXCLUDED.wall_wh,
-               charging_sessions = EXCLUDED.charging_sessions, estimated_cost = EXCLUDED.estimated_cost,
-               currency = EXCLUDED.currency, data_estimated = EXCLUDED.data_estimated,
-               energy_estimated = EXCLUDED.energy_estimated, updated_at = now()`,
-            [
-              r.userId,
-              r.deviceId,
-              r.date,
-              r.mobileBytes,
-              r.wifiBytes,
-              r.chargedWh,
-              r.wallWh,
-              r.chargingSessions,
-              r.estimatedCost,
-              r.currency,
-              r.dataEstimated,
-              r.energyEstimated,
-            ],
-          );
-        }
-        return rows.length;
-      });
+      if (rows.length === 0) return 0;
+      // One statement for the whole batch (was one INSERT per row on one pooled connection, up to 92 per request). A date
+      // repeated in the batch would make ON CONFLICT touch a row twice, so the last occurrence wins, as it did before.
+      const last = new Map<string, DailyUsageRow>();
+      for (const r of rows) last.set(`${r.userId}|${r.deviceId}|${r.date}`, r);
+      const u = [...last.values()];
+      await this.pool
+        .query(
+          `INSERT INTO daily_usage(user_id, device_id, date, mobile_bytes, wifi_bytes, charged_wh, wall_wh,
+             charging_sessions, estimated_cost, currency, data_estimated, energy_estimated)
+           SELECT * FROM unnest($1::uuid[], $2::uuid[], $3::date[], $4::bigint[], $5::bigint[], $6::numeric[], $7::numeric[],
+             $8::int[], $9::numeric[], $10::text[], $11::boolean[], $12::boolean[])
+           ON CONFLICT (user_id, device_id, date) DO UPDATE SET
+             mobile_bytes = EXCLUDED.mobile_bytes, wifi_bytes = EXCLUDED.wifi_bytes,
+             charged_wh = EXCLUDED.charged_wh, wall_wh = EXCLUDED.wall_wh,
+             charging_sessions = EXCLUDED.charging_sessions, estimated_cost = EXCLUDED.estimated_cost,
+             currency = EXCLUDED.currency, data_estimated = EXCLUDED.data_estimated,
+             energy_estimated = EXCLUDED.energy_estimated, updated_at = now()`,
+          [
+            u.map((r) => r.userId),
+            u.map((r) => r.deviceId),
+            u.map((r) => r.date),
+            u.map((r) => r.mobileBytes),
+            u.map((r) => r.wifiBytes),
+            u.map((r) => r.chargedWh),
+            u.map((r) => r.wallWh),
+            u.map((r) => r.chargingSessions),
+            u.map((r) => r.estimatedCost),
+            u.map((r) => r.currency),
+            u.map((r) => r.dataEstimated),
+            u.map((r) => r.energyEstimated),
+          ],
+        )
+        .catch(translate);
+      return rows.length;
     },
     listDaily: (userId, from, to) =>
       this.many(
@@ -558,6 +574,33 @@ export class PostgresRepositories implements Repositories {
         [userId, from, to],
         toUsage,
       ),
+    listDailyTotals: async (userId, from, to) => {
+      const res = await this.pool
+        .query(
+          `SELECT date,
+                  SUM(mobile_bytes) AS mobile_bytes, SUM(wifi_bytes) AS wifi_bytes,
+                  ROUND(SUM(charged_wh), 3) AS charged_wh, ROUND(SUM(wall_wh), 3) AS wall_wh,
+                  SUM(charging_sessions) AS charging_sessions, ROUND(SUM(estimated_cost), 4) AS estimated_cost,
+                  (array_agg(currency ORDER BY device_id))[1] AS currency,
+                  bool_or(data_estimated) AS data_estimated, bool_or(energy_estimated) AS energy_estimated
+           FROM daily_usage WHERE user_id = $1 AND date BETWEEN $2 AND $3
+           GROUP BY date ORDER BY date`,
+          [userId, from, to],
+        )
+        .catch(translate);
+      return (res.rows as Row[]).map((r) => ({
+        date: r.date as string,
+        mobileBytes: num(r.mobile_bytes),
+        wifiBytes: num(r.wifi_bytes),
+        chargedWh: num(r.charged_wh),
+        wallWh: num(r.wall_wh),
+        chargingSessions: num(r.charging_sessions),
+        estimatedCost: num(r.estimated_cost),
+        currency: (r.currency as string).trim(),
+        dataEstimated: r.data_estimated as boolean,
+        energyEstimated: r.energy_estimated as boolean,
+      }));
+    },
   };
 
   readonly ai: AiGenerationRepository = {

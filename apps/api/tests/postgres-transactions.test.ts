@@ -4,7 +4,6 @@ import type pg from 'pg';
 import { describe, expect, it } from 'vitest';
 
 import { PostgresRepositories } from '../src/database/postgres.js';
-import type { DailyUsageRow } from '../src/database/repositories.js';
 
 /**
  * C-01: a transaction client from pool.connect() is a bare EventEmitter. pg-pool only listens to it while it sits idle,
@@ -16,10 +15,6 @@ import type { DailyUsageRow } from '../src/database/repositories.js';
  */
 
 const LOST = Object.assign(new Error('Connection terminated unexpectedly'), { code: undefined });
-const ROW: DailyUsageRow = {
-  userId: 'u1', deviceId: 'd1', date: '2026-01-01', mobileBytes: 1, wifiBytes: 1, chargedWh: 1, wallWh: 1,
-  chargingSessions: 0, estimatedCost: 0, currency: 'PLN', dataEstimated: false, energyEstimated: false,
-};
 
 type Step = (sql: string, client: FakeClient) => Promise<unknown> | undefined;
 
@@ -56,7 +51,8 @@ const dieOn = (when: (sql: string) => boolean): Step => (sql, client) => {
 const operations = {
   'sessions.rotate': (r: PostgresRepositories) =>
     r.sessions.rotate({ oldHash: 'a', newHash: 'b', newExpiresAt: new Date(Date.now() + 1e6), now: new Date(), graceMs: 10_000, absoluteLifetimeMs: 86_400_000 }),
-  'usage.upsertDaily': (r: PostgresRepositories) => r.usage.upsertDaily([ROW]),
+  // upsertDaily is one pooled statement now (no transaction); settling a spend hold is a two-statement transaction.
+  'ai.adjustSpend': (r: PostgresRepositories) => r.ai.adjustSpend({ day: '2026-01-01', provider: 'openai', plan: 'free', deltaUsd: -0.01, deltaRequests: 0 }),
   'cloud.deleteData': (r: PostgresRepositories) => r.cloud.deleteData('u1'),
   'cloud.exportData': (r: PostgresRepositories) => r.cloud.exportData('u1', 100),
 } as const;

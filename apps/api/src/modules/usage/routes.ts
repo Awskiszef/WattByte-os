@@ -1,4 +1,5 @@
-import { type DailyUsageDto, ErrorResponse, UsageDailyQuery, UsageDailyResponse, UsageSyncRequest, UsageSyncResponse } from '@wattbyte/contracts';
+import { ErrorResponse, UsageDailyQuery, UsageDailyResponse, UsageSyncRequest, UsageSyncResponse } from '@wattbyte/contracts';
+import type { FastifyRequest } from 'fastify';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 
 import type { DailyUsageRow, Repositories } from '../../database/repositories.js';
@@ -11,45 +12,15 @@ export interface UsageRoutesOptions {
   repos: Repositories;
   tokens: TokenService;
   features: FeatureFlags;
+  /** POST /usage/sync per signed-in account per minute. */
+  writeRateLimitMax?: number;
 }
 
 const MAX_RANGE_DAYS = 366;
 
-/** Sums the rows of every device for a date. Flags stay true if any device estimated. */
-export function mergeByDate(rows: DailyUsageRow[]): DailyUsageDto[] {
-  const byDate = new Map<string, DailyUsageDto>();
-  for (const r of rows) {
-    const acc = byDate.get(r.date);
-    if (!acc) {
-      byDate.set(r.date, {
-        date: r.date,
-        mobileBytes: r.mobileBytes,
-        wifiBytes: r.wifiBytes,
-        chargedWh: r.chargedWh,
-        wallWh: r.wallWh,
-        chargingSessions: r.chargingSessions,
-        estimatedCost: r.estimatedCost,
-        currency: r.currency,
-        dataEstimated: r.dataEstimated,
-        energyEstimated: r.energyEstimated,
-      });
-      continue;
-    }
-    acc.mobileBytes += r.mobileBytes;
-    acc.wifiBytes += r.wifiBytes;
-    acc.chargedWh = round(acc.chargedWh + r.chargedWh, 3);
-    acc.wallWh = round(acc.wallWh + r.wallWh, 3);
-    acc.chargingSessions += r.chargingSessions;
-    acc.estimatedCost = round(acc.estimatedCost + r.estimatedCost, 4);
-    acc.dataEstimated ||= r.dataEstimated;
-    acc.energyEstimated ||= r.energyEstimated;
-  }
-  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
-}
+export { mergeByDate } from './merge.js';
 
-const round = (v: number, d: number): number => Math.round(v * 10 ** d) / 10 ** d;
-
-export const usageRoutes: FastifyPluginAsyncZod<UsageRoutesOptions> = async (app, { repos, tokens, features }) => {
+export const usageRoutes: FastifyPluginAsyncZod<UsageRoutesOptions> = async (app, { repos, tokens, features, writeRateLimitMax }) => {
   const auth = requireAuth(tokens);
   const security = [{ bearerAuth: [] }];
   /** `FEATURE_CLOUD_SYNC=0` switches the cloud copy off: 503 `feature_disabled`. */
@@ -60,6 +31,8 @@ export const usageRoutes: FastifyPluginAsyncZod<UsageRoutesOptions> = async (app
     {
       preHandler: auth,
       preParsing: cloudSync,
+      // One budget per signed-in account for registrations and syncs together (C-04); the global limit stays per address.
+      config: { rateLimit: { max: writeRateLimitMax ?? 30, timeWindow: '1 minute', groupId: 'cloud-write', hook: 'preHandler', keyGenerator: (request: FastifyRequest) => `user:${request.user?.userId ?? request.ip}` } },
       // 92 days are about 25 KB; the global default (16 KiB) is for every other route.
       bodyLimit: 65_536,
       schema: {
@@ -67,7 +40,7 @@ export const usageRoutes: FastifyPluginAsyncZod<UsageRoutesOptions> = async (app
         summary: 'Upload per-day aggregates for one installation; safe to repeat',
         security,
         body: UsageSyncRequest,
-        response: { 200: UsageSyncResponse, 400: ErrorResponse, 401: ErrorResponse, 404: ErrorResponse, 503: ErrorResponse },
+        response: { 200: UsageSyncResponse, 400: ErrorResponse, 401: ErrorResponse, 404: ErrorResponse, 429: ErrorResponse, 503: ErrorResponse },
       },
     },
     async (request) => {
@@ -104,7 +77,8 @@ export const usageRoutes: FastifyPluginAsyncZod<UsageRoutesOptions> = async (app
       if (from > to) throw HttpError.badRequest('invalid_range', '`from` must not be after `to`');
       const days = (Date.parse(to) - Date.parse(from)) / 86_400_000;
       if (days > MAX_RANGE_DAYS) throw HttpError.badRequest('range_too_large', `At most ${MAX_RANGE_DAYS} days`);
-      return { days: mergeByDate(await repos.usage.listDaily(currentUser(request).userId, from, to)) };
+      // Summed over the devices in SQL: at most one row per day (<= 367) however many devices and rows the account has.
+      return { days: await repos.usage.listDailyTotals(currentUser(request).userId, from, to) };
     },
   );
 };

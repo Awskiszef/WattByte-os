@@ -1,8 +1,10 @@
 import { DeviceDto, DeviceListResponse, DeviceRegisterRequest, DeviceSpecificationDto, DeviceSpecificationParams, ErrorResponse } from '@wattbyte/contracts';
 import { lookupDeviceSpecification } from '@wattbyte/device-specs';
+import type { FastifyRequest } from 'fastify';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
+import { DeviceLimitReached } from '../../database/memory.js';
 import type { DeviceRow, Repositories } from '../../database/repositories.js';
 import { HttpError } from '../../errors/http-error.js';
 import { currentUser, requireAuth } from '../../middleware/auth.js';
@@ -12,6 +14,10 @@ import { validateBatteryCapacityGroups } from './battery-capacity.js';
 export interface DevicesRoutesOptions {
   repos: Repositories;
   tokens: TokenService;
+  /** Installations one account may hold (see MAX_DEVICES_PER_ACCOUNT). */
+  maxDevices?: number;
+  /** POST /devices per signed-in account per minute. */
+  writeRateLimitMax?: number;
 }
 
 /**
@@ -42,7 +48,7 @@ export function toDeviceDto(d: DeviceRow) {
   };
 }
 
-export const devicesRoutes: FastifyPluginAsyncZod<DevicesRoutesOptions> = async (app, { repos, tokens }) => {
+export const devicesRoutes: FastifyPluginAsyncZod<DevicesRoutesOptions> = async (app, { repos, tokens, maxDevices, writeRateLimitMax }) => {
   const auth = requireAuth(tokens);
   const security = [{ bearerAuth: [] }];
 
@@ -56,14 +62,16 @@ export const devicesRoutes: FastifyPluginAsyncZod<DevicesRoutesOptions> = async 
     '/devices',
     {
       preHandler: auth,
+      // Per signed-in ACCOUNT (the global limit is per address): rotating addresses does not multiply it.
+      config: { rateLimit: { max: writeRateLimitMax ?? 30, timeWindow: '1 minute', groupId: 'cloud-write', hook: 'preHandler', keyGenerator: (request: FastifyRequest) => `user:${request.user?.userId ?? request.ip}` } },
       schema: {
         tags: ['devices'],
         summary: 'Register (or refresh) this installation; idempotent per installationId',
         description:
-          'Battery capacity travels in two groups that are stored atomically: the design capacity of the model (designCapacityMah / designCapacityWh / designCapacitySource) and the estimated full-charge capacity of this battery (estimatedFullChargeCapacityMah / estimatedFullChargeCapacityWh / fullChargeCapacitySource / fullChargeCapacityConfidence). A group whose source is given replaces the stored group as a whole (nulls included); a group with a null source leaves the stored one untouched. A design capacity needs a source other than unknown; an estimate needs source androidChargeCounter and a confidence; Wh needs mAh. Violations are 400 validation.',
+          'An account holds at most MAX_DEVICES_PER_ACCOUNT installations: registering one more answers 409 device_limit_reached (delete an old device with DELETE /devices/{id}); refreshing an installation the account already has always works. Battery capacity travels in two groups that are stored atomically: the design capacity of the model (designCapacityMah / designCapacityWh / designCapacitySource) and the estimated full-charge capacity of this battery (estimatedFullChargeCapacityMah / estimatedFullChargeCapacityWh / fullChargeCapacitySource / fullChargeCapacityConfidence). A group whose source is given replaces the stored group as a whole (nulls included); a group with a null source leaves the stored one untouched. A design capacity needs a source other than unknown; an estimate needs source androidChargeCounter and a confidence; Wh needs mAh. Violations are 400 validation.',
         security,
         body: DeviceRegisterRequest,
-        response: { 201: DeviceDto, 400: ErrorResponse, 401: ErrorResponse },
+        response: { 201: DeviceDto, 400: ErrorResponse, 401: ErrorResponse, 409: ErrorResponse, 429: ErrorResponse },
       },
     },
     async (request, reply) => {
@@ -78,7 +86,12 @@ export const devicesRoutes: FastifyPluginAsyncZod<DevicesRoutesOptions> = async 
       }
       validateBatteryCapacityGroups(body);
       // The owner comes last on purpose: nothing in the body may ever choose whose device this is.
-      const device = await repos.devices.upsert({ ...request.body, userId: currentUser(request).userId });
+      const device = await repos.devices
+        .upsert({ ...request.body, userId: currentUser(request).userId }, { maxDevices })
+        .catch((e: unknown) => {
+          if (e instanceof DeviceLimitReached) throw HttpError.conflict('device_limit_reached', `This account already has ${e.max} devices; remove one you no longer use to add another`);
+          throw e;
+        });
       return reply.status(201).send(toDeviceDto(device));
     },
   );

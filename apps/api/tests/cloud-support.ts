@@ -43,7 +43,7 @@ export interface CloudFixture {
 export type FixtureFactory = (overrides?: Record<string, string>) => Promise<CloudFixture>;
 
 /** Free plan allows 2 AI generations per day, enough to fill the log and the quota. */
-const BASE: Record<string, string> = { AI_FREE_DAILY_LIMIT: '2', AI_RATE_LIMIT_PER_MIN: '1000' };
+const BASE: Record<string, string> = { AI_FREE_DAILY_LIMIT: '2', AI_RATE_LIMIT_PER_MIN: '1000', CLOUD_WRITE_RATE_LIMIT_PER_MIN: '10000' };
 
 let emailCounter = 0;
 

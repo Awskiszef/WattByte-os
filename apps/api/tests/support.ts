@@ -53,6 +53,8 @@ export async function buildTestApp(opts: BuildOptions = {}): Promise<BuiltApp> {
   const env = loadEnv({
     NODE_ENV: 'test',
     JWT_SECRET: TEST_SECRET,
+    // The per-account write budget is under test in device-limits; everywhere else it must not get in the way.
+    CLOUD_WRITE_RATE_LIMIT_PER_MIN: '10000',
     AI_FREE_DAILY_LIMIT: '2',
     AI_PREMIUM_DAILY_LIMIT: '10',
     ...opts.env,

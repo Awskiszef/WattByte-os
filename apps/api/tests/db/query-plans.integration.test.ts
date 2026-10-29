@@ -85,6 +85,23 @@ describe.skipIf(!DATABASE_URL)('query plans (PostgreSQL)', () => {
     expect(p).not.toMatch(/Seq Scan on (sessions|daily_usage|charging_summaries)\b/);
   });
 
+  it('GET /usage/daily (listDailyTotals) reads through the (user, date) index and aggregates in the database (C-04)', async () => {
+    const p = await plan(
+      'SELECT date, SUM(mobile_bytes) FROM daily_usage WHERE user_id = $1 AND date BETWEEN $2 AND $3 GROUP BY date ORDER BY date',
+      [probeUser, '2026-01-01', '2026-12-31'],
+    );
+    expect(p).toMatch(/daily_usage_user_date_idx/);
+    expect(p).not.toMatch(/Seq Scan on daily_usage/);
+  });
+
+  it('the device-cap count and lookup run on the (user, installation) key (C-04)', async () => {
+    const p = await plan('SELECT 1 FROM devices WHERE user_id = $1 AND installation_id = $2', [probeUser, 'install-1']);
+    expect(p).toMatch(/devices_user_id_installation_id_key|devices_user_installation|Index/);
+    expect(p).not.toMatch(/Seq Scan on devices/);
+    const count = await plan('SELECT count(*)::int FROM devices WHERE user_id = $1', [probeUser]);
+    expect(count).not.toMatch(/Seq Scan on devices/);
+  });
+
   it('the retention purge of sessions can use the expiry and revocation indexes (C-02)', async () => {
     const p = await plan('SELECT id FROM sessions WHERE expires_at < $1 OR revoked_at < $1', [new Date('2020-01-01')]);
     expect(p).toMatch(/sessions_expires_at_idx|sessions_revoked_at_idx/);

@@ -3,6 +3,8 @@
  * `memory.ts` for tests and the OpenAPI export; services only see these.
  */
 
+import type { DailyUsageDto } from '@wattbyte/contracts';
+
 export type Plan = 'free' | 'premium';
 export type Platform = 'android' | 'ios';
 
@@ -275,8 +277,12 @@ export interface SessionRepository {
 }
 
 export interface DeviceRepository {
-  /** Fields left undefined/null keep their stored value, so a sync-time re-registration never erases the setup data. */
-  upsert(input: DeviceUpsert): Promise<DeviceRow>;
+  /**
+   * Fields left undefined/null keep their stored value, so a sync-time re-registration never erases the setup data.
+   * `maxDevices`: a NEW installation is refused (`DeviceLimitReached`) once the account holds that many; an installation
+   * the account already has can always be refreshed, even by an account above the cap. The check and the insert are atomic.
+   */
+  upsert(input: DeviceUpsert, options?: { maxDevices?: number }): Promise<DeviceRow>;
   findForUser(userId: string, installationId: string): Promise<DeviceRow | null>;
   listForUser(userId: string): Promise<DeviceRow[]>;
   delete(userId: string, id: string): Promise<boolean>;
@@ -286,6 +292,8 @@ export interface UsageRepository {
   /** Insert-or-update keyed by (user, device, date); returns rows written. */
   upsertDaily(rows: DailyUsageRow[]): Promise<number>;
   listDaily(userId: string, from: string, to: string): Promise<DailyUsageRow[]>;
+  /** One entry per date in [from, to], summed over the devices of the account: at most one row per day however many devices there are. */
+  listDailyTotals(userId: string, from: string, to: string): Promise<DailyUsageDto[]>;
 }
 
 export interface SpendLimits {

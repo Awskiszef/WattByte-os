@@ -242,8 +242,8 @@ export async function buildApp(deps: AppDeps): Promise<App> {
       await v1.register(authRoutes, { service: auth, tokens, rateLimitMax: deps.authRateLimitMax ?? env.AUTH_RATE_LIMIT_PER_MIN, refreshRateLimitMax: deps.refreshRateLimitMax ?? env.REFRESH_RATE_LIMIT_PER_MIN });
       await v1.register(usersRoutes, { repos, tokens, auth });
       await v1.register(cloudRoutes, { repos, tokens });
-      await v1.register(devicesRoutes, { repos, tokens });
-      await v1.register(usageRoutes, { repos, tokens, features });
+      await v1.register(devicesRoutes, { repos, tokens, maxDevices: env.MAX_DEVICES_PER_ACCOUNT, writeRateLimitMax: env.CLOUD_WRITE_RATE_LIMIT_PER_MIN });
+      await v1.register(usageRoutes, { repos, tokens, features, writeRateLimitMax: env.CLOUD_WRITE_RATE_LIMIT_PER_MIN });
       await v1.register(electricityRoutes, { service: prices, repos, tokens });
       await v1.register(regionRoutes, { countryHeader: env.COUNTRY_HEADER, viaTrustedProxy: makeViaTrustedProxy(env) });
       await v1.register(aiRoutes, { service: ai, tokens, features, rateLimitMax: deps.aiRateLimitMax ?? env.AI_RATE_LIMIT_PER_MIN });

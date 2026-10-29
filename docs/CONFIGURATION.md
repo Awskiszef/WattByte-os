@@ -52,6 +52,8 @@ Warnings are logged once at boot (`envWarnings`), they do not stop the server.
 | `LOG_LEVEL` | `info` | `fatal` `error` `warn` `info` `debug` `trace` `silent`. |
 | `DATABASE_URL` | – | PostgreSQL connection string. |
 | `DATABASE_SSL` | `0` | `1` = TLS with `rejectUnauthorized: true`. With `1`, the URL's own TLS parameters (`sslmode`, `sslrootcert`, ...) are removed so they cannot override it, and a URL that asks for less (`sslmode=disable\|allow\|prefer\|no-verify`, `ssl=0`) is **refused at start-up**; with an explicit `0`, a URL that asks for TLS is refused. Unset: the URL decides. The same rules apply to the API, `migrate`, the retention job and `pnpm db:wait`. |
+| `MAX_DEVICES_PER_ACCOUNT` | `25` | Installations one account may register. The next new one is refused with `409 device_limit_reached`; refreshing a known installation always works, also above the cap (accounts that predate it keep their rows). Free a slot with `DELETE /api/v1/devices/{id}`. `GET /devices` returns at most 500. |
+| `CLOUD_WRITE_RATE_LIMIT_PER_MIN` | `30` | `POST /devices` and `POST /usage/sync` per signed-in account per minute, one shared budget, on top of the per-address limit. |
 | `DATABASE_SSL_CA_FILE` | – | PEM file with the CA that signed the database certificate (private-CA / managed databases). Needs `DATABASE_SSL=1`. |
 | `DATABASE_POOL_MAX` | `10` | Connections the API keeps to PostgreSQL (1-200). |
 | `DATABASE_STATEMENT_TIMEOUT_MS` | `15000` | The server cancels a statement running longer; the client gives up 5 s later if the server never answers (silent network path) and discards that connection. Idle sockets use TCP keep-alive, connections are recycled after 1 h and a transaction idle for 30 s is ended by the server. |

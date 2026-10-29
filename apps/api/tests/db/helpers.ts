@@ -23,6 +23,8 @@ export async function makePgApp(overrides: Record<string, string> = {}, deps: { 
   const env = loadEnv({
     NODE_ENV: 'test',
     JWT_SECRET: 'test-secret-test-secret-test-secret-test-secret',
+    // The per-account write budget is under test in device-limits; everywhere else it must not get in the way.
+    CLOUD_WRITE_RATE_LIMIT_PER_MIN: '10000',
     DATABASE_URL,
     AI_FREE_DAILY_LIMIT: '3',
     AI_PREMIUM_DAILY_LIMIT: '10',
