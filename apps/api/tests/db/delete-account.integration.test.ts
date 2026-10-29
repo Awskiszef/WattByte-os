@@ -18,10 +18,11 @@ describeDeleteAccount('PostgreSQL', postgresFixture, postgresAvailable);
  * Tables that hold no per-user rows, by design. Anything else without a `user_id` column must be looked at.
  * `ai_spend_daily` is a total per day and provider: no user id, nothing that points at a person, kept on purpose
  * after an erasure (a spend limit that a user could reset by deleting their data would be no limit).
+ * `ai_spend_plan_daily` is the same total per day and plan (free / premium).
  * `login_throttle` is keyed by a one-way hash of an e-mail address and holds only a failure counter; the retention job
  * purges it after a day, and a lock that deleting an account could clear would be no lock.
  */
-const NOT_PER_USER = ['ai_spend_daily', 'electricity_prices', 'login_throttle', 'schema_migrations', 'users'];
+const NOT_PER_USER = ['ai_spend_daily', 'ai_spend_plan_daily', 'electricity_prices', 'login_throttle', 'schema_migrations', 'users'];
 
 describe.skipIf(!postgresAvailable)('DELETE /me (PostgreSQL schema)', () => {
   let fx: CloudFixture;

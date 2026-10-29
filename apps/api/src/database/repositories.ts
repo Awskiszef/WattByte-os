@@ -259,12 +259,15 @@ export interface SpendLimits {
   monthlyUsd?: number;
   /** This provider, per UTC day. */
   providerDailyUsd?: number;
+  /** The caller's plan (free or premium), per UTC day: free accounts cost nothing to create, so they get a share, not the whole budget. */
+  planDailyUsd?: number;
 }
 
 export interface SpendReservationRequest {
   /** UTC day `YYYY-MM-DD`. */
   day: string;
   provider: string;
+  plan: Plan;
   usd: number;
   limits: SpendLimits;
 }
@@ -288,9 +291,9 @@ export interface AiGenerationRepository {
    * the month's total and the provider's day all stay within their limits afterwards. Concurrent callers are serialised,
    * so a burst cannot overshoot a limit together. Counts one request.
    */
-  reserveSpend(request: SpendReservationRequest): Promise<{ ok: true } | { ok: false; exceeded: 'daily' | 'monthly' | 'provider' }>;
+  reserveSpend(request: SpendReservationRequest): Promise<{ ok: true } | { ok: false; exceeded: 'daily' | 'monthly' | 'provider' | 'plan' }>;
   /** Corrects a hold by `deltaUsd` (negative = give back) and the request count by `deltaRequests`; never below zero. */
-  adjustSpend(adjustment: { day: string; provider: string; deltaUsd: number; deltaRequests: number }): Promise<void>;
+  adjustSpend(adjustment: { day: string; provider: string; plan: Plan; deltaUsd: number; deltaRequests: number }): Promise<void>;
   /**
    * USD spent from the start of UTC day `sinceDay` (`YYYY-MM-DD`) up to now, for one provider or all of them.
    * Read from the daily spend table, which survives data erasure and retention (it holds no user id).

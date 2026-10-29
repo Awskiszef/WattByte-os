@@ -39,6 +39,8 @@ export class MemoryRepositories implements Repositories {
   private readonly quota = new Map<string, number>();
   /** `day|provider` -> USD; the in-memory twin of ai_spend_daily (no user id, survives data erasure). */
   private readonly spend = new Map<string, number>();
+  /** `day|plan` -> USD (the twin of ai_spend_plan_daily). */
+  private readonly planSpend = new Map<string, number>();
   private readonly chargingRows = new Map<string, ChargingSummaryRow>();
   private readonly monthlyRows = new Map<string, MonthlySummaryRow>();
   private readonly subscriptionRows = new Map<string, SubscriptionRow>();
@@ -269,7 +271,7 @@ export class MemoryRepositories implements Repositories {
       this.spend.set(key, (this.spend.get(key) ?? 0) + row.estimatedCostUsd);
     },
     // No await inside: atomic on the single JS thread, like the serialised PostgreSQL transaction.
-    reserveSpend: async ({ day, provider, usd, limits }) => {
+    reserveSpend: async ({ day, provider, plan, usd, limits }) => {
       const month = `${day.slice(0, 8)}01`;
       let dayTotal = 0;
       let monthTotal = 0;
@@ -284,13 +286,17 @@ export class MemoryRepositories implements Repositories {
       if (over(dayTotal, limits.dailyUsd)) return { ok: false, exceeded: 'daily' };
       if (over(monthTotal, limits.monthlyUsd)) return { ok: false, exceeded: 'monthly' };
       if (over(providerDay, limits.providerDailyUsd)) return { ok: false, exceeded: 'provider' };
+      if (over(this.planSpend.get(`${day}|${plan}`) ?? 0, limits.planDailyUsd)) return { ok: false, exceeded: 'plan' };
       const key = `${day}|${provider}`;
       this.spend.set(key, (this.spend.get(key) ?? 0) + usd);
+      this.planSpend.set(`${day}|${plan}`, (this.planSpend.get(`${day}|${plan}`) ?? 0) + usd);
       return { ok: true };
     },
-    adjustSpend: async ({ day, provider, deltaUsd }) => {
+    adjustSpend: async ({ day, provider, plan, deltaUsd }) => {
       const key = `${day}|${provider}`;
       this.spend.set(key, Math.max(0, (this.spend.get(key) ?? 0) + deltaUsd));
+      const planKey = `${day}|${plan}`;
+      this.planSpend.set(planKey, Math.max(0, (this.planSpend.get(planKey) ?? 0) + deltaUsd));
     },
     spentUsd: async (sinceDay, provider) => {
       let total = 0;

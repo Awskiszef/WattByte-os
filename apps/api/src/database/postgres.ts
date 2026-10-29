@@ -568,7 +568,7 @@ export class PostgresRepositories implements Repositories {
     },
     // One transaction under an advisory lock: the three sums and the increment cannot interleave with another
     // reservation, so concurrent callers never exceed a limit together. AI calls are slow and rare; the lock is cheap.
-    reserveSpend: async ({ day, provider, usd, limits }) => {
+    reserveSpend: async ({ day, provider, plan, usd, limits }) => {
       return this.withTransaction(async (client) => {
         await client.query('SELECT pg_advisory_xact_lock($1)', [AI_SPEND_LOCK_KEY]);
         const month = `${day.slice(0, 8)}01`;
@@ -585,6 +585,13 @@ export class PostgresRepositories implements Repositories {
         if (over(num(sums.day_total), limits.dailyUsd)) return { ok: false as const, exceeded: 'daily' as const };
         if (over(num(sums.month_total), limits.monthlyUsd)) return { ok: false as const, exceeded: 'monthly' as const };
         if (over(num(sums.provider_day), limits.providerDailyUsd)) return { ok: false as const, exceeded: 'provider' as const };
+        const planRow = (await client.query('SELECT cost_usd FROM ai_spend_plan_daily WHERE day = $1::date AND plan = $2', [day, plan])).rows[0] as Row | undefined;
+        if (over(planRow ? num(planRow.cost_usd) : 0, limits.planDailyUsd)) return { ok: false as const, exceeded: 'plan' as const };
+        await client.query(
+          `INSERT INTO ai_spend_plan_daily(day, plan, cost_usd) VALUES ($1::date, $2, $3)
+           ON CONFLICT (day, plan) DO UPDATE SET cost_usd = ai_spend_plan_daily.cost_usd + EXCLUDED.cost_usd`,
+          [day, plan, usd],
+        );
         await client.query(
           `INSERT INTO ai_spend_daily(day, provider, requests, cost_usd) VALUES ($1::date, $2, 1, $3)
            ON CONFLICT (day, provider) DO UPDATE SET requests = ai_spend_daily.requests + 1, cost_usd = ai_spend_daily.cost_usd + EXCLUDED.cost_usd`,
@@ -593,10 +600,11 @@ export class PostgresRepositories implements Repositories {
         return { ok: true as const };
       }).catch(translate);
     },
-    adjustSpend: async ({ day, provider, deltaUsd, deltaRequests }) => {
-      await this.pool
-        .query('UPDATE ai_spend_daily SET cost_usd = GREATEST(cost_usd + $3, 0), requests = GREATEST(requests + $4, 0) WHERE day = $1::date AND provider = $2', [day, provider, deltaUsd, deltaRequests])
-        .catch(translate);
+    adjustSpend: async ({ day, provider, plan, deltaUsd, deltaRequests }) => {
+      await this.withTransaction(async (client) => {
+        await client.query('UPDATE ai_spend_daily SET cost_usd = GREATEST(cost_usd + $3, 0), requests = GREATEST(requests + $4, 0) WHERE day = $1::date AND provider = $2', [day, provider, deltaUsd, deltaRequests]);
+        await client.query('UPDATE ai_spend_plan_daily SET cost_usd = GREATEST(cost_usd + $3, 0) WHERE day = $1::date AND plan = $2', [day, plan, deltaUsd]);
+      }).catch(translate);
     },
     spentUsd: async (sinceDay, provider) => {
       const res = await this.pool.query(

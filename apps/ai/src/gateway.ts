@@ -124,7 +124,7 @@ export interface AttemptLogEntry {
 
 /** Thrown inside the gateway when the ledger refuses or cannot hold a call; becomes an `AIGatewayError`. */
 class BudgetStop extends Error {
-  constructor(readonly reason: 'daily' | 'monthly' | 'provider' | 'unavailable') {
+  constructor(readonly reason: 'daily' | 'monthly' | 'provider' | 'plan' | 'unavailable') {
     super(`budget stop: ${reason}`);
   }
 }
@@ -272,7 +272,8 @@ export class AIGateway {
     const prompt = buildPrompt(task, mode, ctx.locale, parsed.data);
     const request: Omit<AIGenerationRequest, 'timeoutMs' | 'model'> = {
       task,
-      tier: TASK_TIER[task],
+      // The summaries use the dearer quality tier; the free plan (accounts cost nothing to create) stays on the fast one.
+      tier: ctx.plan === 'free' ? 'fast' : TASK_TIER[task],
       mode,
       locale: ctx.locale,
       system: prompt.system,
@@ -348,7 +349,7 @@ export class AIGateway {
       let result: AIGenerationResult | undefined;
       // Every call is held on the ledger BEFORE it is made (worst case) and settled after: nothing is paid for that the
       // limits did not see, and a failure to reach the ledger stops the call (BudgetStop, handled in generate()).
-      const hold = await this.hold(provider.id, request);
+      const hold = await this.hold(provider.id, request, ctx.plan);
       // The caller may have given up while the ledger was being asked: no paid call is started for nobody.
       if (request.signal?.aborted) {
         await hold.settle(0, false);
@@ -455,11 +456,11 @@ export class AIGateway {
   }
 
   /** Holds the worst case of the call on the ledger; a no-op reservation when no ledger is configured. */
-  private async hold(providerId: AIProviderId, request: Omit<AIGenerationRequest, 'timeoutMs'>): Promise<SpendReservation> {
+  private async hold(providerId: AIProviderId, request: Omit<AIGenerationRequest, 'timeoutMs'>, plan: Plan): Promise<SpendReservation> {
     if (!this.ledger) return { settle: async () => undefined };
     let outcome;
     try {
-      outcome = await withTimeout(this.ledger.reserve({ provider: providerId, estimateUsd: this.worstCase(providerId, request, request.model), now: this.now() }), this.ledgerTimeoutMs);
+      outcome = await withTimeout(this.ledger.reserve({ provider: providerId, estimateUsd: this.worstCase(providerId, request, request.model), now: this.now(), plan }), this.ledgerTimeoutMs);
     } catch (e) {
       this.warn({ event: 'ai.ledger_reserve_failed', provider: providerId, error: e instanceof Error ? e.name : 'Error' }, 'ai spend ledger unavailable');
       throw new BudgetStop('unavailable');

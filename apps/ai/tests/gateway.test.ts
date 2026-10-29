@@ -82,19 +82,25 @@ describe('tier selection', () => {
     expect(TASK_TIER).toEqual({ insight: 'fast', roast: 'fast', weekly_summary: 'quality', monthly_summary: 'quality' });
   });
 
-  it.each(AI_TASKS)('%s reaches the provider with its tier', async (task) => {
+  it.each(AI_TASKS)('%s reaches the provider with its tier (premium)', async (task) => {
     const { gateway, providers } = setup();
-    await gateway.generate(task, task === 'roast' ? 'roast' : 'normal', input, ctx);
+    await gateway.generate(task, task === 'roast' ? 'roast' : 'normal', input, { ...ctx, plan: 'premium' });
     const first = providers[DEFAULT_ROUTING[task][0]!];
     expect(first.calls[0]!.tier).toBe(TASK_TIER[task]);
     expect(first.calls[0]!.task).toBe(task);
+  });
+
+  it.each(AI_TASKS)('%s on the free plan always uses the fast tier: accounts cost nothing to create (B-08)', async (task) => {
+    const { gateway, providers } = setup();
+    await gateway.generate(task, task === 'roast' ? 'roast' : 'normal', input, { ...ctx, plan: 'free' });
+    expect(providers[DEFAULT_ROUTING[task][0]!].calls[0]!.tier).toBe('fast');
   });
 
   describe.each(specs)('with the real $name adapter', (spec) => {
     const modelFor = async (task: AITask, cfg: { fast?: string; quality?: string }) => {
       const { fetchImpl, calls } = fakeFetch({ body: spec.success(json) });
       const gateway = new AIGateway({ router: new ProviderRouter([spec.make(fetchImpl, { models: cfg })], { routing: Object.fromEntries(AI_TASKS.map((t) => [t, [spec.name]])) as never }) });
-      await gateway.generate(task, 'normal', input, ctx);
+      await gateway.generate(task, 'normal', input, { ...ctx, plan: 'premium' });
       return calls[0]!.url + JSON.stringify(calls[0]!.body);
     };
 

@@ -102,7 +102,8 @@ describe('the limits hold under concurrency (D-06)', () => {
     await probe.app.close();
     const hold = held[0]!;
 
-    ctx = await makeApp({ AI_BUDGET_DAILY_USD: String(hold * 3.5), AI_FREE_DAILY_LIMIT: '100' });
+    // The free plan's own share is raised so that the day's total is the limit under test.
+    ctx = await makeApp({ AI_BUDGET_DAILY_USD: String(hold * 3.5), AI_BUDGET_FREE_DAILY_USD: String(hold * 100), AI_FREE_DAILY_LIMIT: '100' });
     // Accounts are created directly: twenty simultaneous registrations would meet the password-hashing limiter (A-04).
     const users = await Promise.all(Array.from({ length: 20 }, (_, i) => seedUser(ctx!.repos, `ledger-${i}@test.wattbyte`)));
     // Hold every provider call open until all twenty requests have asked the ledger: the holds overlap, as they do

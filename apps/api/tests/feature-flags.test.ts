@@ -39,7 +39,7 @@ describe('GET /api/v1/config', () => {
   });
 
   it('reports the deployment (APP_ENV) and contains nothing secret', async () => {
-    const env = { NODE_ENV: 'production', APP_ENV: 'staging', DATABASE_URL: 'postgres://app:db-secret-pass@db.internal:5432/x', DATABASE_SSL: '1', TRUST_PROXY_HOPS: '1', JWT_SECRET: 'k3J9xQ2vLm8Zp4Rt7Yw1Nb6Hc5Df0Gs2AaBbCcDd', OPENAI_API_KEY: 'sk-openai-secret-value', OPENAI_FAST_MODEL: 'm' };
+    const env = { NODE_ENV: 'production', APP_ENV: 'staging', DATABASE_URL: 'postgres://app:db-secret-pass@db.internal:5432/x', DATABASE_SSL: '1', TRUST_PROXY_HOPS: '1', JWT_SECRET: 'k3J9xQ2vLm8Zp4Rt7Yw1Nb6Hc5Df0Gs2AaBbCcDd', OPENAI_API_KEY: 'sk-openai-secret-value', OPENAI_FAST_MODEL: 'm', AI_BUDGET_UNLIMITED: '1' };
     await withApp(env, async ({ app }) => {
       const res = await app.inject({ url: '/api/v1/config' });
       expect(res.json().environment).toBe('staging');

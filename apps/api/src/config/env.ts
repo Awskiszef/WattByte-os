@@ -1,6 +1,6 @@
 import { isIPv4, isIPv6 } from 'node:net';
 
-import { AI_PROVIDER_IDS, providerEnvProblems } from '@wattbyte/ai';
+import { AI_PROVIDER_IDS, modelPriceFor, PROVIDER_ENV_VARS, providerEnvProblems } from '@wattbyte/ai';
 import { z } from 'zod';
 
 /** Deployments the API knows about; see docs/CONFIGURATION.md for what each one enforces. */
@@ -124,6 +124,10 @@ const EnvSchema = z
     /** Spend limits in USD (estimates unless prices are configured or the provider reports the charge). Unset = no limit. */
     AI_BUDGET_DAILY_USD: z.coerce.number().nonnegative().finite().optional(),
     AI_BUDGET_MONTHLY_USD: z.coerce.number().nonnegative().finite().optional(),
+    /** The free plan's share of the day's budget; default half of AI_BUDGET_DAILY_USD. Free accounts cost nothing to create. */
+    AI_BUDGET_FREE_DAILY_USD: z.coerce.number().nonnegative().finite().optional(),
+    /** Staging/production refuse to start with real AI providers and no AI_BUDGET_DAILY_USD unless this says so on purpose (`1`). */
+    AI_BUDGET_UNLIMITED: Flag('0'),
     AI_BUDGET_PROVIDER_DAILY_USD: JsonVariable('AI_BUDGET_PROVIDER_DAILY_USD', ProviderBudgetShape).optional(),
     OPENAI_API_KEY: z.string().optional(),
     OPENAI_FAST_MODEL: z.string().optional(),
@@ -214,9 +218,45 @@ function strictEnvironmentProblems(env: Env, source: NodeJS.ProcessEnv): string[
   if (source.TRUST_PROXY_HOPS === undefined && source.TRUST_PROXY_CIDRS === undefined) {
     problems.push('TRUST_PROXY_CIDRS (the proxies\' addresses, preferred) or TRUST_PROXY_HOPS (their number; 0 = deliberately none, clients connect directly) must be set explicitly');
   }
+  problems.push(...aiSpendProblems(env, source));
   // The default ('0') would silently send credentials and data in clear: the operator must choose.
   if (env.APP_ENV === 'production' && source.DATABASE_SSL === undefined) {
     problems.push('DATABASE_SSL must be set explicitly (1 = TLS with certificate verification, 0 = deliberately unencrypted private link)');
+  }
+  return problems;
+}
+
+/** Real AI providers can be called: the feature is on, the mock is off and at least one provider has a key. */
+export function aiIsLive(env: Pick<Env, 'FEATURE_AI' | 'AI_MOCK'>, source: NodeJS.ProcessEnv): boolean {
+  if (env.FEATURE_AI !== '1' || env.AI_MOCK === '1') return false;
+  return AI_PROVIDER_IDS.some((id) => (source[PROVIDER_ENV_VARS[id].apiKey] ?? '').trim() !== '');
+}
+
+/**
+ * Staging/production with real providers need a spend ceiling the application enforces (D-02, B-08): accounts are free
+ * and unverified, so the per-account quota alone does not bound the bill. The ceiling is only as good as the prices it
+ * is measured with, so every configured model needs an AI_MODEL_PRICES entry (D-07). `AI_BUDGET_UNLIMITED=1` is the
+ * conscious opt-out (logged as a warning at every boot).
+ */
+function aiSpendProblems(env: Env, source: NodeJS.ProcessEnv): string[] {
+  if (!aiIsLive(env, source)) return [];
+  const budgetSet = env.AI_BUDGET_DAILY_USD !== undefined || env.AI_BUDGET_MONTHLY_USD !== undefined || env.AI_BUDGET_PROVIDER_DAILY_USD !== undefined;
+  if (env.AI_BUDGET_UNLIMITED === '1') {
+    return budgetSet ? ['AI_BUDGET_UNLIMITED=1 contradicts the AI_BUDGET_* limits that are set; remove one'] : [];
+  }
+  if (env.AI_BUDGET_DAILY_USD === undefined) {
+    return ['AI_BUDGET_DAILY_USD must be set when real AI providers are configured (AI_BUDGET_MONTHLY_USD and AI_BUDGET_PROVIDER_DAILY_USD refine it), or AI_BUDGET_UNLIMITED=1 to run without an application-level spend ceiling on purpose'];
+  }
+  const problems: string[] = [];
+  for (const id of AI_PROVIDER_IDS) {
+    const vars = PROVIDER_ENV_VARS[id];
+    if ((source[vars.apiKey] ?? '').trim() === '') continue;
+    for (const name of [vars.fastModel, vars.qualityModel]) {
+      const model = (source[name] ?? '').trim();
+      if (model !== '' && modelPriceFor(env.AI_MODEL_PRICES, model) === undefined) {
+        problems.push(`${name}=${model} has no entry in AI_MODEL_PRICES: the spend limits would measure it at a flat provider price`);
+      }
+    }
   }
   return problems;
 }
@@ -282,6 +322,9 @@ export function envWarnings(env: Env): string[] {
   }
   if (env.APP_ENV === 'development') return out;
   if (env.DATABASE_SSL === '0') out.push('DATABASE_SSL=0: PostgreSQL traffic is not encrypted; acceptable only on a private link');
+  if (env.AI_BUDGET_UNLIMITED === '1' && aiIsLive(env, process.env)) {
+    out.push('AI_BUDGET_UNLIMITED=1: nothing in this application limits AI spend; set a spending limit at every provider');
+  }
   if (env.TRUST_PROXY_HOPS === 0 && !env.TRUST_PROXY_CIDRS) {
     out.push('TRUST_PROXY_HOPS=0: behind a reverse proxy every client shares the proxy address and one rate-limit bucket');
   }

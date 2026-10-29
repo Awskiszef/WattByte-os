@@ -1,4 +1,4 @@
-import type { AIProviderId } from './types.js';
+import type { AIProviderId, Plan } from './types.js';
 
 /**
  * Spend limits in USD. Every field is optional; a limit that is not set is not enforced. They are checked
@@ -38,7 +38,7 @@ export interface SpendReservation {
 
 export type SpendReservationResult =
   | { readonly ok: true; readonly reservation: SpendReservation }
-  | { readonly ok: false; readonly exceeded: 'daily' | 'monthly' | 'provider' };
+  | { readonly ok: false; readonly exceeded: 'daily' | 'monthly' | 'provider' | 'plan' };
 
 /**
  * The spend ledger the gateway books every provider call on. `reserve` checks the limits against what is already
@@ -47,7 +47,7 @@ export type SpendReservationResult =
  * the gateway then calls nothing (fails closed).
  */
 export interface SpendLedger {
-  reserve(request: { provider: AIProviderId; estimateUsd: number; now: Date }): Promise<SpendReservationResult>;
+  reserve(request: { provider: AIProviderId; estimateUsd: number; now: Date; plan: Plan }): Promise<SpendReservationResult>;
 }
 
 export interface BudgetGuard {

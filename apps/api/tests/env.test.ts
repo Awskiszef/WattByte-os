@@ -164,7 +164,7 @@ describe('AI configuration', () => {
   });
 
   it('staging and production keep their guards and add nothing for a valid AI setup', () => {
-    expect(loadEnv({ ...good, ...openai, AI_DEFAULT_PROVIDER: 'openai' }).AI_DEFAULT_PROVIDER).toBe('openai');
+    expect(loadEnv({ ...good, ...openai, AI_DEFAULT_PROVIDER: 'openai', AI_BUDGET_UNLIMITED: '1' }).AI_DEFAULT_PROVIDER).toBe('openai');
     expect(() => loadEnv({ ...good, AI_DEFAULT_PROVIDER: 'openai' })).toThrow(/OPENAI_API_KEY is not set/);
   });
 

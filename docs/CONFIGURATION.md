@@ -28,6 +28,7 @@ development profile explicitly (`NODE_ENV=development`; `pnpm --filter @wattbyte
 | `DATABASE_URL` | needed to start the server, not validated at load | **required** | **required** |
 | `DATABASE_URL` is not the docker-compose credentials (`wattbyte:wattbyte`) | – | **refused** | **refused** |
 | `DATABASE_SSL` set explicitly | – | default `0` + warning | **required** (`1` = TLS with certificate verification, `0` = a conscious "private link" choice, logged as a warning) |
+| `AI_BUDGET_DAILY_USD` and an `AI_MODEL_PRICES` entry per configured model, when real AI providers are configured | – | **required** (or `AI_BUDGET_UNLIMITED=1`) | **required** (same) |
 | `TRUST_PROXY_CIDRS` or `TRUST_PROXY_HOPS` set explicitly | – | **required** (`TRUST_PROXY_HOPS=0` = deliberately no proxy, logged as a warning) | **required** (same) |
 | `ACCESS_TOKEN_TTL_SEC` above one hour | – | warning | warning |
 
@@ -86,6 +87,8 @@ Request bodies are limited to 16 KiB (`POST /usage/sync`: 64 KiB), arrays in a b
 | `AI_FALLBACK_ON_RATE_LIMIT` | `1` | `0`: a 429 does not send the request to the other provider. |
 | `AI_MODEL_PRICES` | unset | JSON, USD per 1M tokens: `{"<model>":{"input":0.4,"output":1.6}}`. Makes cost tracking and budgets exact for those models; otherwise costs are flat per-provider estimates. |
 | `AI_BUDGET_DAILY_USD` `AI_BUDGET_MONTHLY_USD` | unset | Spend limits over all providers per UTC day / month. At the limit every AI route answers 503 `ai_unavailable` until the next day / month. |
+| `AI_BUDGET_FREE_DAILY_USD` | half of `AI_BUDGET_DAILY_USD` | The free plan's share of the day's budget. Free accounts cost nothing to create, so they cannot use up the whole day or starve paying users; at its share the free plan gets 503 `ai_unavailable` while premium is still served. Free-plan callers always use the fast model tier, also for the summaries. |
+| `AI_BUDGET_UNLIMITED` | `0` | Staging/production with real AI providers (feature on, mock off, a provider key set) refuse to start without `AI_BUDGET_DAILY_USD`, and every configured model (`*_FAST_MODEL`, `*_QUALITY_MODEL`) needs an `AI_MODEL_PRICES` entry (a dated snapshot of a priced model counts). `1` is the conscious opt-out: it starts, with a warning at every boot; set a spending limit at each provider then. Cannot be combined with `AI_BUDGET_*` limits. |
 | `AI_BUDGET_PROVIDER_DAILY_USD` | unset | JSON, per provider and UTC day: `{"openai":5,"xai":2}`. A provider at its limit is skipped; the others keep answering. |
 | `FEATURE_AI` | `1` | `0`: every `/api/v1/ai/*` route answers 503 `feature_disabled`. |
 | `FEATURE_SUBSCRIPTIONS` | `0` | `0`: subscription routes answer 503 `feature_disabled` (the module is not live yet). |

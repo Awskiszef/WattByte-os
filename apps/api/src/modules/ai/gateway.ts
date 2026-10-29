@@ -29,16 +29,32 @@ export function gatewayOptionsFromEnv(env: Env): EnvGatewayOptions {
   };
 }
 
+/**
+ * What the free plan may spend per UTC day: AI_BUDGET_FREE_DAILY_USD, else half of AI_BUDGET_DAILY_USD, else no
+ * separate limit. Free accounts cost nothing to create (no verification yet), so they share part of the budget; the rest
+ * is kept for paying users and the free plan can never exhaust the whole day.
+ */
+export function freePlanDailyUsd(env: Pick<Env, 'AI_BUDGET_FREE_DAILY_USD' | 'AI_BUDGET_DAILY_USD'>): number | undefined {
+  if (env.AI_BUDGET_FREE_DAILY_USD !== undefined) return env.AI_BUDGET_FREE_DAILY_USD;
+  return env.AI_BUDGET_DAILY_USD === undefined ? undefined : env.AI_BUDGET_DAILY_USD / 2;
+}
+
 /** The spend ledger of the gateway on top of the repositories (atomic hold against the AI_BUDGET_* limits, then settle). */
 export function spendLedger(env: Env, repos: Repositories): SpendLedger {
   return {
-    async reserve({ provider, estimateUsd, now }) {
+    async reserve({ provider, estimateUsd, now, plan }) {
       const day = now.toISOString().slice(0, 10);
       const held = await repos.ai.reserveSpend({
         day,
         provider,
+        plan,
         usd: estimateUsd,
-        limits: { dailyUsd: env.AI_BUDGET_DAILY_USD, monthlyUsd: env.AI_BUDGET_MONTHLY_USD, providerDailyUsd: env.AI_BUDGET_PROVIDER_DAILY_USD?.[provider] },
+        limits: {
+          dailyUsd: env.AI_BUDGET_DAILY_USD,
+          monthlyUsd: env.AI_BUDGET_MONTHLY_USD,
+          providerDailyUsd: env.AI_BUDGET_PROVIDER_DAILY_USD?.[provider],
+          planDailyUsd: plan === 'free' ? freePlanDailyUsd(env) : undefined,
+        },
       });
       if (!held.ok) return held;
       return {
@@ -46,7 +62,7 @@ export function spendLedger(env: Env, repos: Repositories): SpendLedger {
         reservation: {
           // The hold was the worst case; the difference to the real cost goes back (or stays, when nothing is known).
           settle: (actualUsd, billed) =>
-            repos.ai.adjustSpend({ day, provider, deltaUsd: (billed ? actualUsd : 0) - estimateUsd, deltaRequests: billed ? 0 : -1 }),
+            repos.ai.adjustSpend({ day, provider, plan, deltaUsd: (billed ? actualUsd : 0) - estimateUsd, deltaRequests: billed ? 0 : -1 }),
         },
       };
     },
