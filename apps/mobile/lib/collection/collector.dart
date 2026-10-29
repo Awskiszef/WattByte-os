@@ -1,5 +1,6 @@
 import 'package:wattbyte_system/wattbyte_system.dart';
 
+import '../core/error_log.dart';
 import '../core/periods.dart';
 import '../domain/battery_capacity.dart';
 import '../domain/models.dart';
@@ -64,7 +65,14 @@ class Collector {
 
   Future<CollectResult> collect({required DateTime now}) async {
     final caps = await system.capabilities();
-    await _collectData(caps, now);
+    // The data step and the battery step are independent: a failing network-statistics query (revoked usage access, an
+    // OS error) must not stop the charging samples from being stored, and the other way round. The failure is
+    // recorded; the battery step's own failure still propagates as before.
+    try {
+      await _collectData(caps, now);
+    } catch (e, st) {
+      reportError(e, st, 'data collection');
+    }
     return _collectBattery(caps, now);
   }
 
@@ -102,20 +110,30 @@ class Collector {
         ifaces: raw.ifaces,
       );
       final prev = CounterState.decode(await db.meta(metaIface));
-      await db.addDaily(CounterFolder.fold(prev, next));
-      await db.setMeta(metaIface, next.encode());
+      // One transaction: the increment and the baseline it was measured against. Separate writes double-counted the
+      // interval when the process died between them.
+      await db.addDailyAndSetMeta(
+          CounterFolder.fold(prev, next), metaIface, next.encode());
     }
   }
 
   Future<CollectResult> _collectBattery(
       SystemCapabilities caps, DateTime now) async {
-    final drained = await system.drainSamples();
+    // The charging worker's samples are the only copy of what happened while the app slept. They are stored FIRST,
+    // before any other call that can fail, and the native side deletes them only after that succeeded (H-05, G-11). If
+    // anything here throws, the next pass receives the same batch again; storing a sample twice is a no-op.
+    final batch = await system.peekSamples();
+    if (batch.samples.isNotEmpty) {
+      await db.insertSamples([for (final r in batch.samples) _sample(r)]);
+    }
+    try {
+      await system.ackSamples(batch.token);
+    } catch (e, st) {
+      // Not acknowledged = delivered again next time, which is harmless.
+      reportError(e, st, 'acknowledge worker samples');
+    }
     final snap = await system.batterySnapshot();
-    final fresh = [
-      for (final r in drained) _sample(r),
-      if (snap.level >= 0) _sample(snap),
-    ];
-    await db.insertSamples(fresh);
+    if (snap.level >= 0) await db.insertSamples([_sample(snap)]);
 
     await _updateFullChargeCapacity(snap, now);
 

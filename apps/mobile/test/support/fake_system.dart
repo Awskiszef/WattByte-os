@@ -139,6 +139,10 @@ class FakeSystem {
   /// Samples the charging worker "recorded while the app slept"; returned once
   /// by `drainSamples`, then cleared (the real native side clears its queue).
   List<Map<String, Object?>> pendingSamples = [];
+  int _sampleToken = 0;
+
+  /// Every token the app acknowledged through `ackSamples`.
+  final List<int> ackedTokens = [];
 
   /// Every method call the app made, in order.
   final List<MethodCall> calls = [];
@@ -208,8 +212,20 @@ class FakeSystem {
     };
   }
 
+  /// Methods that fail with a PlatformException while they are listed here (a tool for failure-path tests).
+  final Set<String> failing = {};
+
+  /// Methods an older native side does not implement: they throw MissingPluginException, as the real channel does.
+  final Set<String> unsupported = {};
+
   Future<Object?> _handle(MethodCall call) async {
     calls.add(call);
+    if (unsupported.contains(call.method)) {
+      throw MissingPluginException(call.method);
+    }
+    if (failing.contains(call.method)) {
+      throw PlatformException(code: 'injected', message: call.method);
+    }
     switch (call.method) {
       case 'capabilities':
         return capabilities;
@@ -224,6 +240,17 @@ class FakeSystem {
         final rows = List<Map<String, Object?>>.of(pendingSamples);
         pendingSamples = [];
         return rows;
+      case 'peekSamples':
+        // Two-step hand-over like the real SampleStore: the rows stay until they are acknowledged.
+        return {
+          'token': pendingSamples.isEmpty ? 0 : ++_sampleToken,
+          'samples': List<Map<String, Object?>>.of(pendingSamples),
+        };
+      case 'ackSamples':
+        final token = (call.arguments as Map)['token'] as int;
+        if (token == _sampleToken) pendingSamples = [];
+        ackedTokens.add(token);
+        return null;
       case 'queryDataDaily':
         return dailyRows;
       case 'queryAppData':

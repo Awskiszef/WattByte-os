@@ -212,8 +212,10 @@ class CounterFolder {
       final share = segEnd.difference(cursor).inMilliseconds / totalMs;
       final isLast = !segEnd.isBefore(to);
       final part = [
-        for (final v in [inc.mobileRx, inc.mobileTx, inc.wifiRx, inc.wifiTx])
-          (v * share).round(),
+        for (final (i, v)
+            in [inc.mobileRx, inc.mobileTx, inc.wifiRx, inc.wifiTx].indexed)
+          // Never more than what is left: rounding several shares up must not leave a NEGATIVE remainder for the last day.
+          (v * share).round().clamp(0, remaining[i]),
       ];
       final use = isLast ? remaining : part; // last day absorbs rounding
       out.add(DailyData(

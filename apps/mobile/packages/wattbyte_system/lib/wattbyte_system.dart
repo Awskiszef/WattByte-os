@@ -145,6 +145,15 @@ class RawBatterySnapshot {
       );
 }
 
+/// A hand-over of the charging worker's samples; see [WattByteSystem.peekSamples].
+class SampleBatch {
+  const SampleBatch({required this.token, required this.samples});
+
+  /// Pass to [WattByteSystem.ackSamples] once [samples] are stored. 0 = nothing to acknowledge.
+  final int token;
+  final List<RawBatterySnapshot> samples;
+}
+
 /// Since-boot byte counters of the Wi-Fi and cellular interfaces (iOS).
 class RawInterfaceCounters {
   const RawInterfaceCounters({
@@ -285,10 +294,42 @@ class WattByteSystem {
           (await _ch.invokeMethod('interfaceCounters')) as Map);
 
   /// Android: samples recorded by the charging worker while the app slept.
+  ///
+  /// One-step hand-over: the native side forgets them as soon as they are returned, so a failure before the app has
+  /// stored them loses them. Prefer [peekSamples] + [ackSamples]; this is only the fallback for a native side that
+  /// does not know them.
   Future<List<RawBatterySnapshot>> drainSamples() async {
     final rows =
         await _ch.invokeListMethod<Map<Object?, Object?>>('drainSamples');
     return [for (final r in rows ?? const []) RawBatterySnapshot.fromMap(r)];
+  }
+
+  /// Android: the same samples, handed over in two steps. Nothing is deleted natively until [ackSamples] is called with
+  /// [SampleBatch.token] after the samples are stored; a batch that was never acknowledged is returned again by the
+  /// next call (at least once: storing a sample twice is harmless). Falls back to [drainSamples] on a native side
+  /// without the two-step calls (token 0, which [ackSamples] ignores).
+  Future<SampleBatch> peekSamples() async {
+    final Map<Object?, Object?>? raw;
+    try {
+      raw = await _ch.invokeMapMethod<Object?, Object?>('peekSamples');
+    } on MissingPluginException {
+      return SampleBatch(token: 0, samples: await drainSamples());
+    }
+    final rows = raw?['samples'];
+    return SampleBatch(
+      token: (raw?['token'] as num?)?.toInt() ?? 0,
+      samples: [
+        if (rows is List)
+          for (final r in rows)
+            if (r is Map) RawBatterySnapshot.fromMap(r),
+      ],
+    );
+  }
+
+  /// Tells the native side that every sample up to [token] is stored, so it may delete them.
+  Future<void> ackSamples(int token) async {
+    if (token <= 0) return;
+    await _ch.invokeMethod<void>('ackSamples', {'token': token});
   }
 
   /// iOS: the App Group shared with the widget extension (build setting

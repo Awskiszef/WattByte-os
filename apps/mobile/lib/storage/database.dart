@@ -352,6 +352,34 @@ class WattByteDb {
     await b.commit(noResult: true);
   }
 
+  /// [addDaily] and [setMeta] in one transaction (the iOS counter fold and the baseline it is measured against).
+  Future<void> addDailyAndSetMeta(
+      Iterable<DailyData> rows, String key, String value) async {
+    await _db.transaction((txn) async {
+      for (final r in rows) {
+        await txn.rawInsert(
+          'INSERT INTO daily_data(day, mobile_rx, mobile_tx, wifi_rx, wifi_tx, estimated) '
+          'VALUES(?, ?, ?, ?, ?, ?) ON CONFLICT(day) DO UPDATE SET '
+          'mobile_rx = mobile_rx + excluded.mobile_rx, '
+          'mobile_tx = mobile_tx + excluded.mobile_tx, '
+          'wifi_rx = wifi_rx + excluded.wifi_rx, '
+          'wifi_tx = wifi_tx + excluded.wifi_tx, '
+          'estimated = max(estimated, excluded.estimated)',
+          [
+            dayKey(r.day),
+            r.mobileRx,
+            r.mobileTx,
+            r.wifiRx,
+            r.wifiTx,
+            r.estimated ? 1 : 0
+          ],
+        );
+      }
+      await txn.insert('meta', {'key': key, 'value': value},
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    });
+  }
+
   Future<List<DailyData>> allDaily() async =>
       (await _db.query('daily_data', orderBy: 'day'))
           .map(_dailyFromMap)

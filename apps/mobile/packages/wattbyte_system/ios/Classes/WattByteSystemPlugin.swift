@@ -36,6 +36,10 @@ public class WattByteSystemPlugin: NSObject, FlutterPlugin {
       result(DeviceInfo.read())
     case "drainSamples":
       result([])
+    case "peekSamples":
+      result(["token": 0, "samples": []])
+    case "ackSamples":
+      result(nil)
     case "openUsageAccessSettings", "ensureChargingWorker", "cancelChargingWorker", "setChargingNotification":
       result(nil)
     default:

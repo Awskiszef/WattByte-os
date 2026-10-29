@@ -49,6 +49,11 @@ class WattByteSystemPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             "appGroupId" -> result.success(null) // iOS only
             "deviceInfo" -> result.success(deviceInfo())
             "batterySnapshot" -> result.success(BatteryReader.snapshot(context).toMap("app"))
+            "peekSamples" -> result.success(SampleStore.peek(context))
+            "ackSamples" -> {
+                SampleStore.ack(context, (call.argument<Number>("token") ?: 0).toLong())
+                result.success(null)
+            }
             "drainSamples" -> result.success(SampleStore.drain(context))
             "ensureChargingWorker" -> {
                 ChargingWorker.schedule(context)

@@ -1,4 +1,4 @@
-// Unit tests for the Android-free parts of wattbyte_system (DayRanges, BatteryValues).
+// Unit tests for the Android-free parts of wattbyte_system (DayRanges, BatteryValues, SampleFiles).
 //
 // The plugin itself is built by the Flutter app's Gradle build (AGP 9 + KGP), where
 // AGP currently leaves KGP-compiled unit test classes off the test classpath, so
@@ -18,7 +18,7 @@ kotlin {
 sourceSets {
     main {
         kotlin.srcDir("../src/main/kotlin")
-        kotlin.include("**/DayRanges.kt", "**/BatteryValues.kt")
+        kotlin.include("**/DayRanges.kt", "**/BatteryValues.kt", "**/SampleFiles.kt")
     }
     test {
         kotlin.srcDir("../src/test/kotlin")
