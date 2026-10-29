@@ -9,7 +9,8 @@
 // Values are the real published 2025-S1 .. 2026-S1 household prices (national currency per kWh, all taxes, band DC)
 // as returned on 2026-10-12; they are fixtures, not a data source.
 import http from 'node:http';
-import { fileURLToPath } from 'node:url';
+
+import { isMainModule } from './is-main.mjs';
 
 export const FIXTURE = {
   PL: [1.0827, 1.1505, 1.2724],
@@ -66,7 +67,7 @@ export function startFakeEurostat(port = 0, host = '127.0.0.1') {
   });
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (isMainModule(import.meta.url)) {
   const { baseUrl } = await startFakeEurostat(Number(process.argv[2] ?? 0));
   console.warn(`listening ${baseUrl}`);
 }

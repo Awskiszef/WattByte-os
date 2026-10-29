@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 
 import pg from 'pg';
 
+import { isMainModule } from '../util/is-main.js';
+
 /**
  * Applies `migrations/*.sql` in name order, once each, each in a transaction.
  * Usage: `pnpm --filter @wattbyte/api migrate` with DATABASE_URL set.
@@ -45,7 +47,7 @@ function defaultDir(): string {
   return path.join(path.dirname(fileURLToPath(import.meta.url)), 'migrations');
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isMainModule(import.meta.url)) {
   const url = process.env.DATABASE_URL;
   if (!url) {
     console.error('DATABASE_URL is not set');

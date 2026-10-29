@@ -1,10 +1,9 @@
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import pg from 'pg';
 import { z } from 'zod';
 
 import { RetentionEnvShape } from '../config/env.js';
+import { isMainModule } from '../util/is-main.js';
 
 /**
  * Data retention. Run on a schedule (daily is plenty):
@@ -162,7 +161,7 @@ async function main(): Promise<void> {
   }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isMainModule(import.meta.url)) {
   main().catch((e: unknown) => {
     // Print the class and message of a failure of this script only; it handles no user input.
     console.error(e instanceof Error ? `${e.name}: ${e.message}` : e);

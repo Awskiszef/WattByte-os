@@ -18,7 +18,9 @@
 // Accepted exceptions live in scripts/secret-scan.allow.json, each with a justification.
 import { lstatSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
+
+import { isMainModule } from './is-main.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const defaultRoot = path.resolve(here, '..');
@@ -473,4 +475,4 @@ function main() {
   if (result.findings.length || result.errors.length) process.exit(1);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) main();
+if (isMainModule(import.meta.url)) main();
