@@ -192,7 +192,13 @@ ThemeData wbTheme(Brightness brightness) {
         color: scheme.onSurface.withValues(alpha: 0.06), space: 1),
     chipTheme: base.chipTheme.copyWith(
       shape: const StadiumBorder(),
-      side: BorderSide.none,
+      // A chip is found by its outline (>= 3:1, WCAG 1.4.11) and the selected one is told apart from the others by more
+      // than a faint tint (1.4.1): a 2 px outline instead of 1 px. No check mark: at the largest text sizes its width
+      // pushes the labels of the Settings chips ("Dziesiętne") past the width of the screen.
+      side: WidgetStateBorderSide.resolveWith((states) => BorderSide(
+            color: dark ? WbColors.darkOutline : WbColors.lightOutline,
+            width: states.contains(WidgetState.selected) ? 2 : 1,
+          )),
       backgroundColor: scheme.onSurface.withValues(alpha: 0.06),
       selectedColor: WbColors.bolt.withValues(alpha: dark ? 0.3 : 0.4),
       labelStyle: text.labelLarge?.copyWith(fontWeight: FontWeight.w600),
@@ -222,13 +228,29 @@ ThemeData wbTheme(Brightness brightness) {
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(foregroundColor: scheme.onSurface),
     ),
+    // On: a track that stands out from the card (3:1, 1.4.11) and a thumb that stands out from the track, with a check mark
+    // so the state is not told by colour alone (1.4.1). Off: an outlined, almost clear track and a thumb in the outline
+    // colour. Before, the thumb was white on both states and the tracks were 1.4-1.6:1 against the card.
     switchTheme: SwitchThemeData(
-      thumbColor: WidgetStatePropertyAll(dark ? Colors.white : Colors.white),
+      thumbColor: WidgetStateProperty.resolveWith((s) {
+        final on = s.contains(WidgetState.selected);
+        if (on) return dark ? WbColors.darkBg : Colors.white;
+        return dark ? WbColors.darkOutline : WbColors.lightOutline;
+      }),
       trackColor: WidgetStateProperty.resolveWith((s) =>
           s.contains(WidgetState.selected)
-              ? WbColors.bolt
-              : scheme.onSurface.withValues(alpha: 0.15)),
-      trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+              ? (dark ? WbColors.bolt : WbColors.lightAccentText)
+              : scheme.onSurface.withValues(alpha: 0.05)),
+      trackOutlineColor: WidgetStateProperty.resolveWith((s) =>
+          s.contains(WidgetState.selected)
+              ? Colors.transparent
+              : (dark ? WbColors.darkOutline : WbColors.lightOutline)),
+      thumbIcon: WidgetStateProperty.resolveWith((s) =>
+          s.contains(WidgetState.selected)
+              ? Icon(Icons.check_rounded,
+                  size: 16,
+                  color: dark ? WbColors.bolt : WbColors.lightAccentText)
+              : null),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,

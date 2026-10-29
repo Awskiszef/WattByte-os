@@ -72,6 +72,77 @@ void main() {
         };
       }
 
+      testWidgets(
+          'Switch: track vs card, thumb vs track, off outline >= 3:1 (WCAG 1.4.11)',
+          (tester) async {
+        late ThemeData theme;
+        late Map<String, Color> surfaces;
+        await tester.pumpWidget(_host(brightness, builder: (context) {
+          theme = Theme.of(context);
+          surfaces = backgrounds(context);
+          return const SizedBox();
+        }));
+        final sw = theme.switchTheme;
+        const on = <WidgetState>{WidgetState.selected};
+        const off = <WidgetState>{};
+        final problems = <String>[];
+        void check(String what, Color a, Color b, double min) {
+          final r = contrast(a, b);
+          if (r < min) problems.add('$what ${r.toStringAsFixed(2)}:1 < $min');
+        }
+
+        for (final e in surfaces.entries) {
+          final surface = e.value;
+          Color flat(Color c) => Color.alphaBlend(c, surface);
+          final onTrack = flat(sw.trackColor!.resolve(on)!);
+          check(
+              '[${e.key}] on track vs surface', onTrack, surface, outlineRatio);
+          check('[${e.key}] on thumb vs on track',
+              flat(sw.thumbColor!.resolve(on)!), onTrack, outlineRatio);
+          final offTrack = flat(sw.trackColor!.resolve(off)!);
+          check('[${e.key}] off outline vs surface',
+              flat(sw.trackOutlineColor!.resolve(off)!), surface, outlineRatio);
+          check('[${e.key}] off thumb vs off track',
+              flat(sw.thumbColor!.resolve(off)!), offTrack, outlineRatio);
+        }
+        // The on state also carries a non-colour cue.
+        expect(sw.thumbIcon!.resolve(on), isNotNull);
+        expect(sw.thumbIcon!.resolve(off), isNull);
+        expect(problems, isEmpty, reason: problems.join('\n'));
+      });
+
+      testWidgets(
+          'ChoiceChip: outline >= 3:1 on every surface; selected has a thicker outline (a shape cue, not only a tint)',
+          (tester) async {
+        late ThemeData theme;
+        late Map<String, Color> surfaces;
+        await tester.pumpWidget(_host(brightness, builder: (context) {
+          theme = Theme.of(context);
+          surfaces = backgrounds(context);
+          return const SizedBox();
+        }));
+        final chip = theme.chipTheme;
+        const selected = <WidgetState>{WidgetState.selected};
+        const unselected = <WidgetState>{};
+        final problems = <String>[];
+        for (final e in surfaces.entries) {
+          for (final states in [selected, unselected]) {
+            final side = chip.side! as WidgetStateBorderSide;
+            final border = side.resolve(states)!;
+            final r =
+                contrast(Color.alphaBlend(border.color, e.value), e.value);
+            if (r < outlineRatio) {
+              problems.add(
+                  '[${e.key}] ${states.isEmpty ? 'unselected' : 'selected'} outline ${r.toStringAsFixed(2)}:1');
+            }
+          }
+        }
+        expect(problems, isEmpty, reason: problems.join('\n'));
+        final side = chip.side! as WidgetStateBorderSide;
+        expect(side.resolve(selected)!.width,
+            greaterThan(side.resolve(unselected)!.width));
+      });
+
       testWidgets('OutlinedButton: label >= 4.5:1 on every surface',
           (tester) async {
         final problems = <String>[];
