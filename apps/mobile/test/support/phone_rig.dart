@@ -101,6 +101,15 @@ class Phone {
     return phone;
   }
 
+  /// Extra provider overrides for the next [rebuild] (a store that fails, ...).
+  List<Override> extraOverrides = const [];
+
+  /// Starts the app again over the same storage with [extraOverrides] in place.
+  void rebuild() {
+    c.dispose();
+    _build();
+  }
+
   void _build() {
     final live = _apiUrl != null;
     final url = _apiUrl;
@@ -114,6 +123,7 @@ class Phone {
           .overrideWithValue(ApiFactory(config, httpClient: _wire)),
       if (!live) authRepositoryProvider.overrideWithValue(UserAwareRepo()),
       tokenStoreProvider.overrideWithValue(tokens),
+      ...extraOverrides,
       notifierProvider.overrideWithValue(FakeAppNotifier()),
       widgetPublisherProvider.overrideWithValue(FakeWidgetPublisher()),
       // What a finished setup detects here: the region the phone reports, the

@@ -25,6 +25,10 @@ enum StartDestination {
   /// Account present, automatic setup not finished.
   setup,
   dashboard,
+
+  /// Account present, but the settings of THIS account could not be loaded (the previous user's are still on the
+  /// phone): a blocking message with a retry, never the previous user's values under the new account (F-21).
+  settingsError,
 }
 
 /// Pure routing rule for app start (see `docs/AUTO_SETUP.md`):
@@ -45,6 +49,7 @@ StartDestination startDestination({
   required AsyncValue<AuthState> auth,
   required Settings settings,
   bool settingsBound = true,
+  bool settingsBindFailed = false,
 }) {
   if (localOnlyDev) {
     return settings.onboarded
@@ -59,7 +64,11 @@ StartDestination startDestination({
     return StartDestination.splash;
   }
   if (state is! SignedIn) return StartDestination.welcome;
-  if (!settingsBound) return StartDestination.splash;
+  if (!settingsBound) {
+    return settingsBindFailed
+        ? StartDestination.settingsError
+        : StartDestination.splash;
+  }
   return settings.onboarded
       ? StartDestination.dashboard
       : StartDestination.setup;

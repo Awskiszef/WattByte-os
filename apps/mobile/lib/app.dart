@@ -9,6 +9,7 @@ import 'l10n/generated/app_localizations.dart';
 import 'providers.dart';
 import 'settings/settings.dart';
 import 'setup/setup_controller.dart';
+import 'ui/onboarding/settings_load_failed_screen.dart';
 import 'ui/onboarding/setup_screen.dart';
 import 'ui/onboarding/welcome_screen.dart';
 import 'ui/shell.dart';
@@ -75,12 +76,14 @@ class StartGate extends ConsumerWidget {
       auth: ref.watch(authControllerProvider),
       settings: ref.watch(settingsProvider),
       settingsBound: ref.watch(settingsBoundProvider),
+      settingsBindFailed: ref.watch(settingsBindFailedProvider),
     );
     return switch (destination) {
       StartDestination.splash => const SplashScreen(),
       StartDestination.welcome => const WelcomeScreen(),
       StartDestination.setup => const SetupScreen(),
       StartDestination.dashboard => const ShellScreen(),
+      StartDestination.settingsError => const SettingsLoadFailedScreen(),
     };
   }
 }

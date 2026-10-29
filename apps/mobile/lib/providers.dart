@@ -117,25 +117,52 @@ class SettingsNotifier extends Notifier<Settings> {
     final userId = auth.user.id;
     if (scope.state == userId) return;
     final generation = ++_bindGeneration;
-    try {
-      final key = await SyncOwnership(ref.read(dbProvider)).accountKey(userId);
-      if (_disposed || generation != _bindGeneration) return;
-      final store = ref.read(settingsStoreProvider);
-      final owner = store.accountOwner;
-      if (owner == null) {
-        await store.adoptAccount(key);
-      } else if (owner != key) {
-        await store.switchAccount(key);
-        state = _load();
+    ref.read(settingsBindFailedProvider.notifier).state = false;
+    Object? failure;
+    for (var attempt = 0; attempt <= bindRetryDelays.length; attempt++) {
+      if (attempt > 0) {
+        await Future<void>.delayed(bindRetryDelays[attempt - 1]);
+        if (_disposed || generation != _bindGeneration) return;
       }
-    } catch (e, st) {
-      if (_disposed) return;
-      // An unreadable local database: the settings stay as they are and the
-      // account is not blocked from using the app.
-      reportError(e, st, 'bind account settings');
+      try {
+        final key =
+            await SyncOwnership(ref.read(dbProvider)).accountKey(userId);
+        if (_disposed || generation != _bindGeneration) return;
+        final store = ref.read(settingsStoreProvider);
+        final owner = store.accountOwner;
+        if (owner == null) {
+          await store.adoptAccount(key);
+        } else if (owner != key) {
+          await store.switchAccount(key);
+          state = _load();
+        }
+        failure = null;
+        break;
+      } catch (e, st) {
+        if (_disposed) return;
+        failure = e;
+        reportError(e, st, 'bind account settings');
+      }
     }
-    if (!_disposed && generation == _bindGeneration) scope.state = userId;
+    if (_disposed || generation != _bindGeneration) return;
+    if (failure != null) {
+      // The swap did not happen: the live settings are still the PREVIOUS user's. Releasing the gate would show them
+      // (and later save them) as this account's. The gate stays shut and the start gate offers a retry (F-21).
+      ref.read(settingsBindFailedProvider.notifier).state = true;
+      return;
+    }
+    scope.state = userId;
   }
+
+  /// Waits between the attempts to load the settings of the signed-in account (a transient preferences failure).
+  static List<Duration> bindRetryDelays = const [
+    Duration(milliseconds: 200),
+    Duration(seconds: 1),
+  ];
+
+  /// "Try again" on the settings error screen.
+  void retryBind() =>
+      unawaited(_bind(ref.read(authControllerProvider).valueOrNull));
 
   Future<void> update(Settings Function(Settings) change) async {
     state = change(state);
@@ -153,6 +180,9 @@ class SettingsNotifier extends Notifier<Settings> {
 /// The user whose account-bound settings are loaded into [settingsProvider]
 /// (memory only; null while nobody is signed in or the swap is still running).
 final settingsScopeProvider = StateProvider<String?>((_) => null);
+
+/// The settings of the signed-in account could not be loaded even after retries ([SettingsNotifier.retryBind]).
+final settingsBindFailedProvider = StateProvider<bool>((_) => false);
 
 /// False between a sign-in and the moment the settings of that account are
 /// loaded: nothing may be shown or detected from settings that belong to the
