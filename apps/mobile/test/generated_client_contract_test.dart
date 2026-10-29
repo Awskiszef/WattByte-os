@@ -347,6 +347,12 @@ final exportDocumentEmptyJson = <String, Object?>{
 
 final requestCases = <RequestCase>[
   RequestCase(
+    'change_password_request',
+    api.ChangePasswordRequest(
+        currentPassword: 'password123', newPassword: 'a-brand-new-password'),
+    {'currentPassword': 'password123', 'newPassword': 'a-brand-new-password'},
+  ),
+  RequestCase(
     'register_request',
     api.RegisterRequest(email: 'a@b.co', password: 'password123'),
     {'email': 'a@b.co', 'password': 'password123', 'displayName': null},
@@ -421,7 +427,22 @@ final requestCases = <RequestCase>[
   RequestCase('ai_input', aiInput, aiInputJson),
 ];
 
+const sessionJson = <String, Object?>{
+  'id': uuid,
+  'createdAt': at,
+  'lastUsedAt': at,
+  'expiresAt': at,
+  'current': true,
+};
+
 final responseCases = <ResponseCase>[
+  const ResponseCase('session_dto', api.SessionDto.fromJson, sessionJson),
+  const ResponseCase(
+      'session_list_response', api.SessionListResponse.fromJson, {
+    'sessions': [sessionJson]
+  }),
+  const ResponseCase('session_list_response', api.SessionListResponse.fromJson,
+      {'sessions': <Object?>[]}),
   const ResponseCase('user_dto', api.UserDto.fromJson, userJson),
   const ResponseCase('token_pair', api.TokenPair.fromJson, tokenJson),
   const ResponseCase('auth_response', api.AuthResponse.fromJson,

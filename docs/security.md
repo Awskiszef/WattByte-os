@@ -137,6 +137,21 @@ Consequences worth knowing:
   coordinated client change), and there is no e-mail verification or password reset (needs an outbound e-mail
   provider, see `docs/remediation/BLOCKERS.md`).
 
+### Operator procedure while there is no account recovery (A-03)
+
+There is no e-mail verification and no password reset yet (it needs an outbound e-mail provider and a decision on the
+sender domain, see `docs/remediation/BLOCKERS.md`). Until then, for a user who cannot sign in:
+
+1. **Identity:** verify the requester out of band (the address the account was registered with, a reply from it to a
+   message the operator sends first). Never act on a request that only quotes the e-mail address.
+2. **Erasure request (GDPR) of a locked-out user:** run `DELETE FROM users WHERE email = lower('<address>')` on the
+   production database (cascades to every user table; `login_throttle` and the spend tables keep no personal data) and
+   record the date and the ticket. `GET /me/export` needs a session, so an export for a locked-out user is a manual
+   query of the tables listed in `docs/privacy.md`.
+3. **Forgotten password:** there is no supported reset. The user can register again only with another address, because
+   the old one is taken; a manual password reset by an operator is deliberately not offered (it would be an account
+   takeover path). Local data on the phone is unaffected.
+
 ### Logging
 
 JSON lines on stdout. A line may contain the request id, method, route pattern and path (no query
