@@ -224,6 +224,8 @@ class ApiClient {
           return AppConfigDtoFeatures.fromJson(value);
         case 'AuthResponse':
           return AuthResponse.fromJson(value);
+        case 'ChangePasswordRequest':
+          return ChangePasswordRequest.fromJson(value);
         case 'CloudDataDeleteResponse':
           return CloudDataDeleteResponse.fromJson(value);
         case 'CloudDataDeletedCounts':
@@ -274,6 +276,10 @@ class ApiClient {
           return RegionResponse.fromJson(value);
         case 'RegisterRequest':
           return RegisterRequest.fromJson(value);
+        case 'SessionDto':
+          return SessionDto.fromJson(value);
+        case 'SessionListResponse':
+          return SessionListResponse.fromJson(value);
         case 'TokenPair':
           return TokenPair.fromJson(value);
         case 'UpdateMeRequest':

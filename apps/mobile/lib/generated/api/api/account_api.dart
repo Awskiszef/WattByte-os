@@ -263,6 +263,70 @@ class AccountApi {
     return null;
   }
 
+  /// Change the password; every device is signed out and a fresh session is returned for this one
+  ///
+  /// Note: This method returns the HTTP [Response].
+  ///
+  /// Parameters:
+  ///
+  /// * [ChangePasswordRequest] changePasswordRequest (required):
+  Future<Response> apiV1MePasswordPostWithHttpInfo(
+    ChangePasswordRequest changePasswordRequest, {
+    Future<void>? abortTrigger,
+  }) async {
+    // ignore: prefer_const_declarations
+    final path = r'/api/v1/me/password';
+
+    // ignore: prefer_final_locals
+    Object? postBody = changePasswordRequest;
+
+    final queryParams = <QueryParam>[];
+    final headerParams = <String, String>{};
+    final formParams = <String, String>{};
+
+    const contentTypes = <String>['application/json'];
+
+    return apiClient.invokeAPI(
+      path,
+      'POST',
+      queryParams,
+      postBody,
+      headerParams,
+      formParams,
+      contentTypes.isEmpty ? null : contentTypes.first,
+      abortTrigger: abortTrigger,
+    );
+  }
+
+  /// Change the password; every device is signed out and a fresh session is returned for this one
+  ///
+  /// Parameters:
+  ///
+  /// * [ChangePasswordRequest] changePasswordRequest (required):
+  Future<AuthResponse?> apiV1MePasswordPost(
+    ChangePasswordRequest changePasswordRequest, {
+    Future<void>? abortTrigger,
+  }) async {
+    final response = await apiV1MePasswordPostWithHttpInfo(
+      changePasswordRequest,
+      abortTrigger: abortTrigger,
+    );
+    if (response.statusCode >= HttpStatus.badRequest) {
+      throw ApiException(response.statusCode, await _decodeBodyBytes(response));
+    }
+    // When a remote server returns no body with a status of 204, we shall not decode it.
+    // At the time of writing this, `dart:convert` will throw an "Unexpected end of input"
+    // FormatException when trying to decode an empty string.
+    if (response.body.isNotEmpty &&
+        response.statusCode != HttpStatus.noContent) {
+      return await apiClient.deserializeAsync(
+        await _decodeBodyBytes(response),
+        'AuthResponse',
+      ) as AuthResponse;
+    }
+    return null;
+  }
+
   /// Performs an HTTP 'PATCH /api/v1/me' operation and returns the [Response].
   /// Parameters:
   ///
@@ -318,6 +382,123 @@ class AccountApi {
         await _decodeBodyBytes(response),
         'UserDto',
       ) as UserDto;
+    }
+    return null;
+  }
+
+  /// The devices that are signed in (one entry per sign-in), newest first
+  ///
+  /// Note: This method returns the HTTP [Response].
+  Future<Response> apiV1MeSessionsGetWithHttpInfo({
+    Future<void>? abortTrigger,
+  }) async {
+    // ignore: prefer_const_declarations
+    final path = r'/api/v1/me/sessions';
+
+    // ignore: prefer_final_locals
+    Object? postBody;
+
+    final queryParams = <QueryParam>[];
+    final headerParams = <String, String>{};
+    final formParams = <String, String>{};
+
+    const contentTypes = <String>[];
+
+    return apiClient.invokeAPI(
+      path,
+      'GET',
+      queryParams,
+      postBody,
+      headerParams,
+      formParams,
+      contentTypes.isEmpty ? null : contentTypes.first,
+      abortTrigger: abortTrigger,
+    );
+  }
+
+  /// The devices that are signed in (one entry per sign-in), newest first
+  Future<SessionListResponse?> apiV1MeSessionsGet({
+    Future<void>? abortTrigger,
+  }) async {
+    final response = await apiV1MeSessionsGetWithHttpInfo(
+      abortTrigger: abortTrigger,
+    );
+    if (response.statusCode >= HttpStatus.badRequest) {
+      throw ApiException(response.statusCode, await _decodeBodyBytes(response));
+    }
+    // When a remote server returns no body with a status of 204, we shall not decode it.
+    // At the time of writing this, `dart:convert` will throw an "Unexpected end of input"
+    // FormatException when trying to decode an empty string.
+    if (response.body.isNotEmpty &&
+        response.statusCode != HttpStatus.noContent) {
+      return await apiClient.deserializeAsync(
+        await _decodeBodyBytes(response),
+        'SessionListResponse',
+      ) as SessionListResponse;
+    }
+    return null;
+  }
+
+  /// Sign one device out (its refresh tokens and access tokens stop working at once)
+  ///
+  /// Note: This method returns the HTTP [Response].
+  ///
+  /// Parameters:
+  ///
+  /// * [String] id (required):
+  Future<Response> apiV1MeSessionsIdDeleteWithHttpInfo(
+    String id, {
+    Future<void>? abortTrigger,
+  }) async {
+    // ignore: prefer_const_declarations
+    final path = r'/api/v1/me/sessions/{id}'.replaceAll('{id}', id);
+
+    // ignore: prefer_final_locals
+    Object? postBody;
+
+    final queryParams = <QueryParam>[];
+    final headerParams = <String, String>{};
+    final formParams = <String, String>{};
+
+    const contentTypes = <String>[];
+
+    return apiClient.invokeAPI(
+      path,
+      'DELETE',
+      queryParams,
+      postBody,
+      headerParams,
+      formParams,
+      contentTypes.isEmpty ? null : contentTypes.first,
+      abortTrigger: abortTrigger,
+    );
+  }
+
+  /// Sign one device out (its refresh tokens and access tokens stop working at once)
+  ///
+  /// Parameters:
+  ///
+  /// * [String] id (required):
+  Future<String?> apiV1MeSessionsIdDelete(
+    String id, {
+    Future<void>? abortTrigger,
+  }) async {
+    final response = await apiV1MeSessionsIdDeleteWithHttpInfo(
+      id,
+      abortTrigger: abortTrigger,
+    );
+    if (response.statusCode >= HttpStatus.badRequest) {
+      throw ApiException(response.statusCode, await _decodeBodyBytes(response));
+    }
+    // When a remote server returns no body with a status of 204, we shall not decode it.
+    // At the time of writing this, `dart:convert` will throw an "Unexpected end of input"
+    // FormatException when trying to decode an empty string.
+    if (response.body.isNotEmpty &&
+        response.statusCode != HttpStatus.noContent) {
+      return await apiClient.deserializeAsync(
+        await _decodeBodyBytes(response),
+        'String',
+      ) as String;
     }
     return null;
   }

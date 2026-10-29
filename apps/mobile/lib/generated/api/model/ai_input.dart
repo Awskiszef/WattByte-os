@@ -33,28 +33,37 @@ class AIInput {
   AIInputPeriodTypeEnum periodType;
 
   /// Minimum value: 0
+  /// Maximum value: 1000000
   num mobileDataGb;
 
   /// Minimum value: 0
+  /// Maximum value: 1000000
   num wifiDataGb;
 
   /// Minimum value: 0
+  /// Maximum value: 2000000
   num totalDataGb;
 
   /// Minimum value: 0
+  /// Maximum value: 100000
   int chargingSessions;
 
   /// Minimum value: 0
+  /// Maximum value: 1000000
   num batteryEnergyKwh;
 
   /// Minimum value: 0
+  /// Maximum value: 1000000
   num wallEnergyKwh;
 
   /// Minimum value: 0
+  /// Maximum value: 1000000000
   num electricityCost;
 
   String currency;
 
+  /// Minimum value: -100
+  /// Maximum value: 1000000
   num? previousPeriodChangePercent;
 
   /// Minimum value: 0
@@ -62,6 +71,7 @@ class AIInput {
   num? wifiSharePercent;
 
   /// Minimum value: 0
+  /// Maximum value: 100000
   num? averageSessionMah;
 
   @override
