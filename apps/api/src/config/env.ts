@@ -3,6 +3,8 @@ import { isIPv4, isIPv6 } from 'node:net';
 import { AI_PROVIDER_IDS, modelPriceFor, PROVIDER_ENV_VARS, providerEnvProblems } from '@wattbyte/ai';
 import { z } from 'zod';
 
+import { resolveDatabaseConnection } from '../database/connection.js';
+
 /** Deployments the API knows about; see docs/CONFIGURATION.md for what each one enforces. */
 export const APP_ENVS = ['development', 'staging', 'production'] as const;
 export type AppEnv = (typeof APP_ENVS)[number];
@@ -86,6 +88,12 @@ const EnvSchema = z
     /** AI generations running at the same time in this process; the next one is answered 503 at once (D-09). */
     AI_MAX_CONCURRENT: z.coerce.number().int().min(1).max(1_000).default(16),
     DATABASE_SSL: z.enum(['0', '1']).default('0'),
+    /** PEM file with the CA that signed the database certificate (private-CA / managed databases); needs DATABASE_SSL=1. */
+    DATABASE_SSL_CA_FILE: z.string().max(1024).optional(),
+    /** Connections the API keeps to PostgreSQL. */
+    DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(200).default(10),
+    /** A statement running longer is cancelled by the server (the client gives up 5 s later). */
+    DATABASE_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(300_000).default(15_000),
     /** How long GET /ready waits for `SELECT 1` before answering 503. */
     READY_DB_TIMEOUT_MS: z.coerce.number().int().min(100).max(30_000).default(2_000),
     /** Longest time a client may take to send one whole request (headers and body); a stalled client is cut off. */
@@ -306,6 +314,14 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
       problems.push('TRUST_PROXY_CIDRS and TRUST_PROXY_HOPS are alternatives: set one (CIDRS verifies the proxy, HOPS only counts)');
     }
     problems.push(...proxyCidrProblems(env.TRUST_PROXY_CIDRS));
+  }
+  // DATABASE_URL must not contradict DATABASE_SSL (a `sslmode=disable` in the URL used to win silently, C-11).
+  if (env.DATABASE_URL) {
+    try {
+      resolveDatabaseConnection({ url: env.DATABASE_URL, databaseSsl: cleaned.DATABASE_SSL, caFile: undefined });
+    } catch (e) {
+      problems.push(e instanceof Error ? e.message : 'DATABASE_URL and DATABASE_SSL disagree');
+    }
   }
   // Guards keyed on one variable only could be bypassed by setting the other one.
   if (env.NODE_ENV === 'production' && env.APP_ENV === 'development') {

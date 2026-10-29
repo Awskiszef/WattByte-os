@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { backoffMs, maskUrl, parseArgs, waitForDb } from './wait-for-db.mjs';
+import { backoffMs, maskUrl, parseArgs, resolveConnection, waitForDb } from './wait-for-db.mjs';
 
 describe('maskUrl', () => {
   it('hides the password and keeps the rest', () => {
@@ -21,6 +21,32 @@ describe('maskUrl', () => {
 describe('backoffMs', () => {
   it('doubles from 250 ms and stops at 2 s', () => {
     assert.deepEqual([1, 2, 3, 4, 5, 9].map((n) => backoffMs(n)), [250, 500, 1000, 2000, 2000, 2000]);
+  });
+});
+
+describe('resolveConnection (mirrors apps/api/src/database/connection.ts)', () => {
+  it('DATABASE_SSL=1 means verified TLS and strips the URL TLS parameters', () => {
+    const r = resolveConnection('postgres://u:p@h:5432/d?sslmode=require&application_name=x', { DATABASE_SSL: '1' });
+    assert.deepEqual(r.ssl, { rejectUnauthorized: true });
+    assert.ok(!r.connectionString.includes('sslmode'));
+    assert.ok(r.connectionString.includes('application_name=x'));
+  });
+  it('refuses a URL that weakens an explicit DATABASE_SSL=1', () => {
+    for (const q of ['sslmode=disable', 'sslmode=no-verify', 'sslmode=prefer', 'ssl=0']) {
+      assert.throws(() => resolveConnection(`postgres://h/d?${q}`, { DATABASE_SSL: '1' }), /weaker TLS/);
+    }
+  });
+  it('refuses DATABASE_SSL=0 together with a URL that asks for TLS', () => {
+    assert.throws(() => resolveConnection('postgres://h/d?sslmode=verify-full', { DATABASE_SSL: '0' }), /decide one/);
+  });
+  it('leaves the URL in charge when DATABASE_SSL is not set', () => {
+    const r = resolveConnection('postgres://h/d?sslmode=require', {});
+    assert.equal(r.connectionString, 'postgres://h/d?sslmode=require');
+    assert.equal(r.ssl, undefined);
+  });
+  it('rejects a CA file without DATABASE_SSL=1 and an unreadable one', () => {
+    assert.throws(() => resolveConnection('postgres://h/d', { DATABASE_SSL_CA_FILE: '/x.pem' }), /needs DATABASE_SSL=1/);
+    assert.throws(() => resolveConnection('postgres://h/d', { DATABASE_SSL: '1', DATABASE_SSL_CA_FILE: '/nonexistent.pem' }), /cannot be read/);
   });
 });
 

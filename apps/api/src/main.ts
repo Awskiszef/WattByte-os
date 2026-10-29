@@ -3,6 +3,7 @@ import type { FastifyBaseLogger } from 'fastify';
 
 import { buildApp } from './app.js';
 import { envWarnings, loadEnv } from './config/env.js';
+import { resolveDatabaseConnection } from './database/connection.js';
 import { PostgresRepositories } from './database/postgres.js';
 import { buildGateway } from './modules/ai/gateway.js';
 import { createShutdown } from './shutdown.js';
@@ -15,8 +16,11 @@ async function main(): Promise<void> {
   }
   // The pool is created before the app (the app needs it), so its error handler reaches the logger through this holder.
   const logger: { current?: FastifyBaseLogger } = {};
-  const repos = new PostgresRepositories(env.DATABASE_URL, {
-    ssl: env.DATABASE_SSL === '1' ? { rejectUnauthorized: true } : undefined,
+  const db = resolveDatabaseConnection({ url: env.DATABASE_URL, databaseSsl: process.env.DATABASE_SSL || undefined, caFile: env.DATABASE_SSL_CA_FILE });
+  const repos = new PostgresRepositories(db.connectionString, {
+    ssl: db.ssl,
+    max: env.DATABASE_POOL_MAX,
+    statementTimeoutMs: env.DATABASE_STATEMENT_TIMEOUT_MS,
     // An idle client dropped by the server or a proxy. Only the error class and SQLSTATE: the message can carry connection details.
     onError: (e) => {
       if (logger.current) logger.current.error({ err: e }, 'postgres pool error');

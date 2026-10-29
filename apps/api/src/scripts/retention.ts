@@ -3,6 +3,7 @@ import pg from 'pg';
 import { z } from 'zod';
 
 import { RetentionEnvShape } from '../config/env.js';
+import { resolveDatabaseConnection } from '../database/connection.js';
 import { isMainModule } from '../util/is-main.js';
 
 /**
@@ -132,6 +133,7 @@ export async function runRetention(db: Queryable, options: RetentionOptions = {}
 const RetentionConfigSchema = z.object({
   DATABASE_URL: z.string().url({ message: 'DATABASE_URL is required' }),
   DATABASE_SSL: z.enum(['0', '1']).default('0'),
+  DATABASE_SSL_CA_FILE: z.string().max(1024).optional(),
   ...RetentionEnvShape,
 });
 
@@ -142,9 +144,10 @@ export function loadRetentionConfig(source: NodeJS.ProcessEnv = process.env) {
   if (!parsed.success) {
     throw new Error(`Invalid environment:\n${parsed.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`).join('\n')}`);
   }
+  const db = resolveDatabaseConnection({ url: parsed.data.DATABASE_URL, databaseSsl: cleaned.DATABASE_SSL, caFile: parsed.data.DATABASE_SSL_CA_FILE });
   return {
-    databaseUrl: parsed.data.DATABASE_URL,
-    ssl: parsed.data.DATABASE_SSL === '1' ? { rejectUnauthorized: true } : undefined,
+    databaseUrl: db.connectionString,
+    ssl: db.ssl,
     aiHistoryDays: parsed.data.AI_HISTORY_RETENTION_DAYS,
   };
 }

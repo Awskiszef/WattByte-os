@@ -5,13 +5,14 @@ import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
 import { isMainModule } from '../util/is-main.js';
+import { resolveDatabaseConnection } from './connection.js';
 
 /**
  * Applies `migrations/*.sql` in name order, once each, each in a transaction.
  * Usage: `pnpm --filter @wattbyte/api migrate` with DATABASE_URL set.
  */
-export async function migrate(connectionString: string, dir = defaultDir()): Promise<string[]> {
-  const client = new pg.Client({ connectionString });
+export async function migrate(connectionString: string, dir = defaultDir(), ssl?: pg.ClientConfig['ssl']): Promise<string[]> {
+  const client = new pg.Client({ connectionString, ssl });
   await client.connect();
   const applied: string[] = [];
   try {
@@ -53,7 +54,14 @@ if (isMainModule(import.meta.url)) {
     console.error('DATABASE_URL is not set');
     process.exit(1);
   }
-  migrate(url)
+  let db;
+  try {
+    db = resolveDatabaseConnection({ url, databaseSsl: process.env.DATABASE_SSL, caFile: process.env.DATABASE_SSL_CA_FILE });
+  } catch (e) {
+    console.error(e instanceof Error ? e.message : e);
+    process.exit(1);
+  }
+  migrate(db.connectionString, undefined, db.ssl)
     .then((applied) => {
       console.warn(applied.length ? `applied: ${applied.join(', ')}` : 'schema up to date');
     })

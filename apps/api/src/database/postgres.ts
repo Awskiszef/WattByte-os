@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import pg from 'pg';
 
+import { DEFAULT_POOL_TUNING, poolSettings } from './connection.js';
 import { BASE_LOCK_SEC, FAILURE_WINDOW_SEC, LOCK_AFTER, MAX_LOCK_SEC } from '../modules/auth/login-throttle.js';
 import { ForeignKeyViolation, UniqueViolation } from './memory.js';
 import type {
@@ -207,11 +208,15 @@ export class PostgresRepositories implements Repositories {
 
   constructor(
     connectionString: string,
-    options: { max?: number; ssl?: pg.PoolConfig['ssl']; onError?: (e: Error) => void } = {},
+    options: { max?: number; ssl?: pg.PoolConfig['ssl']; statementTimeoutMs?: number; onError?: (e: Error) => void } = {},
   ) {
     pg.types.setTypeParser(1082, (v) => v); // DATE -> 'YYYY-MM-DD'
     this.onError = options.onError;
-    this.pool = new pg.Pool({ connectionString, max: options.max ?? 10, ssl: options.ssl, statement_timeout: 15_000, connectionTimeoutMillis: 5_000 });
+    this.pool = new pg.Pool({
+      connectionString,
+      ssl: options.ssl,
+      ...poolSettings({ max: options.max ?? DEFAULT_POOL_TUNING.max, statementTimeoutMs: options.statementTimeoutMs ?? DEFAULT_POOL_TUNING.statementTimeoutMs }),
+    });
     // An idle client can be dropped by the server or a proxy; without a listener
     // the 'error' event would crash the whole process.
     this.pool.on('error', (e) => this.reportError(e));

@@ -8,6 +8,7 @@
 //
 // `pg` is resolved from apps/api (this script has no dependencies of its own), so
 // run `pnpm install` first. Only a read-only `SELECT 1` is ever sent.
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -51,6 +52,51 @@ export function parseArgs(argv, env = process.env) {
   return opts;
 }
 
+const SSL_URL_PARAMS = ['sslmode', 'ssl', 'sslcert', 'sslkey', 'sslrootcert', 'sslcrl', 'uselibpqcompat'];
+const WEAK_SSLMODES = new Set(['disable', 'allow', 'prefer', 'no-verify']);
+const STRONG_SSLMODES = new Set(['require', 'verify-ca', 'verify-full']);
+
+/**
+ * Mirror of apps/api/src/database/connection.ts (this script has no build step): DATABASE_SSL=1 means verified TLS and
+ * the URL's own TLS parameters must not weaken it; DATABASE_SSL=0 must not meet a URL that asks for TLS; unset = the URL decides.
+ * Returns `{ connectionString, ssl }`; throws on contradictions.
+ */
+export function resolveConnection(url, env = process.env) {
+  const choice = env.DATABASE_SSL === undefined || env.DATABASE_SSL === '' ? undefined : env.DATABASE_SSL;
+  if (choice !== undefined && choice !== '0' && choice !== '1') throw new Error('DATABASE_SSL must be 0 or 1');
+  const caFile = env.DATABASE_SSL_CA_FILE;
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { connectionString: url, ssl: choice === '1' ? tlsOptions(caFile) : undefined };
+  }
+  const sslmode = parsed.searchParams.get('sslmode')?.toLowerCase();
+  const flag = parsed.searchParams.get('ssl')?.toLowerCase();
+  const weakens = (sslmode !== undefined && WEAK_SSLMODES.has(sslmode)) || flag === '0' || flag === 'false';
+  const wantsTls = (sslmode !== undefined && STRONG_SSLMODES.has(sslmode)) || flag === '1' || flag === 'true';
+  if (choice === '1') {
+    if (weakens) throw new Error('DATABASE_URL asks for weaker TLS than DATABASE_SSL=1: remove the parameter from the URL');
+    for (const p of SSL_URL_PARAMS) parsed.searchParams.delete(p);
+    return { connectionString: parsed.toString(), ssl: tlsOptions(caFile) };
+  }
+  if (choice === '0' && wantsTls) throw new Error('DATABASE_URL asks for TLS but DATABASE_SSL=0: decide one');
+  if (caFile) throw new Error('DATABASE_SSL_CA_FILE needs DATABASE_SSL=1');
+  return { connectionString: url, ssl: undefined };
+}
+
+function tlsOptions(caFile) {
+  if (!caFile) return { rejectUnauthorized: true };
+  let ca;
+  try {
+    ca = readFileSync(caFile, 'utf8');
+  } catch {
+    throw new Error('DATABASE_SSL_CA_FILE cannot be read');
+  }
+  if (!ca.includes('BEGIN CERTIFICATE')) throw new Error('DATABASE_SSL_CA_FILE does not contain a PEM certificate');
+  return { rejectUnauthorized: true, ca };
+}
+
 function loadPg() {
   try {
     return createRequire(path.join(root, 'apps', 'api', 'package.json'))('pg');
@@ -63,14 +109,15 @@ function loadPg() {
  * Resolves with `{ attempts, elapsedMs }` once `SELECT 1` succeeds; rejects with the
  * last error when `timeoutMs` is exceeded.
  */
-export async function waitForDb(url, { timeoutMs = 60_000, log = () => {}, pg = loadPg() } = {}) {
+export async function waitForDb(url, { timeoutMs = 60_000, log = () => {}, pg = loadPg(), env = process.env } = {}) {
   const { Client } = pg.default ?? pg;
+  const conn = resolveConnection(url, env);
   const started = Date.now();
   let attempt = 0;
   let lastError;
   for (;;) {
     attempt += 1;
-    const client = new Client({ connectionString: url, connectionTimeoutMillis: 3000, query_timeout: 3000 });
+    const client = new Client({ connectionString: conn.connectionString, ssl: conn.ssl, connectionTimeoutMillis: 3000, query_timeout: 3000 });
     // An idle-client error after a failed attempt must not crash the process.
     client.on('error', () => {});
     try {
