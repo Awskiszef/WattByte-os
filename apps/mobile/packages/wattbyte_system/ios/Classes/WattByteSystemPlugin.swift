@@ -97,9 +97,34 @@ enum BatteryReader {
 }
 
 enum InterfaceCounters {
-  /// Sums `ifi_ibytes` / `ifi_obytes` of en0 (Wi-Fi) and pdp_ip* (cellular).
-  /// Counters are 32-bit and since boot; Dart handles wrap and reboot.
+  /// Wi-Fi (`en0`) and cellular (`pdp_ip*`) byte counters, since boot.
+  ///
+  /// Preferred source: the kernel's 64-bit counters per interface (`bits` = 64, `ifaces` = one entry per interface), so
+  /// Dart folds every interface against its own previous value: an interface that appears, disappears or restarts is
+  /// not mistaken for a wrap of a summed 32-bit counter. If the kernel refuses, the old `getifaddrs` sums (32-bit,
+  /// `bits` = 32, no `ifaces`) are returned and Dart keeps its previous behaviour.
   static func read() -> [String: Any] {
+    var result = legacySums()
+    if let all = InterfaceCounterParser.readAll() {
+      var ifaces: [String: [Int64]] = [:]
+      var wifiRx: UInt64 = 0, wifiTx: UInt64 = 0, cellRx: UInt64 = 0, cellTx: UInt64 = 0
+      for (name, bytes) in all where name == "en0" || name.hasPrefix("pdp_ip") {
+        // Int64 is what the method channel carries; 2^63 bytes cannot be reached.
+        ifaces[name] = [Int64(truncatingIfNeeded: bytes.rx), Int64(truncatingIfNeeded: bytes.tx)]
+        if name == "en0" { wifiRx &+= bytes.rx; wifiTx &+= bytes.tx } else { cellRx &+= bytes.rx; cellTx &+= bytes.tx }
+      }
+      result["wifiRx"] = Int64(truncatingIfNeeded: wifiRx)
+      result["wifiTx"] = Int64(truncatingIfNeeded: wifiTx)
+      result["cellRx"] = Int64(truncatingIfNeeded: cellRx)
+      result["cellTx"] = Int64(truncatingIfNeeded: cellTx)
+      result["bits"] = 64
+      result["ifaces"] = ifaces
+    }
+    return result
+  }
+
+  /// `ifi_ibytes` / `ifi_obytes` from getifaddrs: 32-bit counters summed over en0 and pdp_ip*.
+  private static func legacySums() -> [String: Any] {
     var wifiRx: UInt64 = 0, wifiTx: UInt64 = 0, cellRx: UInt64 = 0, cellTx: UInt64 = 0
     var first: UnsafeMutablePointer<ifaddrs>? = nil
     if getifaddrs(&first) == 0, let head = first {
@@ -124,6 +149,7 @@ enum InterfaceCounters {
       "wifiTx": Int64(wifiTx),
       "cellRx": Int64(cellRx),
       "cellTx": Int64(cellTx),
+      "bits": 32,
       "bootTimeMs": bootTimeMs(),
       "timeMs": Int64(Date().timeIntervalSince1970 * 1000),
     ]

@@ -154,6 +154,8 @@ class RawInterfaceCounters {
     required this.cellTx,
     required this.bootTimeMs,
     required this.timeMs,
+    this.bits = 32,
+    this.ifaces = const {},
   });
 
   final int wifiRx;
@@ -163,15 +165,36 @@ class RawInterfaceCounters {
   final int bootTimeMs;
   final int timeMs;
 
-  static RawInterfaceCounters fromMap(Map<Object?, Object?> m) =>
-      RawInterfaceCounters(
-        wifiRx: m['wifiRx'] as int,
-        wifiTx: m['wifiTx'] as int,
-        cellRx: m['cellRx'] as int,
-        cellTx: m['cellTx'] as int,
-        bootTimeMs: m['bootTimeMs'] as int,
-        timeMs: m['timeMs'] as int,
-      );
+  /// Width of the counters: 64 when the kernel's `if_data64` could be read, 32 for the `getifaddrs` fallback
+  /// (and for a native side from before the 64-bit reader existed, which does not send the field).
+  final int bits;
+
+  /// Bytes per interface name (`en0`, `pdp_ip0`, ...) as `[rx, tx]`. Empty with 32-bit counters.
+  final Map<String, ({int rx, int tx})> ifaces;
+
+  static RawInterfaceCounters fromMap(Map<Object?, Object?> m) {
+    final raw = m['ifaces'];
+    return RawInterfaceCounters(
+      wifiRx: m['wifiRx'] as int,
+      wifiTx: m['wifiTx'] as int,
+      cellRx: m['cellRx'] as int,
+      cellTx: m['cellTx'] as int,
+      bootTimeMs: m['bootTimeMs'] as int,
+      timeMs: m['timeMs'] as int,
+      bits: (m['bits'] as int?) ?? 32,
+      ifaces: {
+        if (raw is Map)
+          for (final e in raw.entries)
+            if (e.key is String &&
+                e.value is List &&
+                (e.value as List).length == 2)
+              e.key as String: (
+                rx: (e.value as List)[0] as int,
+                tx: (e.value as List)[1] as int
+              ),
+      },
+    );
+  }
 }
 
 /// Public model and region facts (see `deviceInfo` in the Swift/Kotlin sources).

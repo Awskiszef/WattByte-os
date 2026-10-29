@@ -98,6 +98,8 @@ class Collector {
         cellTx: raw.cellTx,
         bootTimeMs: raw.bootTimeMs,
         timeMs: raw.timeMs,
+        bits: raw.bits,
+        ifaces: raw.ifaces,
       );
       final prev = CounterState.decode(await db.meta(metaIface));
       await db.addDaily(CounterFolder.fold(prev, next));

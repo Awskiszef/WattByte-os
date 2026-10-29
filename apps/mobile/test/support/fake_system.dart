@@ -200,6 +200,11 @@ class FakeSystem {
       'bootTimeMs':
           c?.bootTimeMs ?? DateTime(2026, 10, 1, 8).millisecondsSinceEpoch,
       'timeMs': c?.timeMs ?? _clock().millisecondsSinceEpoch,
+      if (c != null && c.bits != 32) 'bits': c.bits,
+      if (c != null && c.ifaces.isNotEmpty)
+        'ifaces': {
+          for (final e in c.ifaces.entries) e.key: [e.value.rx, e.value.tx],
+        },
     };
   }
 
