@@ -1,3 +1,4 @@
+import '../core/error_log.dart';
 import 'dart:convert';
 
 import 'package:wattbyte_system/wattbyte_system.dart';
@@ -200,7 +201,9 @@ class DeviceSpecificationService {
     DeviceInfo? info;
     try {
       info = await system.deviceInfo();
-    } catch (_) {
+    } catch (e, st) {
+      // The platform side failed (not "offline"): recorded, and the setup carries on without a model.
+      reportError(e, st, 'device info');
       info = null;
     }
     final identifier = info?.modelIdentifier ?? '';
@@ -209,8 +212,9 @@ class DeviceSpecificationService {
     DeviceSpecification? local;
     try {
       local = DeviceCatalog.fromJson(await loadCatalog()).lookup(identifier);
-    } catch (_) {
-      // A broken asset must not stop the setup; the other sources still apply.
+    } catch (e, st) {
+      // A broken asset must not stop the setup; the other sources still apply. It is a defect of the build, so it is recorded.
+      reportError(e, st, 'device catalog asset');
     }
 
     // The network is only asked when the bundled catalog does not know the model.
