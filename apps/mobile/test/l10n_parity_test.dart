@@ -345,19 +345,10 @@ void main() {
     String text(Map<String, dynamic> lang, String key) =>
         (lang[key] as String).toLowerCase();
 
-    /// Strings that say "nothing/never uploaded" in absolute terms, as they stand
-    /// today. Each is a wording problem that the owner of the strings must fix;
-    /// the key is listed here (with the reason) so the rest of the net stays
-    /// strict. A key that is fixed simply stops matching: remove it from here.
-    const knownOverclaims = <String, String>{
-      'usageAccessBody':
-          '"never uploads them": cloud sync uploads exactly these totals '
-              '(mobile and Wi-Fi bytes per day) when it is on',
-      'authWhyAccount':
-          '"Only daily totals can ever be uploaded": the account also stores '
-              'country/currency/price settings and the device model and battery '
-              'capacity, and AI insights send this month\'s totals',
-    };
+    /// Strings that say "nothing/never uploaded" in absolute terms. None is allowed any more (G-04): the account stores
+    /// settings and the phone model, and AI insights send monthly totals, so every such sentence must carry its condition.
+    /// A new entry here needs a reason and an owner.
+    const knownOverclaims = <String, String>{};
 
     // 1. Absolute claims: never true once an account exists.
     final absolute = <RegExp>[
@@ -473,11 +464,22 @@ void main() {
       expect(p, contains('szacowane'));
     });
 
+    test(
+        'the account copy names what the account stores besides daily totals (G-04)',
+        () {
+      for (final key in ['authWhyAccount', 'aboutBody']) {
+        expect(text(en, key), contains('phone model'), reason: key);
+        expect(text(pl, key), contains('model telefonu'), reason: key);
+      }
+      expect(text(en, 'aiSent'), contains('ai provider'));
+      expect(text(pl, 'aiSent'), contains('dostawcy ai'));
+    });
+
     test('Data collection: uploads are tied to the cloud sync switch', () {
       expect(text(en, 'dataCollectionBody'),
-          contains('unless you turn on cloud sync'));
+          contains('only if you turn on cloud sync'));
       expect(text(pl, 'dataCollectionBody'),
-          contains('dopóki nie włączysz synchronizacji'));
+          contains('tylko po włączeniu synchronizacji'));
     });
 
     test(
