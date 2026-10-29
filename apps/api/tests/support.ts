@@ -36,6 +36,8 @@ export interface BuildOptions {
   authRateLimitMax?: number;
   refreshRateLimitMax?: number;
   aiRateLimitMax?: number;
+  /** Newest migration the build claims to ship; /ready compares it with the database. */
+  expectedSchemaVersion?: string;
 }
 
 export interface BuiltApp {
@@ -72,6 +74,7 @@ export async function buildTestApp(opts: BuildOptions = {}): Promise<BuiltApp> {
     refreshRateLimitMax: opts.refreshRateLimitMax ?? 100_000,
     aiRateLimitMax: opts.aiRateLimitMax ?? 100_000,
     priceProviders: [],
+    expectedSchemaVersion: opts.expectedSchemaVersion,
   });
   await app.ready();
   return { app, env, repos, memory, providers };

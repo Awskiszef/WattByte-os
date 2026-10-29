@@ -9,11 +9,13 @@ export interface HealthRoutesOptions {
   version: string;
   /** How long `/ready` waits for the database before it answers 503. */
   readyTimeoutMs?: number;
+  /** Newest migration this build ships (file name). The instance is not ready while the database is behind it. */
+  expectedSchemaVersion?: string;
 }
 
 export const healthRoutes: FastifyPluginAsyncZod<HealthRoutesOptions> = async (
   app,
-  { repos, providerIds, version, readyTimeoutMs = 2_000 },
+  { repos, providerIds, version, readyTimeoutMs = 2_000, expectedSchemaVersion },
 ) => {
   const started = Date.now();
 
@@ -23,11 +25,24 @@ export const healthRoutes: FastifyPluginAsyncZod<HealthRoutesOptions> = async (
    * any more: a new one starts, so recovery is noticed even if an earlier probe never settles (a black-holed
    * host). Half, not the whole timeout, so a caller that just gave up on the old probe never joins it again.
    */
-  let inflight: { startedAt: number; result: Promise<boolean> } | null = null;
-  const probe = (): Promise<boolean> => {
+  type SchemaState = 'ok' | 'behind' | 'ahead' | 'unchecked';
+  interface Probe {
+    db: boolean;
+    schema: SchemaState;
+  }
+  /** `SELECT 1`, then (when this build knows its newest migration) where the applied schema stands against it. */
+  const check = async (): Promise<Probe> => {
+    if (!(await repos.ping())) return { db: false, schema: 'unchecked' };
+    if (expectedSchemaVersion === undefined || repos.schemaVersion === undefined) return { db: true, schema: 'unchecked' };
+    const latest = await repos.schemaVersion();
+    if (latest === null || latest < expectedSchemaVersion) return { db: true, schema: 'behind' };
+    return { db: true, schema: latest > expectedSchemaVersion ? 'ahead' : 'ok' };
+  };
+  let inflight: { startedAt: number; result: Promise<Probe> } | null = null;
+  const probe = (): Promise<Probe> => {
     const now = Date.now();
     if (inflight && now - inflight.startedAt < readyTimeoutMs / 2) return inflight.result;
-    const entry = { startedAt: now, result: repos.ping().catch(() => false) };
+    const entry = { startedAt: now, result: check().catch((): Probe => ({ db: false, schema: 'unchecked' })) };
     inflight = entry;
     void entry.result.finally(() => {
       if (inflight === entry) inflight = null;
@@ -36,10 +51,10 @@ export const healthRoutes: FastifyPluginAsyncZod<HealthRoutesOptions> = async (
   };
 
   /** True only when `SELECT 1` really ran and came back within the timeout. */
-  const databaseReady = async (): Promise<boolean> => {
+  const databaseReady = async (): Promise<Probe> => {
     let timer: NodeJS.Timeout | undefined;
-    const timeout = new Promise<boolean>((resolve) => {
-      timer = setTimeout(() => resolve(false), readyTimeoutMs);
+    const timeout = new Promise<Probe>((resolve) => {
+      timer = setTimeout(() => resolve({ db: false, schema: 'unchecked' }), readyTimeoutMs);
     });
     try {
       return await Promise.race([probe(), timeout]);
@@ -63,12 +78,19 @@ export const healthRoutes: FastifyPluginAsyncZod<HealthRoutesOptions> = async (
     '/ready',
     { config: { public: true, rateLimit: false }, schema: { tags: ['ops'], response: { 200: ReadyResponse, 503: ReadyResponse } } },
     async (request, reply) => {
-      const db = await databaseReady();
+      const { db, schema } = await databaseReady();
       // Draining (SIGTERM received): tell the balancer to stop sending traffic before the listener closes.
       const draining = app.lifecycle.draining;
       if (!db) request.log.warn({ database: 'unavailable', timeoutMs: readyTimeoutMs }, 'readiness check failed');
-      const ok = db && !draining;
-      const body = { status: ok ? ('ok' as const) : ('degraded' as const), database: db ? ('ok' as const) : ('unavailable' as const), aiProviders: providerIds };
+      // Migrations pending: this build would run queries against a schema it does not match. Not ready until `migrate` ran.
+      if (schema === 'behind') request.log.warn({ schema, expected: expectedSchemaVersion }, 'database schema is behind this build: run the migrations');
+      const ok = db && schema !== 'behind' && !draining;
+      const body = {
+        status: ok ? ('ok' as const) : ('degraded' as const),
+        database: db ? ('ok' as const) : ('unavailable' as const),
+        ...(expectedSchemaVersion !== undefined ? { schema } : {}),
+        aiProviders: providerIds,
+      };
       return reply.status(ok ? 200 : 503).send(body);
     },
   );

@@ -34,6 +34,22 @@ describe.skipIf(!DATABASE_URL)('GET /ready against PostgreSQL', () => {
     expect(res.json()).toMatchObject({ status: 'ok', database: 'ok' });
   });
 
+  it('the schema gate against the real migration table: current = ready, a migration this database lacks = 503', async () => {
+    const { migrate, latestMigrationName } = await import('../../src/database/migrate.js');
+    await migrate(DATABASE_URL!);
+    const latest = (await latestMigrationName())!;
+    const current = await buildTestApp({ repos: new PostgresRepositories(DATABASE_URL!), expectedSchemaVersion: latest });
+    cleanups.push(() => current.app.close(), () => current.repos.close());
+    expect((await current.app.inject({ url: '/ready' })).json()).toMatchObject({ status: 'ok', schema: 'ok' });
+
+    const behind = await buildTestApp({ repos: new PostgresRepositories(DATABASE_URL!), expectedSchemaVersion: '9999_not_applied_yet.sql' });
+    cleanups.push(() => behind.app.close(), () => behind.repos.close());
+    const res = await behind.app.inject({ url: '/ready' });
+    expect(res.statusCode).toBe(503);
+    expect(res.json()).toMatchObject({ status: 'degraded', database: 'ok', schema: 'behind' });
+    expect((await behind.app.inject({ url: '/health' })).statusCode).toBe(200);
+  });
+
   it('503 with a pool pointing at a dead port, while /health stays 200', async () => {
     const app = await appWith(new PostgresRepositories(deadUrl()));
     const ready = await app.inject({ url: '/ready' });

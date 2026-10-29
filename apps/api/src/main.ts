@@ -4,6 +4,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import { buildApp } from './app.js';
 import { envWarnings, loadEnv } from './config/env.js';
 import { resolveDatabaseConnection } from './database/connection.js';
+import { latestMigrationName } from './database/migrate.js';
 import { PostgresRepositories } from './database/postgres.js';
 import { buildGateway } from './modules/ai/gateway.js';
 import { createShutdown } from './shutdown.js';
@@ -38,7 +39,10 @@ async function main(): Promise<void> {
   };
   const gateway = buildGateway(env, repos, providers, gatewayLogger);
 
-  const app = await buildApp({ env, repos, gateway, providerIds: providers.map((p) => p.id) });
+  // Readiness requires the schema to have reached the newest migration this build ships (undefined = files not found: unchecked).
+  const expectedSchemaVersion = await latestMigrationName().catch(() => undefined);
+  if (expectedSchemaVersion === undefined) console.warn('migration files not found: /ready will not check the schema version');
+  const app = await buildApp({ env, repos, gateway, providerIds: providers.map((p) => p.id), expectedSchemaVersion });
   logger.current = app.log;
   for (const warning of envWarnings(env)) app.log.warn({ appEnv: env.APP_ENV }, warning);
   // What the AI layer will do, in one line: providers, never keys or model names.

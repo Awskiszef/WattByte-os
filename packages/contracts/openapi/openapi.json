@@ -80,6 +80,15 @@
               "unavailable"
             ]
           },
+          "schema": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "behind",
+              "ahead",
+              "unchecked"
+            ]
+          },
           "aiProviders": {
             "type": "array",
             "items": {

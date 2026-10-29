@@ -736,6 +736,11 @@ export class PostgresRepositories implements Repositories {
     },
   };
 
+  async schemaVersion(): Promise<string | null> {
+    const res = await this.pool.query('SELECT max(name) AS latest FROM schema_migrations');
+    return ((res.rows[0] as { latest: string | null } | undefined)?.latest) ?? null;
+  }
+
   async ping(): Promise<boolean> {
     try {
       await this.pool.query('SELECT 1');

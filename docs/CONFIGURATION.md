@@ -127,6 +127,28 @@ node --conditions=development --import tsx src/main.ts      # or: pnpm --filter 
 
 `AI_MOCK=1` needs no provider key. If the host port 5432 is taken, `WB_PG_PORT=55432 pnpm db:up`.
 
+### Database migrations
+
+`pnpm --filter @wattbyte/api migrate` (`node dist/database/migrate.js` after a build) is a separate deploy step: the API does
+not migrate on start. What the runner guarantees:
+
+| Rail | Behaviour |
+| --- | --- |
+| One runner at a time | An advisory lock, waited for at most `MIGRATE_LOCK_WAIT_MS` (60 s); a stuck migrator makes the next run fail, not hang. |
+| `lock_timeout` | `MIGRATE_LOCK_TIMEOUT_MS` (10 s): a DDL statement that cannot get its lock fails and rolls back instead of queueing behind traffic and blocking every query behind it. |
+| `statement_timeout` | `MIGRATE_STATEMENT_TIMEOUT_MS` (10 min) per migration. |
+| Checksums | sha256 of each applied file (line endings normalised) is recorded. A file **edited after it was applied stops the run** before anything else is applied: restore it and add a new migration. Databases migrated before this existed get their checksums recorded on the first run. |
+| No transaction | A file whose first line is `-- migrate:no-transaction` runs outside a transaction (`CREATE INDEX CONCURRENTLY`). Write it idempotently (`IF NOT EXISTS`): a failure half way is re-run from the start. |
+| Look first | `migrate --dry-run` lists what would be applied (nothing created or recorded); `migrate --status` prints applied / pending / modified / unknown / unverified as JSON (exit 1 when a file was modified). |
+| Readiness | `GET /ready` answers **503** with `"schema": "behind"` while the database has not applied the newest migration this build ships. `"ahead"` (a newer release already migrated) stays ready; `"unchecked"` = no expectation (in-memory store). |
+
+Discipline for a zero-downtime deploy: **expand, deploy, contract.** A release only adds (nullable column, new table, index);
+the code that needs the addition ships with or after it; removal of the old shape is a *later* release, after no running
+build reads it. A destructive or lock-heavy migration (drop, type change, rewrite of a large table, non-concurrent index on a
+big table) needs a verified backup first (`pg_dump` or a provider snapshot you have restored once), a maintenance window and
+the product owner's go-ahead; the runner cannot know that, so it is a deploy-checklist item, not code. Rolling back means
+restoring the backup or shipping a compensating migration; there are no down-migrations.
+
 ### Staging
 
 Same build and same code path as production; only the values differ.

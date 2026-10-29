@@ -15,12 +15,15 @@ class ReadyResponse {
   ReadyResponse({
     required this.status,
     required this.database,
+    this.schema,
     this.aiProviders = const [],
   });
 
   ReadyResponseStatusEnum status;
 
   ReadyResponseDatabaseEnum database;
+
+  ReadyResponseSchemaEnum? schema;
 
   List<String> aiProviders;
 
@@ -30,21 +33,30 @@ class ReadyResponse {
       other is ReadyResponse &&
           other.status == status &&
           other.database == database &&
+          other.schema == schema &&
           _deepEquality.equals(other.aiProviders, aiProviders);
 
   @override
   int get hashCode =>
       // ignore: unnecessary_parenthesis
-      (status.hashCode) + (database.hashCode) + (aiProviders.hashCode);
+      (status.hashCode) +
+      (database.hashCode) +
+      (schema == null ? 0 : schema!.hashCode) +
+      (aiProviders.hashCode);
 
   @override
   String toString() =>
-      'ReadyResponse[status=$status, database=$database, aiProviders=$aiProviders]';
+      'ReadyResponse[status=$status, database=$database, schema=$schema, aiProviders=$aiProviders]';
 
   Map<String, dynamic> toJson() {
     final json = <String, dynamic>{};
     json[r'status'] = this.status;
     json[r'database'] = this.database;
+    if (this.schema != null) {
+      json[r'schema'] = this.schema;
+    } else {
+      json[r'schema'] = null;
+    }
     json[r'aiProviders'] = this.aiProviders;
     return json;
   }
@@ -78,6 +90,7 @@ class ReadyResponse {
       return ReadyResponse(
         status: ReadyResponseStatusEnum.fromJson(json[r'status'])!,
         database: ReadyResponseDatabaseEnum.fromJson(json[r'database'])!,
+        schema: ReadyResponseSchemaEnum.fromJson(json[r'schema']),
         aiProviders: json[r'aiProviders'] is Iterable
             ? (json[r'aiProviders'] as Iterable)
                 .cast<String>()
@@ -309,4 +322,93 @@ class ReadyResponseDatabaseEnumTypeTransformer {
 
   /// The singleton instance of this transformer.
   static ReadyResponseDatabaseEnumTypeTransformer? _instance;
+}
+
+enum ReadyResponseSchemaEnum {
+  ok._(r'ok'),
+  behind._(r'behind'),
+  ahead._(r'ahead'),
+  unchecked._(r'unchecked'),
+  ;
+
+  /// Instantiate a new enum with the provided value.
+  const ReadyResponseSchemaEnum._(this._value);
+
+  /// The underlying value of this enum member.
+  final String _value;
+
+  @override
+  String toString() => _value;
+
+  /// Encodes this enum as a value suitable for JSON.
+  String toJson() => _value;
+
+  /// Returns the instance of [ReadyResponseSchemaEnum] that was successfully decoded
+  /// from the passed [value] on success, null otherwise.
+  static ReadyResponseSchemaEnum? fromJson(dynamic value) =>
+      ReadyResponseSchemaEnumTypeTransformer().decode(value);
+
+  /// Returns a [List] containing instances of [ReadyResponseSchemaEnum]
+  /// that were successfully decoded from the passed [JSON][json].
+  static List<ReadyResponseSchemaEnum> listFromJson(
+    dynamic json, {
+    bool growable = false,
+  }) {
+    final result = <ReadyResponseSchemaEnum>[];
+    if (json is List && json.isNotEmpty) {
+      for (final row in json) {
+        final value = ReadyResponseSchemaEnum.fromJson(row);
+        if (value != null) {
+          result.add(value);
+        }
+      }
+    }
+    return result.toList(growable: growable);
+  }
+}
+
+/// Transformation class that can [encode] an instance of [ReadyResponseSchemaEnum] to String,
+/// and [decode] dynamic data back to [ReadyResponseSchemaEnum].
+class ReadyResponseSchemaEnumTypeTransformer {
+  factory ReadyResponseSchemaEnumTypeTransformer() =>
+      _instance ??= const ReadyResponseSchemaEnumTypeTransformer._();
+
+  const ReadyResponseSchemaEnumTypeTransformer._();
+
+  String encode(ReadyResponseSchemaEnum data) => data._value;
+
+  /// Returns the instance of [ReadyResponseSchemaEnum] that was successfully decoded
+  /// from the passed [data] value on success, null otherwise.
+  ///
+  /// If [allowNull] is true and the [dynamic value][data] cannot be decoded successfully,
+  /// then null is returned. However, if [allowNull] is false and the [dynamic value][data]
+  /// cannot be decoded successfully, then an [UnimplementedError] is thrown.
+  ///
+  /// The [allowNull] is very handy when an API changes and a new enum value is added or removed,
+  /// and users are still using an old app with the old code.
+  ReadyResponseSchemaEnum? decode(dynamic data, {bool allowNull = true}) {
+    if (data is ReadyResponseSchemaEnum) {
+      return data;
+    }
+    if (data != null) {
+      switch (data) {
+        case r'ok':
+          return ReadyResponseSchemaEnum.ok;
+        case r'behind':
+          return ReadyResponseSchemaEnum.behind;
+        case r'ahead':
+          return ReadyResponseSchemaEnum.ahead;
+        case r'unchecked':
+          return ReadyResponseSchemaEnum.unchecked;
+        default:
+          if (!allowNull) {
+            throw ArgumentError('Unknown enum value to decode: $data');
+          }
+      }
+    }
+    return null;
+  }
+
+  /// The singleton instance of this transformer.
+  static ReadyResponseSchemaEnumTypeTransformer? _instance;
 }

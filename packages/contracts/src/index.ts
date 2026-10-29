@@ -76,6 +76,11 @@ export const HealthResponse = z.object({
 export const ReadyResponse = z.object({
   status: z.enum(['ok', 'degraded']),
   database: z.enum(['ok', 'unavailable']),
+  /**
+   * Where the database schema stands against the newest migration this build ships: `behind` = migrations are pending
+   * (the instance is not ready), `ahead` = a newer release already migrated (still ready), `unchecked` = no expectation configured.
+   */
+  schema: z.enum(['ok', 'behind', 'ahead', 'unchecked']).optional(),
   aiProviders: z.array(z.string()),
 });
 

@@ -513,6 +513,7 @@ final responseCases = <ResponseCase>[
   const ResponseCase('ready_response', api.ReadyResponse.fromJson, {
     'status': 'degraded',
     'database': 'unavailable',
+    'schema': 'behind',
     'aiProviders': ['openai', 'anthropic'],
   }),
   const ResponseCase('region_response', api.RegionResponse.fromJson,
@@ -717,6 +718,10 @@ final enumCases = <String, (List<Enum>, Object? Function(dynamic))>{
   'ReadyResponseDatabaseEnum': (
     api.ReadyResponseDatabaseEnum.values,
     api.ReadyResponseDatabaseEnum.fromJson
+  ),
+  'ReadyResponseSchemaEnum': (
+    api.ReadyResponseSchemaEnum.values,
+    api.ReadyResponseSchemaEnum.fromJson
   ),
   'AIInputPeriodTypeEnum': (
     api.AIInputPeriodTypeEnum.values,

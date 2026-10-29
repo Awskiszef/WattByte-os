@@ -421,5 +421,7 @@ export interface Repositories {
   readonly ai: AiGenerationRepository;
   readonly cloud: CloudDataRepository;
   ping(): Promise<boolean>;
+  /** Name of the newest applied migration (null = none yet). Absent on stores without a schema (the in-memory one). */
+  schemaVersion?(): Promise<string | null>;
   close(): Promise<void>;
 }

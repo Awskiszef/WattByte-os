@@ -48,6 +48,8 @@ export interface AppDeps {
   repos: Repositories;
   gateway: AIGateway;
   providerIds: string[];
+  /** Newest migration file of this build; /ready answers 503 while the database has not applied it. Unset = not checked. */
+  expectedSchemaVersion?: string;
   logger?: boolean;
   /** Receives the JSON log lines instead of stdout (tests assert on them); implies logging on. */
   logStream?: { write(msg: string): void };
@@ -232,6 +234,7 @@ export async function buildApp(deps: AppDeps): Promise<App> {
     providerIds: deps.providerIds,
     version: API_VERSION,
     readyTimeoutMs: env.READY_DB_TIMEOUT_MS,
+    expectedSchemaVersion: deps.expectedSchemaVersion,
   });
 
   await app.register(

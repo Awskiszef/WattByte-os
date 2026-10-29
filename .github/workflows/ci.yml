@@ -68,6 +68,8 @@ jobs:
           --health-start-period 10s
     env:
       TEST_DATABASE_URL: postgres://wattbyte:wattbyte@localhost:5432/wattbyte_test
+      # The PostgreSQL suites must run here: a missing TEST_DATABASE_URL fails tests/db/require-database.test.ts instead of skipping them silently.
+      REQUIRE_PG_TESTS: '1'
     steps:
       - uses: actions/checkout@v7
         with:
