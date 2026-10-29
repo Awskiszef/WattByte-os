@@ -5,6 +5,7 @@ import { buildApp } from './app.js';
 import { envWarnings, loadEnv } from './config/env.js';
 import { PostgresRepositories } from './database/postgres.js';
 import { buildGateway } from './modules/ai/gateway.js';
+import { createShutdown } from './shutdown.js';
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -53,14 +54,24 @@ async function main(): Promise<void> {
     'ai configuration',
   );
 
-  const shutdown = async (signal: string): Promise<void> => {
-    app.log.info({ signal }, 'shutting down');
-    await app.close();
-    await repos.close();
-    process.exit(0);
-  };
+  const shutdown = createShutdown({
+    app,
+    closeRepos: () => repos.close(),
+    drainMs: env.SHUTDOWN_DRAIN_MS,
+    timeoutMs: env.SHUTDOWN_TIMEOUT_MS,
+    exit: (code) => process.exit(code),
+  });
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
   process.on('SIGINT', () => void shutdown('SIGINT'));
+  // A bug that escapes every handler ends the process through the same orderly path, with a failing exit code.
+  process.on('unhandledRejection', (e) => {
+    app.log.fatal({ err: e }, 'unhandled rejection');
+    void shutdown('unhandledRejection', 1);
+  });
+  process.on('uncaughtException', (e) => {
+    app.log.fatal({ err: e }, 'uncaught exception');
+    void shutdown('uncaughtException', 1);
+  });
 
   // The server starts even when PostgreSQL is down: /health stays 200 (the process is alive), /ready answers
   // 503 until `SELECT 1` works, so a load balancer sends no traffic to an instance that cannot serve it, and

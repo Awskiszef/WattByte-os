@@ -613,7 +613,11 @@ export class PostgresRepositories implements Repositories {
     }
   }
 
+  private closing?: Promise<void>;
+
+  /** Idempotent: a second call returns the first one's promise (pg rejects a second `pool.end()`). */
   close(): Promise<void> {
-    return this.pool.end();
+    this.closing ??= this.pool.end();
+    return this.closing;
   }
 }

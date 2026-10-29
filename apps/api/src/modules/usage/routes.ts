@@ -60,6 +60,8 @@ export const usageRoutes: FastifyPluginAsyncZod<UsageRoutesOptions> = async (app
     {
       preHandler: auth,
       preParsing: cloudSync,
+      // 92 days are about 25 KB; the global default (16 KiB) is for every other route.
+      bodyLimit: 65_536,
       schema: {
         tags: ['usage'],
         summary: 'Upload per-day aggregates for one installation; safe to repeat',

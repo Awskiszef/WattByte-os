@@ -63,14 +63,14 @@ describe('error contract: every failure is { error: { code, message } } with a s
     expectErrorBody(empty.json(), 'invalid_json');
   });
 
-  it('oversized body: 413 payload_too_large (the limit is 1 MiB)', async () => {
-    const big = JSON.stringify({ email: 'a@b.co', password: 'x'.repeat(1_048_577) });
+  it('oversized body: 413 payload_too_large (the limit is 16 KiB; /usage/sync 64 KiB)', async () => {
+    const big = JSON.stringify({ email: 'a@b.co', password: 'x'.repeat(16_385) });
     const res = await ctx.app.inject({ method: 'POST', url: '/api/v1/auth/login', headers: json, payload: big });
     expect(res.statusCode).toBe(413);
     expectErrorBody(res.json(), 'payload_too_large');
 
     // Just under the limit is parsed and then rejected by validation (password max 200), not by the size check.
-    const under = JSON.stringify({ email: 'a@b.co', password: 'x'.repeat(1_000_000) });
+    const under = JSON.stringify({ email: 'a@b.co', password: 'x'.repeat(16_000) });
     const res2 = await ctx.app.inject({ method: 'POST', url: '/api/v1/auth/login', headers: json, payload: under });
     expect(res2.statusCode).toBe(400);
     expectErrorBody(res2.json(), 'validation');

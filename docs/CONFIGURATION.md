@@ -53,6 +53,14 @@ Warnings are logged once at boot (`envWarnings`), they do not stop the server.
 | `DATABASE_URL` | – | PostgreSQL connection string. |
 | `DATABASE_SSL` | `0` | `1` = TLS with `rejectUnauthorized: true`. |
 | `READY_DB_TIMEOUT_MS` | `2000` | How long `GET /ready` waits for `SELECT 1` (100 to 30000). |
+| `REQUEST_TIMEOUT_MS` | `30000` | A client must deliver a whole request (headers + body) within this time, otherwise the connection is closed (slow-body / slowloris protection). |
+| `KEEP_ALIVE_TIMEOUT_MS` | `65000` | Idle keep-alive connections close after this; set it just above the load balancer's idle timeout. |
+| `MAX_CONNECTIONS` | `5000` | Open connections accepted at once (0 = no limit). |
+| `MAX_REQUESTS_PER_SOCKET` | `1000` | Requests served on one connection before it is recycled (0 = no limit). |
+| `SHUTDOWN_DRAIN_MS` | `3000` | On SIGTERM `/ready` answers 503 at once and responses carry `Connection: close`; the process waits this long before it stops accepting connections. |
+| `SHUTDOWN_TIMEOUT_MS` | `25000` | Hard deadline of the whole shutdown (then remaining connections are cut and the exit code is 1). Keep it below the orchestrator's grace period. |
+
+Request bodies are limited to 16 KiB (`POST /usage/sync`: 64 KiB), arrays in a body to 1000 elements.
 | `JWT_SECRET` | – (required) | HS256 signing key for access tokens, 32+ characters: `openssl rand -base64 48`. |
 | `ACCESS_TOKEN_TTL_SEC` | `900` | Access token lifetime. |
 | `REFRESH_TOKEN_TTL_DAYS` | `30` | Refresh token lifetime. |

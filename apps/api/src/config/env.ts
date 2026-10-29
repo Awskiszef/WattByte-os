@@ -69,6 +69,18 @@ const EnvSchema = z
     DATABASE_SSL: z.enum(['0', '1']).default('0'),
     /** How long GET /ready waits for `SELECT 1` before answering 503. */
     READY_DB_TIMEOUT_MS: z.coerce.number().int().min(100).max(30_000).default(2_000),
+    /** Longest time a client may take to send one whole request (headers and body); a stalled client is cut off. */
+    REQUEST_TIMEOUT_MS: z.coerce.number().int().min(100).max(120_000).default(30_000),
+    /** Idle keep-alive connections close after this; keep it just above the load balancer's idle timeout (ALB: 60 s). */
+    KEEP_ALIVE_TIMEOUT_MS: z.coerce.number().int().min(100).max(300_000).default(65_000),
+    /** Open connections the server accepts at once; more are refused. 0 = no limit. */
+    MAX_CONNECTIONS: z.coerce.number().int().nonnegative().default(5_000),
+    /** Requests served on one connection before it is recycled. 0 = no limit. */
+    MAX_REQUESTS_PER_SOCKET: z.coerce.number().int().nonnegative().default(1_000),
+    /** On SIGTERM /ready answers 503 immediately; this is how long the process then waits before it stops listening. */
+    SHUTDOWN_DRAIN_MS: z.coerce.number().int().min(0).max(60_000).default(3_000),
+    /** Hard deadline for the whole shutdown; keep it below the orchestrator's grace period (Kubernetes/ECS: 30 s). */
+    SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(300_000).default(25_000),
     AI_FREE_DAILY_LIMIT: z.coerce.number().int().nonnegative().default(3),
     AI_PREMIUM_DAILY_LIMIT: z.coerce.number().int().nonnegative().default(50),
     AI_MOCK: Flag('0'),

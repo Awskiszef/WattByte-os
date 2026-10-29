@@ -93,6 +93,14 @@ const GENERIC_CODES: Readonly<Record<number, string>> = {
 };
 
 const MAX_VALIDATION_MESSAGE = 300;
+/** Only the first issues are rendered: ZodError.message stringifies all of them, whose count the client chooses. */
+const MAX_VALIDATION_ISSUES = 5;
+
+function validationMessage(error: FastifyError): string {
+  const issues = (error as { issues?: unknown }).issues;
+  if (Array.isArray(issues)) return JSON.stringify(issues.slice(0, MAX_VALIDATION_ISSUES), null, 2).slice(0, MAX_VALIDATION_MESSAGE);
+  return error.message.slice(0, MAX_VALIDATION_MESSAGE);
+}
 
 /** Seconds a rate-limited caller is told to wait when the limiter did not say (its window is one minute). */
 const DEFAULT_RETRY_AFTER_SEC = 60;
@@ -118,7 +126,7 @@ export function errorHandler(error: FastifyError, request: FastifyRequest, reply
     return;
   }
   if (error.validation) {
-    send(reply, 400, 'validation', error.message.slice(0, MAX_VALIDATION_MESSAGE));
+    send(reply, 400, 'validation', validationMessage(error));
     return;
   }
   const framework = error.code ? FRAMEWORK_ERRORS.get(error.code) : undefined;

@@ -41,7 +41,7 @@ describe('a huge JSON array cannot crash body handling (B-10)', () => {
     expect(containsNul([...big.slice(0, 10), 'a\u0000b'])).toBe(true);
   });
 
-  it('a ~600 KB array body on a public route is a 400, not a 500', async () => {
+  it('a ~600 KB array body on a public route is refused by size (413), never a 500', async () => {
     const { app } = await make();
     const res = await app.inject({
       method: 'POST',
@@ -49,7 +49,7 @@ describe('a huge JSON array cannot crash body handling (B-10)', () => {
       headers: { 'content-type': 'application/json' },
       payload: `[${'0,'.repeat(299_999)}0]`,
     });
-    expect(res.statusCode).toBe(400);
+    expect(res.statusCode).toBe(413);
   });
 });
 

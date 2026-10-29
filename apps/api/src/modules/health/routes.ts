@@ -64,9 +64,12 @@ export const healthRoutes: FastifyPluginAsyncZod<HealthRoutesOptions> = async (
     { config: { public: true, rateLimit: false }, schema: { tags: ['ops'], response: { 200: ReadyResponse, 503: ReadyResponse } } },
     async (request, reply) => {
       const db = await databaseReady();
+      // Draining (SIGTERM received): tell the balancer to stop sending traffic before the listener closes.
+      const draining = app.lifecycle.draining;
       if (!db) request.log.warn({ database: 'unavailable', timeoutMs: readyTimeoutMs }, 'readiness check failed');
-      const body = { status: db ? ('ok' as const) : ('degraded' as const), database: db ? ('ok' as const) : ('unavailable' as const), aiProviders: providerIds };
-      return reply.status(db ? 200 : 503).send(body);
+      const ok = db && !draining;
+      const body = { status: ok ? ('ok' as const) : ('degraded' as const), database: db ? ('ok' as const) : ('unavailable' as const), aiProviders: providerIds };
+      return reply.status(ok ? 200 : 503).send(body);
     },
   );
 };

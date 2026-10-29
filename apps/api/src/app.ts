@@ -18,6 +18,7 @@ import { featureFlagsFromEnv } from './features/flags.js';
 import { authenticateUnlessPublic } from './middleware/auth.js';
 import { rejectNulCharacters } from './middleware/input-guards.js';
 import { buildLoggerOptions } from './observability/logging.js';
+import { requestBodyDeadline } from './middleware/request-deadline.js';
 import { generateRequestId } from './observability/request-id.js';
 import { aiRoutes } from './modules/ai/routes.js';
 import { AiService } from './modules/ai/service.js';
@@ -59,8 +60,14 @@ export interface AppDeps {
 
 export type App = FastifyInstance;
 
+/** Process lifecycle seen by request handling; main.ts flips `draining` on SIGTERM. */
+export interface Lifecycle {
+  draining: boolean;
+}
+
 declare module 'fastify' {
   interface FastifyInstance {
+    lifecycle: Lifecycle;
     /** Every registered route (method + path pattern); used for 405 answers and the route audit tests. */
     routeTable: RouteTable;
   }
@@ -82,8 +89,28 @@ export async function buildApp(deps: AppDeps): Promise<App> {
     },
     // Only trust X-Forwarded-For when told how many proxies sit in front; otherwise clients could spoof the IP and dodge rate limits.
     trustProxy: env.TRUST_PROXY_HOPS > 0 ? (_address: string, hop: number) => hop < env.TRUST_PROXY_HOPS : false,
-    bodyLimit: 1_048_576,
+    // Every body of this API is tiny (the largest, /usage/sync, sets its own 64 KiB limit): a small default keeps
+    // the work and memory an attacker-sized body can cause small (B-04).
+    bodyLimit: 16_384,
+    // Node's own default (300 s) is overridden by Fastify's 0 = unlimited: a client that stalls with an
+    // open body would hold its socket for ever (B-06). `connectionsCheckingInterval` is how often Node looks.
+    requestTimeout: env.REQUEST_TIMEOUT_MS,
+    keepAliveTimeout: env.KEEP_ALIVE_TIMEOUT_MS,
+    maxRequestsPerSocket: env.MAX_REQUESTS_PER_SOCKET,
+    http: { connectionsCheckingInterval: Math.max(100, Math.min(5_000, Math.floor(env.REQUEST_TIMEOUT_MS / 2))) },
   }).withTypeProvider<ZodTypeProvider>();
+
+  // Node rejects a headersTimeout below keepAliveTimeout with surprising resets on reused connections.
+  app.server.headersTimeout = Math.max(app.server.headersTimeout, env.KEEP_ALIVE_TIMEOUT_MS + 5_000);
+  app.server.maxConnections = env.MAX_CONNECTIONS;
+  // Node enforces requestTimeout only until the headers are complete; this covers the body (B-06).
+  app.addHook('onRequest', requestBodyDeadline(env.REQUEST_TIMEOUT_MS));
+  const lifecycle: Lifecycle = { draining: false };
+  app.decorate('lifecycle', lifecycle);
+  // While draining every response asks the client (and the proxy) to take its next request elsewhere.
+  app.addHook('onSend', async (_request, reply) => {
+    if (lifecycle.draining) reply.header('connection', 'close');
+  });
 
   const routes = new RouteTable();
   app.addHook('onRoute', (route) => routes.add(route.method, route.url));
