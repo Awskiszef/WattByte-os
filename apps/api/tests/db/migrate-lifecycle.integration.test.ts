@@ -48,6 +48,10 @@ describe.skipIf(!DATABASE_URL)('migration runner safety rails (PostgreSQL)', () 
     rmSync(scratch, { recursive: true, force: true });
   });
 
+  it('options that are present but undefined (what the CLI passes when the environment sets nothing) keep the defaults', async () => {
+    expect(await migrate(url(), dir, undefined, { lockTimeoutMs: undefined, statementTimeoutMs: undefined, lockWaitMs: undefined })).toEqual(['0001_t.sql']);
+  });
+
   it('records the sha256 of every applied file', async () => {
     expect(await migrate(url(), dir)).toEqual(['0001_t.sql']);
     expect(await rows()).toEqual([{ name: '0001_t.sql', checksum: checksumOf('CREATE TABLE t (id int PRIMARY KEY);') }]);

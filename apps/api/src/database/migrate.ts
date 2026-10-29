@@ -131,7 +131,10 @@ export async function migrate(
   ssl?: pg.ClientConfig['ssl'],
   options: MigrateOptions = {},
 ): Promise<string[]> {
-  const { lockTimeoutMs, statementTimeoutMs, lockWaitMs } = { ...DEFAULT_MIGRATE_OPTIONS, ...options };
+  // An option that is present but undefined (the CLI passes what the environment did not set) must not erase the default.
+  const lockTimeoutMs = options.lockTimeoutMs ?? DEFAULT_MIGRATE_OPTIONS.lockTimeoutMs;
+  const statementTimeoutMs = options.statementTimeoutMs ?? DEFAULT_MIGRATE_OPTIONS.statementTimeoutMs;
+  const lockWaitMs = options.lockWaitMs ?? DEFAULT_MIGRATE_OPTIONS.lockWaitMs;
   const log = options.log ?? (() => undefined);
   if (options.dryRun) {
     // Read-only: no table, no column, no lock, nothing recorded.
