@@ -148,4 +148,102 @@ void main() {
     await c.read(authControllerProvider.notifier).signOut();
     expect(repo.signedOutWith, ['rotated-refresh']);
   });
+
+  group('start-up does not wait for the network (F-08)', () {
+    late Duration saved;
+    setUp(() {
+      saved = AuthController.startupBudget;
+      AuthController.startupBudget = const Duration(milliseconds: 150);
+    });
+    tearDown(() => AuthController.startupBudget = saved);
+
+    Future<InMemoryTokenStore> storeWith({required bool expired}) async {
+      final store = InMemoryTokenStore();
+      await store.write(AuthSession(
+        accessToken: 'old',
+        refreshToken: 'r1',
+        expiresAt: DateTime.now().add(Duration(minutes: expired ? -1 : 30)),
+        user: const User(id: 'u', email: 'a@b.c'),
+      ));
+      return store;
+    }
+
+    test(
+        'a hanging server: the app starts on the stored session within the budget, then the answer is applied',
+        () async {
+      final repo = _SlowRepo(delay: const Duration(milliseconds: 600));
+      final c = make(repo: repo, store: await storeWith(expired: true));
+      addTearDown(c.dispose);
+      final started = DateTime.now();
+      final first = await c.read(authControllerProvider.future);
+      expect(DateTime.now().difference(started),
+          lessThan(const Duration(milliseconds: 500)));
+      expect(first, isA<SignedIn>());
+      expect((first as SignedIn).offline, isTrue, reason: 'not confirmed yet');
+      expect(first.user.email, 'a@b.c');
+
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      final later = c.read(authControllerProvider).value;
+      expect(later, isA<SignedIn>());
+      expect((later as SignedIn).offline, isFalse,
+          reason: 'confirmed in the background');
+    });
+
+    test(
+        'a fast server: confirmed before the first screen, no provisional state',
+        () async {
+      final c = make(
+          repo: _SlowRepo(delay: Duration.zero),
+          store: await storeWith(expired: true));
+      addTearDown(c.dispose);
+      final state = await c.read(authControllerProvider.future);
+      expect((state as SignedIn).offline, isFalse);
+    });
+
+    test('a rejected session found in the background signs the user out',
+        () async {
+      final repo =
+          _SlowRepo(delay: const Duration(milliseconds: 400), reject: true);
+      final c = make(repo: repo, store: await storeWith(expired: true));
+      addTearDown(c.dispose);
+      expect((await c.read(authControllerProvider.future) as SignedIn).offline,
+          isTrue);
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+      expect(c.read(authControllerProvider).value, isA<SignedOut>());
+    });
+
+    test(
+        'a sign-out during the wait is not overwritten by the late confirmation',
+        () async {
+      final repo = _SlowRepo(delay: const Duration(milliseconds: 500));
+      final store = await storeWith(expired: true);
+      final c = make(repo: repo, store: store);
+      addTearDown(c.dispose);
+      await c.read(authControllerProvider.future);
+      await c.read(authControllerProvider.notifier).signOut();
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      expect(c.read(authControllerProvider).value, isA<SignedOut>());
+    });
+  });
+}
+
+/// Every call takes [delay]; [reject] makes the refresh a definitive 401.
+class _SlowRepo extends MockAuthRepository {
+  _SlowRepo({required this.delay, this.reject = false});
+
+  final Duration delay;
+  final bool reject;
+
+  @override
+  Future<AuthSession> refresh(String refreshToken) async {
+    await Future<void>.delayed(delay);
+    if (reject) throw const AuthException(AuthError.sessionExpired);
+    return super.refresh(refreshToken);
+  }
+
+  @override
+  Future<User> me(String accessToken) async {
+    await Future<void>.delayed(delay);
+    return super.me(accessToken);
+  }
 }

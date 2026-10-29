@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../api/api_config.dart';
@@ -58,8 +60,32 @@ class AuthController extends AsyncNotifier<AuthState> {
     }
     final stored = await _sessions.current();
     if (stored == null) return const SignedOut();
+    // The app opens on what is stored. Confirming the session (a refresh, then GET /me, each up to 20 s) used to be the gate
+    // in front of the first screen, with all the local statistics behind it (F-08). Within the budget the answer is used;
+    // after it the app starts as "not confirmed yet" and the result is applied when it arrives.
+    final check = _confirm(stored);
     try {
-      // Refreshes when expired, then proves the session with GET /me.
+      return await check.timeout(startupBudget);
+    } on TimeoutException {
+      final provisional = SignedIn(stored, offline: true);
+      unawaited(check.then<void>((confirmed) {
+        // Only if nothing happened meanwhile (a sign-in, a sign-out, an ended session): the state is still ours.
+        if (identical(state.valueOrNull, provisional)) {
+          state = AsyncData(confirmed);
+        }
+      }, onError: (Object e, StackTrace st) {
+        reportError(e, st, 'session confirmation');
+      }));
+      return provisional;
+    }
+  }
+
+  /// How long the first screen may wait for the stored session to be confirmed with the server.
+  static Duration startupBudget = const Duration(seconds: 4);
+
+  /// Refreshes when expired, then proves the stored session with GET /me.
+  Future<AuthState> _confirm(AuthSession stored) async {
+    try {
       final session = await _sessions.validSession();
       final user = await _sessions.authorized((t) => _repo.me(t));
       final confirmed = AuthSession(
