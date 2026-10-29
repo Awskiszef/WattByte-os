@@ -25,6 +25,24 @@ export const EUROSTAT_NATIONAL_CURRENCY: Record<string, string> = {
   ME: 'EUR', MK: 'MKD', AL: 'ALL', RS: 'RSD', TR: 'TRY', BA: 'BAM', XK: 'EUR', MD: 'MDL', UA: 'UAH', GE: 'GEL',
 };
 
+/**
+ * A country that changed its national currency: the price of a period before `from` is quoted in the old currency (the
+ * map above), from `from` on in `to`. Bulgaria adopted the euro on 2026-01-01 (period `2026-S1`); Eurostat's NAC series
+ * follows the currency of the period, so labelling every Bulgarian price BGN made a 2026 price look 1.96 times too low
+ * in leva (audit C-09). Periods are Eurostat half-years (`YYYY-S1`, `YYYY-S2`), which sort as strings.
+ */
+export const CURRENCY_CHANGES: Record<string, { from: string; to: string }> = {
+  BG: { from: '2026-S1', to: 'EUR' },
+};
+
+/** The currency a price of `countryCode` for `period` is quoted in; undefined when Eurostat does not cover the country. */
+export function nationalCurrencyFor(countryCode: string, period: string): string | undefined {
+  const base = EUROSTAT_NATIONAL_CURRENCY[countryCode];
+  if (!base) return undefined;
+  const change = CURRENCY_CHANGES[countryCode];
+  return change && period >= change.from ? change.to : base;
+}
+
 /** Minimal JSON-stat 2.0 shape used by the Eurostat dissemination API. */
 export interface JsonStat {
   value: Record<string, number | null>;
@@ -74,9 +92,8 @@ export class EurostatElectricityPriceProvider implements ElectricityPriceProvide
   }
 
   async getHouseholdPrice(countryCode: string): Promise<ElectricityPriceResult | null> {
-    const currency = EUROSTAT_NATIONAL_CURRENCY[countryCode];
     // A country Eurostat does not cover: not an error, just no household price from this source.
-    if (!currency) return null;
+    if (!EUROSTAT_NATIONAL_CURRENCY[countryCode]) return null;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
@@ -88,7 +105,7 @@ export class EurostatElectricityPriceProvider implements ElectricityPriceProvide
       if (!latest) return null;
       return {
         countryCode,
-        currency,
+        currency: nationalCurrencyFor(countryCode, latest.period)!,
         pricePerKwh: latest.value,
         period: latest.period,
         source: 'eurostat',

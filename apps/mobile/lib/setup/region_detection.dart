@@ -79,7 +79,7 @@ const kCurrencyByCountry = <String, String>{
   'CZ': 'CZK',
   'HU': 'HUF',
   'RO': 'RON',
-  'BG': 'BGN',
+  'BG': 'EUR', // Bulgaria adopted the euro on 2026-01-01 (C-09)
   'SE': 'SEK',
   'NO': 'NOK',
   'DK': 'DKK',

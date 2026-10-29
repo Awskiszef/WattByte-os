@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { MemoryRepositories } from '../src/database/memory.js';
-import { EurostatElectricityPriceProvider, latestValue, type JsonStat } from '../src/modules/electricity/eurostat.js';
+import { EurostatElectricityPriceProvider, latestValue, nationalCurrencyFor, type JsonStat } from '../src/modules/electricity/eurostat.js';
 import type { ElectricityPriceProvider } from '../src/modules/electricity/provider.js';
 import { ElectricityPriceService } from '../src/modules/electricity/service.js';
 import { makeApp, registerUser, type TestContext } from './helpers.js';
@@ -44,6 +44,34 @@ describe('EurostatElectricityPriceProvider', () => {
     const r = await provider.getHouseholdPrice('PL');
     expect(r).toEqual({ countryCode: 'PL', currency: 'PLN', pricePerKwh: 1.2724, period: '2026-S1', source: 'eurostat', includesTaxes: true, includesNetworkCosts: true });
     expect(calls).toHaveLength(1);
+  });
+
+  describe('a country that changed its currency (C-09: Bulgaria joined the euro on 2026-01-01)', () => {
+    const bg = (value: Record<string, number | null>): JsonStat => ({
+      ...PL_FIXTURE,
+      value,
+      dimension: { ...PL_FIXTURE.dimension, geo: { category: { index: { BG: 0 } } } },
+    });
+    const ask = (stat: JsonStat) => new EurostatElectricityPriceProvider({ fetch: fetchJson(stat) }).getHouseholdPrice('BG');
+
+    it('the period decides: 2025 is leva, 2026 on is euro', async () => {
+      expect(nationalCurrencyFor('BG', '2025-S2')).toBe('BGN');
+      expect(nationalCurrencyFor('BG', '2026-S1')).toBe('EUR');
+      expect(nationalCurrencyFor('BG', '2027-S2')).toBe('EUR');
+      expect(nationalCurrencyFor('PL', '2030-S1')).toBe('PLN');
+      expect(nationalCurrencyFor('HR', '2022-S2')).toBe('EUR');
+      expect(nationalCurrencyFor('US', '2026-S1')).toBeUndefined();
+    });
+
+    it('a price of the newest period is labelled EUR, not BGN', async () => {
+      const r = await ask(bg({ '0': 0.2, '1': 0.22, '2': 0.12 }));
+      expect(r).toMatchObject({ countryCode: 'BG', currency: 'EUR', period: '2026-S1', pricePerKwh: 0.12 });
+    });
+
+    it('when only the old period has a value it is still the old currency', async () => {
+      const r = await ask(bg({ '0': 0.2, '1': 0.22, '2': null }));
+      expect(r).toMatchObject({ currency: 'BGN', period: '2025-S2', pricePerKwh: 0.22 });
+    });
   });
 
   it('falls back to the previous half-year when the newest one is still empty', () => {

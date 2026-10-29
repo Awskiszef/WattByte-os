@@ -124,6 +124,13 @@ void main() {
       expect(r.source, RegionDetectionSource.deviceLocale);
     });
   });
+  test(
+      'Bulgaria\'s default currency is the euro (adopted 2026-01-01), not the lev (C-09)',
+      () {
+    expect(currencyForCountry('BG'), 'EUR');
+    expect(currencyForCountry('PL'), 'PLN');
+    expect(currencyForCountry('HR'), 'EUR');
+  });
 }
 
 class SocketExceptionLike implements Exception {
