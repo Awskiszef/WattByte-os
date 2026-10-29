@@ -46,7 +46,7 @@ export const RetentionEnvShape = {
 const EnvSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-    /** Which deployment this is. Default: `production` when NODE_ENV=production, otherwise `development`. */
+    /** Which deployment this is. Default: `production` when NODE_ENV=production, otherwise `development`. One of NODE_ENV / APP_ENV must be set (see loadEnv). */
     APP_ENV: z.enum(APP_ENVS).optional(),
     PORT: z.coerce.number().int().positive().default(8080),
     HOST: z.string().default('0.0.0.0'),
@@ -162,6 +162,11 @@ function strictEnvironmentProblems(env: Env, source: NodeJS.ProcessEnv): string[
   else if (usesDevelopmentDatabaseCredentials(env.DATABASE_URL)) {
     problems.push('DATABASE_URL uses the development credentials of docker-compose.yml');
   }
+  // Behind a reverse proxy every client shares the proxy's address unless the hop count is set; with a wrong
+  // one clients choose their own address. There is no safe default, so the operator must state it (B-03).
+  if (source.TRUST_PROXY_HOPS === undefined) {
+    problems.push('TRUST_PROXY_HOPS must be set explicitly (the number of reverse proxies in front of the API; 0 = deliberately none, clients connect directly)');
+  }
   // The default ('0') would silently send credentials and data in clear: the operator must choose.
   if (env.APP_ENV === 'production' && source.DATABASE_SSL === undefined) {
     problems.push('DATABASE_SSL must be set explicitly (1 = TLS with certificate verification, 0 = deliberately unencrypted private link)');
@@ -188,6 +193,14 @@ function aiProblems(env: Env, source: NodeJS.ProcessEnv): string[] {
 /** Fails fast with a readable list of what is missing or unsafe. */
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   const cleaned = Object.fromEntries(Object.entries(source).filter(([, v]) => v !== ''));
+  // An unspecified environment is not 'development': a deployment that forgot NODE_ENV would run with every
+  // staging/production guard skipped (placeholder secret, mock AI, development database, no TLS), silently (B-07).
+  // The development profile has to be asked for.
+  if (cleaned.NODE_ENV === undefined && cleaned.APP_ENV === undefined) {
+    throw new Error(
+      'Invalid environment:\n  NODE_ENV: not set. Set NODE_ENV=development for local work, NODE_ENV=test for tests, or NODE_ENV=production (with APP_ENV=staging|production); an unspecified environment is refused because it would skip the production guards',
+    );
+  }
   const parsed = EnvSchema.safeParse(cleaned);
   if (!parsed.success) {
     const lines = parsed.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`);

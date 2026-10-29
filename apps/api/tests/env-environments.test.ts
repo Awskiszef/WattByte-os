@@ -10,15 +10,24 @@ const SECRET = 'k3J9xQ2vLm8Zp4Rt7Yw1Nb6Hc5Df0Gs2AaBbCcDd';
 const DB = 'postgres://app:s3cr3t-db-pass@db.internal:5432/wattbyte';
 
 const base = { JWT_SECRET: SECRET };
-const production = { ...base, NODE_ENV: 'production', DATABASE_URL: DB, DATABASE_SSL: '1' };
+const production = { ...base, NODE_ENV: 'production', DATABASE_URL: DB, DATABASE_SSL: '1', TRUST_PROXY_HOPS: '1' };
 const staging = { ...production, APP_ENV: 'staging' };
 
 describe('APP_ENV resolution', () => {
   it('is derived from NODE_ENV when not set', () => {
-    expect(loadEnv({ ...base }).APP_ENV).toBe('development');
     expect(loadEnv({ ...base, NODE_ENV: 'development' }).APP_ENV).toBe('development');
     expect(loadEnv({ ...base, NODE_ENV: 'test' }).APP_ENV).toBe('development');
     expect(loadEnv(production).APP_ENV).toBe('production');
+  });
+
+  it('refuses an unspecified environment instead of treating it as development (B-07)', () => {
+    // A deployment that forgot NODE_ENV used to run as development: placeholder secret, mock AI, no TLS, no warnings.
+    expect(() => loadEnv({ ...base })).toThrow(/NODE_ENV: not set/);
+    expect(() => loadEnv({ ...base, NODE_ENV: '', APP_ENV: '' })).toThrow(/NODE_ENV: not set/);
+    expect(() => loadEnv({ JWT_SECRET: 'change-me-to-a-long-random-secret-of-at-least-32-chars', AI_MOCK: '1' })).toThrow(/NODE_ENV: not set/);
+    // either variable is enough to say what this is; a typo is still refused by the enum
+    expect(loadEnv({ ...base, APP_ENV: 'development' }).APP_ENV).toBe('development');
+    expect(() => loadEnv({ ...base, NODE_ENV: 'prod' })).toThrow(/NODE_ENV/);
   });
 
   it('accepts exactly development | staging | production', () => {
@@ -26,12 +35,12 @@ describe('APP_ENV resolution', () => {
     expect(loadEnv(staging).APP_ENV).toBe('staging');
     expect(loadEnv({ ...production, APP_ENV: 'production' }).APP_ENV).toBe('production');
     for (const bad of ['prod', 'Production', 'test', 'local', '1']) {
-      expect(() => loadEnv({ ...base, APP_ENV: bad }), bad).toThrow(/APP_ENV/);
+      expect(() => loadEnv({ ...base, NODE_ENV: 'development', APP_ENV: bad }), bad).toThrow(/APP_ENV/);
     }
   });
 
   it('an empty APP_ENV counts as unset, like every other empty variable', () => {
-    expect(loadEnv({ ...base, APP_ENV: '' }).APP_ENV).toBe('development');
+    expect(loadEnv({ ...base, NODE_ENV: 'development', APP_ENV: '' }).APP_ENV).toBe('development');
   });
 
   it('NODE_ENV and APP_ENV cannot contradict each other in a way that skips the guards', () => {
@@ -82,6 +91,13 @@ describe.each(['staging', 'production'] as const)('%s refuses unsafe configurati
     expect(loadEnv({ ...ok, DATABASE_URL: 'postgres://wattbyte:another-password@db:5432/wattbyte' }).DATABASE_URL).toContain('db:5432');
   });
 
+  it('requires TRUST_PROXY_HOPS to be stated, 0 included (B-03)', () => {
+    const { TRUST_PROXY_HOPS: _omitted, ...noHops } = production;
+    expect(() => loadEnv({ ...noHops, APP_ENV: appEnv })).toThrow(/TRUST_PROXY_HOPS must be set explicitly/);
+    expect(loadEnv({ ...noHops, APP_ENV: appEnv, TRUST_PROXY_HOPS: '0' }).TRUST_PROXY_HOPS).toBe(0);
+    expect(loadEnv({ ...noHops, APP_ENV: appEnv, TRUST_PROXY_HOPS: '2' }).TRUST_PROXY_HOPS).toBe(2);
+  });
+
   it('reports every problem at once, without echoing a secret', () => {
     const err = (() => {
       try {
@@ -118,7 +134,7 @@ describe('DATABASE_SSL policy', () => {
   });
 
   it('development has no SSL requirement and no warnings', () => {
-    expect(envWarnings(loadEnv({ ...base }))).toEqual([]);
+    expect(envWarnings(loadEnv({ ...base, NODE_ENV: 'development' }))).toEqual([]);
   });
 });
 
@@ -135,9 +151,9 @@ describe('development stays permissive', () => {
   });
 
   it('still refuses a short secret and a malformed value', () => {
-    expect(() => loadEnv({ JWT_SECRET: 'short' })).toThrow(/at least 32 characters/);
-    expect(() => loadEnv({ ...base, PORT: 'eighty' })).toThrow(/PORT/);
-    expect(() => loadEnv({ ...base, DATABASE_URL: 'not a url' })).toThrow(/DATABASE_URL/);
+    expect(() => loadEnv({ NODE_ENV: 'development', JWT_SECRET: 'short' })).toThrow(/at least 32 characters/);
+    expect(() => loadEnv({ ...base, NODE_ENV: 'development', PORT: 'eighty' })).toThrow(/PORT/);
+    expect(() => loadEnv({ ...base, NODE_ENV: 'development', DATABASE_URL: 'not a url' })).toThrow(/DATABASE_URL/);
   });
 });
 
@@ -152,19 +168,19 @@ describe('warnings for allowed-but-risky production settings', () => {
 
 describe('new settings', () => {
   it('feature flags default to ai=1, subscriptions=0, cloud sync=1 and accept only 0/1', () => {
-    const env = loadEnv({ ...base });
+    const env = loadEnv({ ...base, NODE_ENV: 'development' });
     expect([env.FEATURE_AI, env.FEATURE_SUBSCRIPTIONS, env.FEATURE_CLOUD_SYNC]).toEqual(['1', '0', '1']);
-    expect(() => loadEnv({ ...base, FEATURE_AI: 'yes' })).toThrow(/FEATURE_AI/);
-    expect(() => loadEnv({ ...base, FEATURE_CLOUD_SYNC: 'true' })).toThrow(/FEATURE_CLOUD_SYNC/);
+    expect(() => loadEnv({ ...base, NODE_ENV: 'development', FEATURE_AI: 'yes' })).toThrow(/FEATURE_AI/);
+    expect(() => loadEnv({ ...base, NODE_ENV: 'development', FEATURE_CLOUD_SYNC: 'true' })).toThrow(/FEATURE_CLOUD_SYNC/);
   });
 
   it('retention, readiness timeout and log level have safe defaults and bounds', () => {
-    const env = loadEnv({ ...base });
+    const env = loadEnv({ ...base, NODE_ENV: 'development' });
     expect(env).toMatchObject({ AI_HISTORY_RETENTION_DAYS: 90, READY_DB_TIMEOUT_MS: 2000, LOG_LEVEL: 'info', REFRESH_REUSE_GRACE_SEC: 10 });
-    expect(() => loadEnv({ ...base, AI_HISTORY_RETENTION_DAYS: '0' })).toThrow(/AI_HISTORY_RETENTION_DAYS/);
-    expect(() => loadEnv({ ...base, AI_HISTORY_RETENTION_DAYS: '1.5' })).toThrow(/AI_HISTORY_RETENTION_DAYS/);
-    expect(() => loadEnv({ ...base, READY_DB_TIMEOUT_MS: '5' })).toThrow(/READY_DB_TIMEOUT_MS/);
-    expect(() => loadEnv({ ...base, LOG_LEVEL: 'verbose' })).toThrow(/LOG_LEVEL/);
+    expect(() => loadEnv({ ...base, NODE_ENV: 'development', AI_HISTORY_RETENTION_DAYS: '0' })).toThrow(/AI_HISTORY_RETENTION_DAYS/);
+    expect(() => loadEnv({ ...base, NODE_ENV: 'development', AI_HISTORY_RETENTION_DAYS: '1.5' })).toThrow(/AI_HISTORY_RETENTION_DAYS/);
+    expect(() => loadEnv({ ...base, NODE_ENV: 'development', READY_DB_TIMEOUT_MS: '5' })).toThrow(/READY_DB_TIMEOUT_MS/);
+    expect(() => loadEnv({ ...base, NODE_ENV: 'development', LOG_LEVEL: 'verbose' })).toThrow(/LOG_LEVEL/);
   });
 });
 

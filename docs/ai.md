@@ -365,7 +365,7 @@ has no values):
 ```bash
 cd apps/api
 cp .env.example .env      # then edit: JWT_SECRET, OPENAI_API_KEY=sk-..., OPENAI_FAST_MODEL=...
-node --env-file=.env --conditions=development --import tsx src/main.ts
+NODE_ENV=development node --env-file=.env --conditions=development --import tsx src/main.ts
 ```
 
 (`sk-...` and `xai-...` anywhere in this repository are placeholders.) Example of a complete provider setup:

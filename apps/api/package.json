@@ -5,7 +5,7 @@
   "description": "WattByte REST API: auth, devices, aggregate sync, AI gateway access.",
   "type": "module",
   "scripts": {
-    "dev": "node --conditions=development --import tsx --watch src/main.ts",
+    "dev": "NODE_ENV=${NODE_ENV:-development} node --conditions=development --import tsx --watch src/main.ts",
     "start": "node dist/main.js",
     "build": "tsc -p tsconfig.build.json && node ../../scripts/copy-migrations.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",

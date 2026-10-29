@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { envWarnings, loadEnv } from '../src/config/env.js';
 
-const good = { NODE_ENV: 'production', DATABASE_URL: 'postgres://u:p@db:5432/x', DATABASE_SSL: '1', JWT_SECRET: 'k3J9xQ2vLm8Zp4Rt7Yw1Nb6Hc5Df0Gs2AaBbCcDd' };
+const good = { NODE_ENV: 'production', DATABASE_URL: 'postgres://u:p@db:5432/x', DATABASE_SSL: '1', TRUST_PROXY_HOPS: '1', JWT_SECRET: 'k3J9xQ2vLm8Zp4Rt7Yw1Nb6Hc5Df0Gs2AaBbCcDd' };
 
 describe('production environment guards', () => {
   it('accepts a real secret', () => {
@@ -14,6 +14,7 @@ describe('production environment guards', () => {
   it('rejects the mock AI provider and a missing database', () => {
     expect(() => loadEnv({ ...good, AI_MOCK: '1' })).toThrow(/AI_MOCK/);
     expect(() => loadEnv({ NODE_ENV: 'production', JWT_SECRET: good.JWT_SECRET })).toThrow(/DATABASE_URL/);
+    expect(() => loadEnv({ NODE_ENV: 'production', JWT_SECRET: good.JWT_SECRET })).toThrow(/TRUST_PROXY_HOPS must be set explicitly/);
   });
   it('does not restrict development', () => {
     expect(loadEnv({ NODE_ENV: 'development', JWT_SECRET: 'change-me-to-a-long-random-secret-of-at-least-32-chars', AI_MOCK: '1' }).AI_MOCK).toBe('1');

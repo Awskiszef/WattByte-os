@@ -301,7 +301,7 @@ createdb wb_regress        # your own database, e.g. docker exec -i docker-postg
 cd apps/api && DATABASE_URL=postgres://wattbyte:wattbyte@localhost:55432/wb_regress npx pnpm migrate
 DATABASE_URL=... NODE_ENV=development APP_ENV=development AI_MOCK=1 AI_FREE_DAILY_LIMIT=4 \
   AUTH_RATE_LIMIT_PER_MIN=1000 RATE_LIMIT_PER_MIN=10000 AI_RATE_LIMIT_PER_MIN=1000 PORT=18260 HOST=127.0.0.1 \
-  JWT_SECRET=<40 random characters> node --conditions=development --import tsx src/main.ts
+  NODE_ENV=development JWT_SECRET=<40 random characters> node --conditions=development --import tsx src/main.ts
 WATTBYTE_E2E_API_URL=http://127.0.0.1:18260 flutter test test/e2e/contract_e2e_test.dart
 ```
 

@@ -10,8 +10,13 @@ typo cannot silently turn a feature on or off).
 ## Environments
 
 `APP_ENV` says which deployment this is: `development`, `staging` or `production`. When it is not
-set it is derived from `NODE_ENV` (`production` -> `production`, anything else -> `development`),
+set it is derived from `NODE_ENV` (`production` -> `production`, `development` / `test` -> `development`),
 so existing production setups keep their guards without a change.
+
+**At least one of `NODE_ENV` and `APP_ENV` must be set.** A process started with neither is refused
+at boot (`NODE_ENV: not set`) instead of being treated as development: a deployment that forgot the
+variable would otherwise run with every staging/production guard skipped. Local work asks for the
+development profile explicitly (`NODE_ENV=development`; `pnpm --filter @wattbyte/api dev` does it).
 
 | Rule | development | staging | production |
 |---|---|---|---|
@@ -23,7 +28,7 @@ so existing production setups keep their guards without a change.
 | `DATABASE_URL` | needed to start the server, not validated at load | **required** | **required** |
 | `DATABASE_URL` is not the docker-compose credentials (`wattbyte:wattbyte`) | – | **refused** | **refused** |
 | `DATABASE_SSL` set explicitly | – | default `0` + warning | **required** (`1` = TLS with certificate verification, `0` = a conscious "private link" choice, logged as a warning) |
-| `TRUST_PROXY_HOPS=0` | – | warning | warning |
+| `TRUST_PROXY_HOPS` set explicitly | – | **required** (`0` = deliberately no proxy, logged as a warning) | **required** (same) |
 | `ACCESS_TOKEN_TTL_SEC` above one hour | – | warning | warning |
 
 Why staging is held to the production bar: a staging that accepts a placeholder secret or the mock
@@ -40,7 +45,7 @@ Warnings are logged once at boot (`envWarnings`), they do not stop the server.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `NODE_ENV` | `development` | `development`, `test` or `production`. `test` turns logging off unless a test asks for it. |
+| `NODE_ENV` | none (required unless `APP_ENV` is set) | `development`, `test` or `production`. `test` turns logging off unless a test asks for it. Unset is refused, not treated as development. |
 | `APP_ENV` | derived | `development` / `staging` / `production`, see above. Reported by `GET /api/v1/config`. |
 | `PORT` | `8080` | Listen port. |
 | `HOST` | `0.0.0.0` | Listen address. Use `127.0.0.1` for local runs. |
@@ -52,7 +57,7 @@ Warnings are logged once at boot (`envWarnings`), they do not stop the server.
 | `ACCESS_TOKEN_TTL_SEC` | `900` | Access token lifetime. |
 | `REFRESH_TOKEN_TTL_DAYS` | `30` | Refresh token lifetime. |
 | `REFRESH_REUSE_GRACE_SEC` | `10` | A rotated refresh token presented again **less than** this many seconds after its rotation is a retry (rejected, nothing else touched); **at or after** it, it is theft and every session of the user is revoked. `0` disables the retry window. See `docs/security.md`. |
-| `TRUST_PROXY_HOPS` | `0` | Number of reverse proxies in front of the API. `0` ignores `X-Forwarded-For` (clients cannot spoof their IP); behind a proxy set it, or every client shares the proxy's rate-limit bucket. |
+| `TRUST_PROXY_HOPS` | `0` (development only; **must be set in staging/production**) | Number of reverse proxies in front of the API. `0` ignores `X-Forwarded-For` (clients cannot spoof their IP); behind a proxy set it, or every client shares the proxy's rate-limit bucket. `/health` and `/ready` are exempt from the per-IP limiter. |
 | `RATE_LIMIT_PER_MIN` | `120` | Per IP, all routes (unknown paths included). |
 | `AUTH_RATE_LIMIT_PER_MIN` | `10` | Per IP, per credential route (register, login, refresh, social sign-in). |
 | `AI_RATE_LIMIT_PER_MIN` | `20` | Per IP, per AI route. |
