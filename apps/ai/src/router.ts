@@ -17,6 +17,11 @@ export interface RouterOptions {
   readonly cooldownMs?: number;
   /** Upper bound for the doubled cooldown and for a provider's `Retry-After`. Default 10 minutes. */
   readonly maxCooldownMs?: number;
+  /**
+   * While a provider cools down, ONE request per this interval is let through to it as a probe (and only when no
+   * healthy provider is left); every other request skips it at once instead of paying for another failure. Default 5 s.
+   */
+  readonly probeIntervalMs?: number;
   readonly now?: () => number;
 }
 
@@ -28,7 +33,18 @@ export interface OrderOptions {
 export interface FailureInfo {
   /** The provider asked to be left alone for at least this long (HTTP `Retry-After`). */
   readonly retryAfterMs?: number;
+  /**
+   * The provider answered but the answer was unusable (refusal, bad output). That is a property of one answer, not of
+   * the provider's availability: it counts against the provider only when it is the rule rather than the exception
+   * (more than `CONTENT_FAILURE_RATE` of its last `CONTENT_WINDOW` answers), so a burst of long Polish answers cannot
+   * park a healthy provider (D-08).
+   */
+  readonly content?: boolean;
 }
+
+const CONTENT_WINDOW = 10;
+const CONTENT_MIN_SAMPLES = 6;
+const CONTENT_FAILURE_RATE = 0.6;
 
 export interface ProviderHealth {
   readonly id: AIProviderId;
@@ -51,6 +67,10 @@ export class ProviderRouter {
   private readonly providers = new Map<AIProviderId, AIProvider>();
   private readonly cooldownUntil = new Map<AIProviderId, number>();
   private readonly failures = new Map<AIProviderId, number>();
+  /** Last outcomes per provider: true = an unusable answer, false = a good one. */
+  private readonly recent = new Map<AIProviderId, boolean[]>();
+  private readonly lastProbe = new Map<AIProviderId, number>();
+  private readonly probeIntervalMs: number;
   private readonly routing: Readonly<Record<AITask, readonly AIProviderId[]>>;
   private readonly cooldownMs: number;
   private readonly maxCooldownMs: number;
@@ -61,6 +81,7 @@ export class ProviderRouter {
     this.routing = opts.routing ?? DEFAULT_ROUTING;
     this.cooldownMs = opts.cooldownMs ?? 60_000;
     this.maxCooldownMs = opts.maxCooldownMs ?? 600_000;
+    this.probeIntervalMs = opts.probeIntervalMs ?? 5_000;
     this.now = opts.now ?? Date.now;
     if (!Number.isFinite(this.cooldownMs) || this.cooldownMs < 0) throw new RangeError('cooldownMs must be a finite number >= 0');
     if (!Number.isFinite(this.maxCooldownMs) || this.maxCooldownMs < 0) throw new RangeError('maxCooldownMs must be a finite number >= 0');
@@ -84,8 +105,24 @@ export class ProviderRouter {
     if (prefer) ids.sort((a, b) => Number(b === prefer) - Number(a === prefer));
     const configured = ids.map((id) => this.providers.get(id)).filter((p): p is AIProvider => !!p);
     const healthy = configured.filter((p) => !this.inCooldown(p.id));
-    const cooling = configured.filter((p) => this.inCooldown(p.id));
-    return [...healthy, ...cooling];
+    // A cooling provider is a last resort, and then only as a probe: without this every request during an outage
+    // would pay for (and wait on) another failed call, and a recovering provider would be hit by all of them at once.
+    const probes = healthy.length > 0 ? [] : configured.filter((p) => this.inCooldown(p.id) && this.grantProbe(p.id));
+    return [...healthy, ...probes];
+  }
+
+  /** True once per `probeIntervalMs` for a cooling provider. */
+  private grantProbe(id: AIProviderId): boolean {
+    const now = this.now();
+    const last = this.lastProbe.get(id);
+    if (last !== undefined && now - last < this.probeIntervalMs) return false;
+    this.lastProbe.set(id, now);
+    return true;
+  }
+
+  /** Providers that are configured but cooling down, whatever `order` returned; the gateway uses it to tell "all cooling" from "none configured". */
+  get coolingDown(): AIProviderId[] {
+    return [...this.providers.keys()].filter((id) => this.inCooldown(id));
   }
 
   inCooldown(id: AIProviderId): boolean {
@@ -94,6 +131,14 @@ export class ProviderRouter {
   }
 
   markFailure(id: AIProviderId, info: FailureInfo = {}): void {
+    if (info.content) {
+      const window = this.pushOutcome(id, true);
+      const bad = window.filter(Boolean).length;
+      // An occasional unusable answer is not an outage: the provider keeps its place until it is the rule.
+      if (window.length < CONTENT_MIN_SAMPLES || bad / window.length <= CONTENT_FAILURE_RATE) return;
+    } else {
+      this.pushOutcome(id, false);
+    }
     const count = (this.failures.get(id) ?? 0) + 1;
     this.failures.set(id, count);
     if (this.cooldownMs === 0) return;
@@ -103,8 +148,18 @@ export class ProviderRouter {
   }
 
   markSuccess(id: AIProviderId): void {
+    this.pushOutcome(id, false);
     this.cooldownUntil.delete(id);
     this.failures.delete(id);
+    this.lastProbe.delete(id);
+  }
+
+  private pushOutcome(id: AIProviderId, unusable: boolean): boolean[] {
+    const window = this.recent.get(id) ?? [];
+    window.push(unusable);
+    if (window.length > CONTENT_WINDOW) window.shift();
+    this.recent.set(id, window);
+    return window;
   }
 
   provider(id: AIProviderId): AIProvider | undefined {

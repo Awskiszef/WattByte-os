@@ -185,7 +185,7 @@ describe('routing and fallback order', () => {
     ['prose instead of JSON', () => ({ text: 'Sure! You used a lot of data.' }), 'invalid_output', 'response', false],
     ['truncated JSON', () => ({ text: '{"title":"Heavy","message":"cut' }), 'invalid_output', 'response', false],
     ['wrong schema', () => ({ text: JSON.stringify({ title: 'only a title' }) }), 'invalid_output', 'response', false],
-    ['extra field', () => ({ text: JSON.stringify({ ...OUTPUT, extra: 1 }) }), 'invalid_output', 'response', false],
+    ['missing field', () => ({ text: JSON.stringify({ title: 'x', message: 'y', severity: 'info' }) }), 'invalid_output', 'response', false],
     ['unknown severity', () => ({ text: JSON.stringify({ ...OUTPUT, severity: 'catastrophe' }) }), 'invalid_output', 'response', false],
   ];
 
@@ -204,12 +204,14 @@ describe('routing and fallback order', () => {
       // No second paid call for something that would fail the same way (or hide a defect).
       for (const id of ['openai', 'xai', 'anthropic'] as const) expect(providers[id].calls, id).toHaveLength(0);
     }
-    // Whatever the failure was, the provider that produced it is demoted: it is not paid for again on the next request.
+    // An availability failure demotes the provider at once: it is not paid for again on the next request. An unusable
+    // answer from a provider that is otherwise up does not (D-08): one bad answer is not an outage.
     expect(providers.google.calls.length).toBeGreaterThan(0);
     const callsBefore = providers.google.calls.length;
-    expect(gateway.status().providers.find((p) => p.id === 'google')).toMatchObject({ configured: true, inCooldown: true });
+    const availability = category !== 'response' || expectedKind === 'invalid_response';
+    expect(gateway.status().providers.find((p) => p.id === 'google')).toMatchObject({ configured: true, inCooldown: availability });
     await gateway.generate('insight', 'normal', input, ctx).catch(() => undefined);
-    expect(providers.google.calls).toHaveLength(callsBefore);
+    expect(providers.google.calls.length).toBe(availability ? callsBefore : callsBefore + 1);
   });
 
   it('a failure that may fall back stops after ONE fallback, even when that one fails too and more providers are healthy', async () => {
@@ -266,7 +268,7 @@ describe.each(specs)('structured output and HTTP status through the real $name a
     ['truncated JSON', '{"title":"Heavy","message":"cut', 'invalid_output'],
     ['a different schema', JSON.stringify({ title: 'only a title' }), 'invalid_output'],
     ['an unknown severity', JSON.stringify({ ...OUTPUT, severity: 'catastrophe' }), 'invalid_output'],
-    ['an extra field', JSON.stringify({ ...OUTPUT, extra: 1 }), 'invalid_output'],
+    ['a missing field', JSON.stringify({ title: 'x', message: 'y', severity: 'info' }), 'invalid_output'],
   ] as const)('%s is rejected, classified, and NOT sent to the other provider (a rejected answer is already billed)', async (_name, text, kind) => {
     const { gateway, fallback, calls } = chain({ body: spec.success(text) });
     const e = (await gateway.generate('insight', 'normal', input, ctx).catch((x: unknown) => x)) as AIGatewayError;
@@ -377,10 +379,7 @@ describe('cooldown after failures', () => {
     ['HTTP 429', () => ({ fail: httpError('google', 429) })],
     ['HTTP 503', () => ({ fail: httpError('google', 503) })],
     ['timeout', () => ({ fail: new ProviderError('google', 't', undefined, true, { kind: 'timeout' }) })],
-    ['refusal', () => ({ fail: new ProviderError('google', 'r', undefined, false, { kind: 'refusal' }) })],
-    ['malformed output', () => ({ text: 'not json' })],
-    ['empty output', () => ({ text: '' })],
-  ])('%s demotes the provider: a persistently broken provider must not be paid for on every request', async (_name, behaviour) => {
+  ])('%s demotes the provider at once: a broken provider must not be paid for on every request', async (_name, behaviour) => {
     const { providers, gateway, router } = setup();
     providers.google.set(behaviour());
     // Failures that may not fall back surface as an error on THIS request; the next one is already served by another provider.
@@ -389,6 +388,22 @@ describe('cooldown after failures', () => {
     const callsAfterFirst = providers.google.calls.length;
     expect((await gateway.generate('insight', 'normal', input, ctx)).providerId).toBe('openai');
     expect(providers.google.calls).toHaveLength(callsAfterFirst);
+  });
+
+  it.each([
+    ['refusal', () => ({ fail: new ProviderError('google', 'r', undefined, false, { kind: 'refusal' }) })],
+    ['malformed output', () => ({ text: 'not json' })],
+    ['empty output', () => ({ text: '' })],
+  ])('%s is a property of one answer: one does not demote the provider, a persistent run of them does (D-08)', async (_name, behaviour) => {
+    const { providers, gateway, router } = setup();
+    providers.google.set(behaviour());
+    await gateway.generate('insight', 'normal', input, ctx).catch(() => undefined);
+    expect(router.inCooldown('google')).toBe(false); // a bad answer is not an outage: the next request asks it again
+    for (let i = 0; i < 8; i++) await gateway.generate('insight', 'normal', input, ctx).catch(() => undefined);
+    expect(router.inCooldown('google')).toBe(true); // ... but a provider that gets it wrong every time is parked
+    const callsAfter = providers.google.calls.length;
+    expect((await gateway.generate('insight', 'normal', input, ctx)).providerId).toBe('openai');
+    expect(providers.google.calls).toHaveLength(callsAfter);
   });
 
   it('repeated failures lengthen the cooldown; a success resets it', async () => {

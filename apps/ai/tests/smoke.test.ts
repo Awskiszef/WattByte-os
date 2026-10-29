@@ -141,7 +141,7 @@ describe('smoke:ai with configured providers (HTTP doubles standing in for the r
   it.each([
     ['prose instead of JSON', 'Sure! Here is an insight.', /invalid_output \(no JSON object in output\)/],
     ['a schema violation', JSON.stringify({ ...OUTPUT, severity: 'catastrophe' }), /invalid_output \(schema \(severity: invalid_enum_value\)\)/],
-    ['an extra field', JSON.stringify({ ...OUTPUT, extra: 1 }), /invalid_output \(schema \(\(root\): unrecognized_keys\)\)/],
+    ['a missing field', JSON.stringify({ title: 'x', message: 'y', severity: 'info' }), /invalid_output \(schema \(emoji: invalid_type\)\)/],
     ['empty output', '', /empty_output \(empty output\)/],
   ])('structured output validation: %s fails the provider without printing the model text', async (_n, text, expected) => {
     const r = await run({ OPENAI_API_KEY: 'k', OPENAI_FAST_MODEL: 'm' }, { openai: okBody('openai', text) });

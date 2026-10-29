@@ -2,6 +2,13 @@ import type { AIGenerationRequest, AIGenerationResult, AIProvider, ModelConfig, 
 import { getOk, postJson, ProviderError, type FetchLike } from './http.js';
 import { assertModels, reportedModel, resolveModel, tokenCount } from './models.js';
 
+/**
+ * Output headroom above the plan's token cap. The cap is sized for the answer, but a long (Polish) answer plus the JSON
+ * around it can exceed it, and an answer cut inside the JSON is a billed failure (D-03). Not the 1024 the reasoning
+ * models of the other adapters need: this one does not think before it answers.
+ */
+export const ANTHROPIC_OUTPUT_HEADROOM_TOKENS = 256;
+
 interface MessagesResponse {
   content?: { type: string; text?: string }[];
   stop_reason?: string | null;
@@ -44,7 +51,7 @@ export class AnthropicProvider implements AIProvider {
       url: `${this.baseUrl}/v1/messages`,
       body: {
         model,
-        max_tokens: request.maxOutputTokens,
+        max_tokens: request.maxOutputTokens + ANTHROPIC_OUTPUT_HEADROOM_TOKENS,
         temperature: request.mode === 'normal' ? 0.3 : 0.8,
         system: request.system,
         messages: [{ role: 'user', content: request.user }],
@@ -71,6 +78,8 @@ export class AnthropicProvider implements AIProvider {
       inputTokens: inputTokens ?? 0,
       outputTokens: outputTokens ?? 0,
       usageReported: inputTokens !== undefined && outputTokens !== undefined,
+      // The answer hit the token limit: if it is unusable, that is the reason (and a bigger cap, not a different prompt, is the fix).
+      truncated: res.stop_reason === 'max_tokens',
       latencyMs: Date.now() - started,
     };
   }

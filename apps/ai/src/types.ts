@@ -70,6 +70,8 @@ export interface AIGenerationResult {
   readonly costUsd?: number;
   /** The provider's own id for the request, for support tickets and invoice reconciliation. */
   readonly requestId?: string;
+  /** True when the provider stopped because the output reached its token limit (the text may be cut inside the JSON). */
+  readonly truncated?: boolean;
   readonly latencyMs: number;
 }
 

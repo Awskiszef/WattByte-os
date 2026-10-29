@@ -193,7 +193,8 @@ export const specs: Spec[] = [
       expect(b.model).toBe(model);
       expect(b.system).toBe('SYSTEM PROMPT');
       expect(b.messages).toEqual([{ role: 'user', content: 'USER PROMPT' }]);
-      expect(b.max_tokens).toBe(220);
+      // the plan's cap plus the 256 tokens of headroom: an answer cut inside the JSON is a billed failure (D-03)
+      expect(b.max_tokens).toBe(220 + 256);
     },
     tokens: { input: 11, output: 7 },
     usageFields: 'usage.input_tokens / usage.output_tokens',

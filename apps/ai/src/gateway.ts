@@ -6,6 +6,7 @@ import { isModelName } from './providers/models.js';
 import { backoffDelayMs, DEFAULT_RETRY_POLICY, sleep, type RetryPolicy } from './retry.js';
 import type { ProviderRouter } from './router.js';
 import { AIInputSchema, OutputRejectedError, parseAIOutput } from './schemas.js';
+import { REASONING_HEADROOM_TOKENS } from './providers/models.js';
 import type {
   AIGenerationRequest,
   AIGenerationResult,
@@ -35,12 +36,13 @@ import { estimateCost, type ModelPrices, worstCaseCostUsd } from './usage.js';
  * - `no_provider`            nothing is configured, or the requested provider is not
  * - `budget_exceeded`        a spend limit is used up (or this call would not fit under it); no further call was made
  * - `budget_unavailable`     the spend ledger could not be read or held in time; nothing was called (fails closed)
- * - `all_providers_failed`   the provider(s) the policy allowed failed (see `attempts`)
+ * - `all_providers_failed`   the provider(s) the policy allowed failed (see `attempts`), or all of them are cooling down
+ * - `overloaded`             `maxInFlight` generations are already running; nothing was called (D-09)
  * - `aborted`                the caller cancelled
  */
 export class AIGatewayError extends Error {
   constructor(
-    readonly code: 'invalid_input' | 'no_provider' | 'budget_exceeded' | 'budget_unavailable' | 'all_providers_failed' | 'aborted',
+    readonly code: 'invalid_input' | 'no_provider' | 'budget_exceeded' | 'budget_unavailable' | 'all_providers_failed' | 'overloaded' | 'aborted',
     message: string,
     readonly causes: readonly Error[] = [],
     readonly attempts: readonly AttemptFailure[] = [],
@@ -83,6 +85,11 @@ export interface GatewayOptions {
   readonly budget?: BudgetGuard;
   /** The ledger every provider call is booked on (held back before the call, settled after it). Without one nothing is booked here. */
   readonly ledger?: SpendLedger;
+  /**
+   * Generations that may run at the same time; the next one is refused at once (`overloaded`) instead of adding another
+   * paid, slow call to a backlog. Default: no limit (the API sets one, AI_MAX_CONCURRENT).
+   */
+  readonly maxInFlight?: number;
   /** The ledger and the budget check must answer within this time, otherwise nothing is called. Default 5 000 (the database pool's own connect timeout). */
   readonly ledgerTimeoutMs?: number;
   readonly now?: () => Date;
@@ -182,6 +189,9 @@ export interface GatewayStatus {
   readonly budgetEnforced: boolean;
   /** Whether every provider call is booked on a spend ledger. */
   readonly ledger: boolean;
+  /** Generations running right now, and the limit (null = none). */
+  readonly inFlight: number;
+  readonly maxInFlight: number | null;
 }
 
 /**
@@ -206,6 +216,8 @@ export class AIGateway {
   private readonly budget?: BudgetGuard;
   private readonly ledger?: SpendLedger;
   private readonly ledgerTimeoutMs: number;
+  private readonly maxInFlight: number;
+  private inFlight = 0;
   private readonly now: () => Date;
   private readonly logger?: GatewayLogger;
   private readonly modelPrices?: ModelPrices;
@@ -228,6 +240,7 @@ export class AIGateway {
     this.defaultProvider = opts.defaultProvider;
     this.budget = opts.budget;
     this.ledger = opts.ledger;
+    this.maxInFlight = opts.maxInFlight === undefined ? Infinity : positive('maxInFlight', opts.maxInFlight);
     this.ledgerTimeoutMs = positive('ledgerTimeoutMs', opts.ledgerTimeoutMs ?? 5_000);
     this.now = opts.now ?? (() => new Date());
     this.logger = opts.logger;
@@ -253,10 +266,22 @@ export class AIGateway {
       requestTimeoutMs: this.requestTimeoutMs,
       budgetEnforced: this.budget !== undefined,
       ledger: this.ledger !== undefined,
+      inFlight: this.inFlight,
+      maxInFlight: Number.isFinite(this.maxInFlight) ? this.maxInFlight : null,
     };
   }
 
   async generate(task: AITask, mode: AIMode, rawInput: unknown, ctx: GenerateContext, options: GenerateOptions = {}): Promise<GenerateOutcome> {
+    if (this.inFlight >= this.maxInFlight) throw new AIGatewayError('overloaded', 'too many AI generations are running');
+    this.inFlight += 1;
+    try {
+      return await this.run(task, mode, rawInput, ctx, options);
+    } finally {
+      this.inFlight -= 1;
+    }
+  }
+
+  private async run(task: AITask, mode: AIMode, rawInput: unknown, ctx: GenerateContext, options: GenerateOptions): Promise<GenerateOutcome> {
     const parsed = AIInputSchema.safeParse(rawInput);
     if (!parsed.success) {
       throw new AIGatewayError('invalid_input', parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '));
@@ -287,6 +312,8 @@ export class AIGateway {
     const candidates = this.router.order(task, { prefer: options.provider ?? this.defaultProvider, exclude: budget.exhaustedProviders });
     if (candidates.length === 0) {
       if (budget.exhaustedProviders.size > 0) throw new AIGatewayError('budget_exceeded', 'AI budget is used up for every configured provider');
+      // Everything configured is cooling down and the probe slot is taken: fail at once instead of paying for another failure.
+      if (this.router.coolingDown.length > 0) throw new AIGatewayError('all_providers_failed', 'all AI providers are cooling down');
       throw new AIGatewayError('no_provider', 'no AI provider is configured');
     }
 
@@ -322,7 +349,8 @@ export class AIGateway {
         }
         // Any failed provider is demoted: a bad key, a wrong model name or a model that keeps answering in
         // prose would otherwise cost a (billed) call on every single request.
-        this.router.markFailure(provider.id, { retryAfterMs: err.retryAfterMs });
+        // An unusable answer from a provider that is otherwise up is not an availability failure (D-08).
+        this.router.markFailure(provider.id, { retryAfterMs: err.retryAfterMs, content: categorize(err) === 'response' && err.kind !== 'invalid_response' });
         failed.push(provider.id);
         if (!allowsFallback(err, this.fallbackPolicy)) break;
       }
@@ -357,7 +385,14 @@ export class AIGateway {
       }
       try {
         result = await provider.generate({ ...request, timeoutMs });
-        const output = parseAIOutput(result.text, mode);
+        let output;
+        try {
+          output = parseAIOutput(result.text, mode);
+        } catch (e) {
+          // An answer cut at the token limit is a different failure from one the model got wrong: say which.
+          if (e instanceof OutputRejectedError && result.truncated) throw new OutputRejectedError('invalid_output', 'output truncated at the token limit');
+          throw e;
+        }
         this.router.markSuccess(provider.id);
         const priced = estimateCost({
           providerId: provider.id,
@@ -449,7 +484,8 @@ export class AIGateway {
     return worstCaseCostUsd({
       providerId,
       promptChars: request.system.length + request.user.length,
-      maxOutputTokens: request.maxOutputTokens,
+      // The most any adapter asks for: the plan's cap plus its output headroom (reasoning tokens are billed as output).
+      maxOutputTokens: request.maxOutputTokens + REASONING_HEADROOM_TOKENS,
       modelPrices: this.modelPrices,
       model,
     });

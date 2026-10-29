@@ -48,17 +48,17 @@ describe('preferred provider and exclusions', () => {
     expect(router.order('insight', { prefer: 'xai' }).map((p) => p.id)).toEqual(['xai', 'google']);
   });
 
-  it('a preferred provider that is cooling down stays behind the healthy ones (the default must not be a single point of failure)', () => {
+  it('a preferred provider that is cooling down is left out while others are healthy (the default must not be a single point of failure)', () => {
     const { router } = make();
     router.markFailure('xai');
-    expect(router.order('insight', { prefer: 'xai' }).map((p) => p.id)).toEqual(['google', 'openai', 'anthropic', 'xai']);
+    expect(router.order('insight', { prefer: 'xai' }).map((p) => p.id)).toEqual(['google', 'openai', 'anthropic']);
   });
 
-  it('among cooling providers the preferred one still goes first', () => {
-    const { router } = make();
+  it('when only cooling providers are left, the preferred one is probed first', () => {
+    const { router } = make({}, ['xai', 'google']);
     router.markFailure('google');
     router.markFailure('xai');
-    expect(router.order('insight', { prefer: 'xai' }).map((p) => p.id)).toEqual(['openai', 'anthropic', 'xai', 'google']);
+    expect(router.order('insight', { prefer: 'xai' }).map((p) => p.id)).toEqual(['xai', 'google']);
   });
 
   it('excluded providers are gone, even when preferred', () => {
@@ -76,11 +76,11 @@ describe('preferred provider and exclusions', () => {
 });
 
 describe('cooldown', () => {
-  it('demotes a failed provider behind the healthy ones, keeps it as a last resort, and restores it after the cooldown', () => {
+  it('leaves a failed provider out while others are healthy, and restores it after the cooldown', () => {
     const { router, tick } = make({ cooldownMs: 60_000 });
     router.markFailure('google');
     expect(router.inCooldown('google')).toBe(true);
-    expect(order(router, 'insight')).toEqual(['openai', 'xai', 'anthropic', 'google']);
+    expect(order(router, 'insight')).toEqual(['openai', 'xai', 'anthropic']);
     tick(59_999);
     expect(router.inCooldown('google')).toBe(true);
     tick(1);
@@ -88,11 +88,33 @@ describe('cooldown', () => {
     expect(order(router, 'insight')).toEqual(['google', 'openai', 'xai', 'anthropic']);
   });
 
-  it('keeps cooling providers in routing order among themselves', () => {
-    const { router } = make();
-    router.markFailure('openai');
+  it('with everything cooling, ONE probe per probeIntervalMs gets through (in routing order); the rest fail fast (D-09)', () => {
+    const { router, tick } = make({ cooldownMs: 60_000, probeIntervalMs: 5_000 }, ['google', 'openai']);
     router.markFailure('google');
-    expect(order(router, 'insight')).toEqual(['xai', 'anthropic', 'google', 'openai']);
+    router.markFailure('openai');
+    expect(order(router, 'insight')).toEqual(['google', 'openai']); // the first request probes
+    expect(order(router, 'insight')).toEqual([]); // and the next ones do not pay for another failure
+    expect(router.coolingDown.sort()).toEqual(['google', 'openai']);
+    tick(5_000);
+    expect(order(router, 'insight')).toEqual(['google', 'openai']); // a new probe after the interval
+  });
+
+  it('an unusable answer (content failure) is not an outage: it only counts when it is the rule (D-08)', () => {
+    const { router } = make({ cooldownMs: 60_000 });
+    for (let i = 0; i < 5; i++) router.markFailure('google', { content: true });
+    expect(router.inCooldown('google')).toBe(false); // not enough samples to call it the rule
+    router.markSuccess('google');
+    for (let i = 0; i < 9; i++) router.markFailure('google', { content: true });
+    expect(router.inCooldown('google')).toBe(true); // 9 of the last 10 answers unusable
+    router.markSuccess('google');
+    expect(router.inCooldown('google')).toBe(false);
+  });
+
+  it('an availability failure always counts, whatever the answers before it were', () => {
+    const { router } = make({ cooldownMs: 60_000 });
+    for (let i = 0; i < 8; i++) router.markSuccess('google');
+    router.markFailure('google');
+    expect(router.inCooldown('google')).toBe(true);
   });
 
   it('a success clears the cooldown and the failure streak', () => {
