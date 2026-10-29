@@ -552,6 +552,13 @@ class WattByteDb {
       _db.insert('sync_queue', item.toRow(),
           conflictAlgorithm: ConflictAlgorithm.replace);
 
+  /// Removes every queued aggregate (receipts and rejections stay): the queue is rebuilt from the local data.
+  Future<void> clearSyncQueue() => _db.delete('sync_queue');
+
+  /// Removes the queued aggregates of days after [lastDay] (`yyyy-MM-dd`): a day in the future cannot be uploaded.
+  Future<int> deleteSyncItemsAfter(String lastDay) =>
+      _db.delete('sync_queue', where: 'day > ?', whereArgs: [lastDay]);
+
   /// Writes several items atomically.
   Future<void> saveSyncItems(Iterable<SyncQueueItem> items) async {
     final b = _db.batch();

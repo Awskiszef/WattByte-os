@@ -213,23 +213,32 @@ void main() {
           'attempts, first success at ${firstOnline}s, $ups uploads in 20 min |');
     });
 
-    test('a persistent HTTP 500 stops after 8 attempts and waits for a person',
+    test(
+        'a persistent HTTP 500 stops after 8 attempts, then probes every few hours instead of never',
         () async {
       rig.backend.routes['POST /api/v1/usage/sync'] =
           (r) => FakeBackend.error(500, 'boom');
       final at = await run(24 * 60);
       report.add(
-          '| HTTP 500 for 24 h | 1440 ticks | ${at.length} attempts, then halted | 0 uploads |');
+          '| HTTP 500 for 24 h | 1440 ticks | ${at.length} attempts: 8, then one probe per 6-7.5 h | 0 uploads |');
       // The registration is one request; every attempt is one more (usage).
       final usage = rig.backend.where('POST', '/api/v1/usage/sync');
-      expect(usage, hasLength(8));
+      expect(usage.length, inInclusiveRange(9, 8 + 4),
+          reason: 'halted, but not for ever: a probe every 6 to 7.5 hours');
+      expect(at.take(8).last, lessThan(3 * 3600),
+          reason: 'the 8 attempts come in the first hours');
+      for (var i = 9; i < at.length; i++) {
+        expect(at[i] - at[i - 1], greaterThanOrEqualTo(6 * 3600),
+            reason: 'probe ${i - 7} came sooner than the probe interval');
+      }
       final st = (await rig.sync.accountState())!;
       expect(st.halted, isTrue);
       expect(st.lastError, 'boom');
       // A manual retry continues: one more attempt, not a loop.
       final o = await rig.sync.syncNow(retryFailed: true);
       expect(o.status, SyncStatus.retryLater);
-      expect(rig.backend.where('POST', '/api/v1/usage/sync'), hasLength(9));
+      expect(rig.backend.where('POST', '/api/v1/usage/sync').length,
+          usage.length + 1);
       expect((await rig.sync.accountState())!.halted, isFalse);
     });
 

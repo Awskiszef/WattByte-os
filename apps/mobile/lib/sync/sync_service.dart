@@ -159,6 +159,7 @@ class SyncService {
     this.minInterval = const Duration(minutes: 5),
     this.batchSize = SyncQueue.batchSize,
     this.maxBatchesPerRun = 12,
+    this.haltProbeInterval = const Duration(hours: 6),
     SyncOwnership? ownership,
   })  : _clock = clock ?? DateTime.now,
         _random = random ?? Random(),
@@ -180,6 +181,11 @@ class SyncService {
 
   /// A run sends at most this many requests with days; the rest waits for the next run.
   final int maxBatchesPerRun;
+
+  /// After repeated server trouble the automatic runs stop ([SyncSkip.halted]) but not for ever: one automatic
+  /// attempt every [haltProbeInterval] (plus up to 25 % jitter) checks whether the server is back, and a success clears
+  /// the halt. The server's kill switch (503 `feature_disabled`) waits the same way instead of counting as a failure.
+  final Duration haltProbeInterval;
   final SyncOwnership ownership;
   final DateTime Function() _clock;
   final Random _random;
@@ -415,7 +421,11 @@ class SyncService {
     final nowMs = now.millisecondsSinceEpoch;
     if (!manual) {
       if (st.halted) {
-        return const SyncOutcome(SyncStatus.idle, skip: SyncSkip.halted);
+        // Refused payloads (HTTP 400 again and again) stay halted until something changes; server trouble is probed.
+        final refusals = st.permanentFailures >= policy.maxPermanentFailures;
+        if (refusals || st.nextRetryMs > nowMs) {
+          return const SyncOutcome(SyncStatus.idle, skip: SyncSkip.halted);
+        }
       }
       if (st.nextRetryMs > nowMs) {
         return const SyncOutcome(SyncStatus.idle, skip: SyncSkip.backingOff);
@@ -428,6 +438,9 @@ class SyncService {
 
     var uploaded = 0;
     var failed = 0;
+    // Days per request in this run; halved when the server refuses a request with HTTP 400, to find the day that is wrong
+    // instead of rejecting the whole chunk for one bad day (F-12).
+    var take = batchSize;
     for (var batch = 0; batch < maxBatchesPerRun; batch++) {
       if (batch > 0) {
         st = await ownership.state(key);
@@ -451,7 +464,7 @@ class SyncService {
         failed += plan.invalid.length;
       }
       if (plan.sendable.isEmpty) break;
-      final chunk = plan.sendable.take(batchSize).toList();
+      final chunk = plan.sendable.take(take).toList();
 
       try {
         final res = await _upload(userId, key, chunk);
@@ -507,6 +520,11 @@ class SyncService {
         return changed;
       } on Object catch (e, st0) {
         if (stale()) return changed;
+        if (chunk.length > 1 &&
+            ApiFailure.of(e).kind == ApiFailureKind.badRequest) {
+          take = (chunk.length + 1) ~/ 2;
+          continue;
+        }
         return _failure(e, st0,
             key: key,
             st: st,
@@ -548,6 +566,21 @@ class SyncService {
       });
     } else {
       f = ApiFailure.of(error);
+    }
+    // The kill switch (503 feature_disabled) is the server saying "not now", not a failure: no error report, no
+    // failure count, and the next automatic attempt is a probe later.
+    if (f.code == 'feature_disabled') {
+      final at = _clock();
+      final wait = _probeDelay();
+      await ownership.update(
+          key,
+          (s) => s.copyWith(
+                nextRetryMs: at.millisecondsSinceEpoch + wait.inMilliseconds,
+                retryDelayMs: wait.inMilliseconds,
+                lastError: 'feature_disabled',
+              ));
+      return SyncOutcome(SyncStatus.retryLater,
+          uploaded: uploaded, failed: failed);
     }
     // Offline, timeouts, rate limits and an ended session are everyday events.
     // Anything else (a server error, a refused request, a response the client could
@@ -594,12 +627,17 @@ class SyncService {
 
     if (cls == FailureClass.limited) {
       // Retries used up: stop the automatic attempts, keep the data.
+      final probe = _probeDelay();
       await ownership.update(
           key,
           (s) => s.copyWith(
                 attempts: s.attempts + 1,
                 limitedFailures: limited,
                 halted: true,
+                // The next automatic attempt is a probe, not "never" (F-06). The delay is stored with it: a retry time
+                // further away than its own delay is read as a clock set back and pulled in (see _rebase).
+                nextRetryMs: now.millisecondsSinceEpoch + probe.inMilliseconds,
+                retryDelayMs: probe.inMilliseconds,
                 lastError: code,
               ));
       return SyncOutcome(SyncStatus.rejected,
@@ -632,6 +670,11 @@ class SyncService {
     return SyncOutcome(SyncStatus.rejected,
         uploaded: uploaded, failed: failed + batch.length);
   }
+
+  Duration _probeDelay() => Duration(
+      milliseconds:
+          (haltProbeInterval.inMilliseconds * (1 + _random.nextDouble() * 0.25))
+              .round());
 
   /// Keeps the persisted schedule honest after the clock moved.
   ///

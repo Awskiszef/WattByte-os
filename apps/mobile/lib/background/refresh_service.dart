@@ -78,6 +78,7 @@ class RefreshService {
       calc: calc,
       currency: settings.currency,
       now: now,
+      settingsOwner: store.accountOwner ?? '',
     );
 
     // Upload only from the foreground (the background isolate has no sync service)

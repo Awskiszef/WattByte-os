@@ -414,20 +414,23 @@ class CloudSync {
     final calc = _ref.read(energyCalcProvider);
     final currency = _ref.read(settingsProvider).currency;
     final now = _ref.read(clockProvider)();
+    final owner = _ref.read(settingsStoreProvider).accountOwner ?? '';
     if (scope == SyncScope.history) {
       await queue.enqueueAll(
           days: data.days,
           sessions: data.sessions,
           calc: calc,
           currency: currency,
-          now: now);
+          now: now,
+          settingsOwner: owner);
     } else {
       await queue.enqueueRecent(
           days: data.days,
           sessions: data.sessions,
           calc: calc,
           currency: currency,
-          now: now);
+          now: now,
+          settingsOwner: owner);
     }
   }
 }
