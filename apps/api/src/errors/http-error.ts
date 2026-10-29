@@ -60,7 +60,7 @@ export class HttpError extends Error {
  * | 415    | `unsupported_media_type`                        |
  * | 429    | `rate_limited`, `ai_quota_exceeded` (+ `retry-after`) |
  * | 500    | `internal`                                      |
- * | 503    | `ai_unavailable`, `feature_disabled`            |
+ * | 503    | `ai_unavailable`, `feature_disabled`, `service_unavailable`, `electricity_price_unavailable` (+ `retry-after`) |
  */
 export interface ErrorBody {
   error: { code: string; message: string };
@@ -101,6 +101,27 @@ function validationMessage(error: FastifyError): string {
   if (Array.isArray(issues)) return JSON.stringify(issues.slice(0, MAX_VALIDATION_ISSUES), null, 2).slice(0, MAX_VALIDATION_MESSAGE);
   return error.message.slice(0, MAX_VALIDATION_MESSAGE);
 }
+
+/** SQLSTATE classes / codes that mean the database could not serve the request right now (not that the request was wrong). */
+const OUTAGE_SQLSTATES = new Set(['53300', '57P01', '57P02', '57P03', '57014', '40001', '40P01', '55P03', '25P03']);
+const OUTAGE_NODE_CODES = new Set(['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'EPIPE', 'EHOSTUNREACH', 'ENOTFOUND', 'EAI_AGAIN']);
+const OUTAGE_MESSAGES = /timeout exceeded when trying to connect|Connection terminated|Client has encountered a connection error|Query read timeout|Connection (?:ended|refused)/i;
+
+/**
+ * A dependency (PostgreSQL) that cannot serve the request at the moment: connection refused or lost, pool exhausted, a
+ * statement or connection timeout, a deadlock or serialization abort, a server shutting down. The caller is told to come
+ * back (503 + Retry-After) instead of getting an opaque 500 that looks like a bug and is not retried (B-14).
+ */
+export function isDependencyOutage(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const e = error as { code?: unknown; message?: unknown };
+  const code = typeof e.code === 'string' ? e.code : '';
+  if (OUTAGE_SQLSTATES.has(code) || code.startsWith('08') || OUTAGE_NODE_CODES.has(code)) return true;
+  return typeof e.message === 'string' && OUTAGE_MESSAGES.test(e.message);
+}
+
+/** Seconds a client is asked to wait after a dependency outage. */
+const OUTAGE_RETRY_AFTER_SEC = 5;
 
 /** Seconds a rate-limited caller is told to wait when the limiter did not say (its window is one minute). */
 const DEFAULT_RETRY_AFTER_SEC = 60;
@@ -143,7 +164,12 @@ export function errorHandler(error: FastifyError, request: FastifyRequest, reply
     send(reply, error.statusCode, GENERIC_CODES[error.statusCode] ?? 'bad_request', STATUS_CODES[error.statusCode] ?? 'Bad request');
     return;
   }
-  // Anything else is a bug or an outage. The error serializer keeps the message out of the log
+  if (isDependencyOutage(error)) {
+    request.log.warn({ err: error }, 'dependency unavailable');
+    send(reply, 503, 'service_unavailable', 'The service is temporarily unavailable, try again shortly', OUTAGE_RETRY_AFTER_SEC);
+    return;
+  }
+  // Anything else is a bug. The error serializer keeps the message out of the log
   // (database errors echo the offending value) and the client only gets the generic text.
   request.log.error({ err: error }, 'unhandled error');
   send(reply, 500, 'internal', 'Internal error');

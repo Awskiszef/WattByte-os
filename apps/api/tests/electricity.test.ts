@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRepositories } from '../src/database/memory.js';
 import { EurostatElectricityPriceProvider, latestValue, nationalCurrencyFor, type JsonStat } from '../src/modules/electricity/eurostat.js';
 import type { ElectricityPriceProvider } from '../src/modules/electricity/provider.js';
-import { ElectricityPriceService } from '../src/modules/electricity/service.js';
+import { ElectricityPriceService, PriceUnavailableError } from '../src/modules/electricity/service.js';
 import { makeApp, registerUser, type TestContext } from './helpers.js';
 
 /** Trimmed real answer of nrg_pc_204 for PL (2026-10-12): three half-years, the newest flagged provisional. */
@@ -138,13 +138,53 @@ describe('ElectricityPriceService', () => {
     expect(provider.calls).toBe(2);
   });
 
-  it('source unavailable -> last known value marked stale; nothing cached -> null', async () => {
+  it('source unavailable -> last known value marked stale; nothing cached -> "upstream_failed", not "not covered" (B-14)', async () => {
     const { provider, service, advance } = make();
     expect(await service.get('PL')).not.toBeNull();
     provider.fail = true;
     advance(8 * DAY);
     expect(await service.get('PL')).toMatchObject({ pricePerKwh: 1.2724, stale: true });
-    expect(await service.get('DE')).toBeNull();
+    await expect(service.get('DE')).rejects.toMatchObject({ name: 'PriceUnavailableError', reason: 'upstream_failed' });
+  });
+
+  it('a failed lookup is not repeated for every request: one source call per cooldown, then another try (B-14, C-12)', async () => {
+    const { provider, service, advance } = make();
+    provider.fail = true;
+    for (let i = 0; i < 5; i++) await expect(service.get('DE')).rejects.toBeInstanceOf(PriceUnavailableError);
+    expect(provider.calls).toBe(1);
+    advance(61_000);
+    provider.fail = false;
+    expect(await service.get('DE')).toMatchObject({ pricePerKwh: 1.2724, stale: false });
+    expect(provider.calls).toBe(2);
+  });
+
+  it('a stale value is served during the cooldown without asking the failing source again', async () => {
+    const { provider, service, advance } = make();
+    await service.get('PL');
+    provider.fail = true;
+    advance(8 * DAY);
+    for (let i = 0; i < 4; i++) expect(await service.get('PL')).toMatchObject({ stale: true });
+    expect(provider.calls).toBe(2);
+  });
+
+  it('"no source covers this country" is remembered, and is a different error from an outage (C-12)', async () => {
+    const { provider, service, advance } = make();
+    provider.price = null;
+    for (let i = 0; i < 4; i++) await expect(service.get('US')).rejects.toMatchObject({ reason: 'not_covered' });
+    expect(provider.calls).toBe(1);
+    advance(7 * 3_600_000);
+    await expect(service.get('US')).rejects.toMatchObject({ reason: 'not_covered' });
+    expect(provider.calls).toBe(2);
+  });
+
+  it('an older period never overwrites a newer one that is already known (C-12)', async () => {
+    const { provider, service, advance, repos } = make();
+    await service.get('PL'); // 2026-S1
+    provider.getHouseholdPrice = async (countryCode: string) => ({ countryCode, currency: 'PLN', pricePerKwh: 0.9, period: '2025-S2', source: 'eurostat' as const, includesTaxes: true, includesNetworkCosts: true });
+    advance(8 * DAY);
+    const dto = await service.get('PL');
+    expect(dto).toMatchObject({ pricePerKwh: 1.2724, period: '2026-S1', stale: false });
+    expect((await repos.prices.get('PL'))?.period).toBe('2026-S1');
   });
 
   it.each([
@@ -204,5 +244,16 @@ describe('GET /api/v1/electricity-price', () => {
     const missing = await ctx.app.inject({ method: 'GET', url: '/api/v1/electricity-price?country=US', headers: reg.headers });
     expect(missing.statusCode).toBe(404);
     expect(missing.json().error.code).toBe('electricity_price_unavailable');
+  });
+
+  it('an outage with nothing cached is a 503 with Retry-After, not a 404 "not covered" (B-14)', async () => {
+    const provider = new ScriptedProvider();
+    provider.fail = true;
+    ctx = await makeApp({}, { priceProviders: [provider] });
+    const reg = await registerUser(ctx.app);
+    const res = await ctx.app.inject({ method: 'GET', url: '/api/v1/electricity-price?country=DE', headers: reg.headers });
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error.code).toBe('electricity_price_unavailable');
+    expect(Number(res.headers['retry-after'])).toBeGreaterThan(0);
   });
 });
