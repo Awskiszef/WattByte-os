@@ -39,9 +39,22 @@
   Request schemas strip unknown keys, so `plan`, `role`, `isPremium`, `userId` and the like in a
   body are ignored (register, `PATCH /me`, `PUT /me/settings`, `POST /devices`, usage sync, AI
   requests are covered by tests; the AI aggregates schema is strict and rejects them with 400).
-- Rate limiting on every route, unknown paths included: 120 per minute per IP by default, 10 per
-  minute per IP on each credential route, 20 on AI routes. A blocked client gets `429` with
-  `retry-after`, even when its next password is correct. Behind a proxy set `TRUST_PROXY_HOPS`.
+- Rate limiting on every route, unknown paths included: 120 per minute per client by default, 10 per
+  minute per client for register + login + the OAuth routes **together** (one bucket), 60 on
+  `POST /auth/refresh` (its own bucket), 20 on AI routes. A "client" is an IPv4 address or an IPv6
+  **/64** (an IPv4-mapped address counts as its IPv4); a blocked client gets `429` with `retry-after`,
+  even when its next password is correct. The counters live in the process: with several instances the
+  per-client limit is per instance (see docs/CONFIGURATION.md). `/health` and `/ready` are exempt.
+- Per-account sign-in throttle (shared by all instances, PostgreSQL): from the 5th consecutive wrong
+  password for one e-mail, further attempts are refused with `429` and **without checking the password**
+  for 15 s, doubling per further failure up to 15 min; a success clears it, failures older than an hour
+  do not count, attempts refused during a lock are not counted. It is keyed on a hash of the e-mail
+  whether or not the account exists (no oracle). Trade-off: someone who knows an e-mail can lock that
+  account for at most 15 min at a time (an attacker needs about one request per lock period to keep it).
+- Client address: `TRUST_PROXY_CIDRS` (preferred) lists the proxies, so `X-Forwarded-For` and
+  `COUNTRY_HEADER` are believed only on connections from them; `TRUST_PROXY_HOPS` only counts hops.
+  Staging/production must set one of them. Password hashing is bounded (`SCRYPT_CONCURRENCY` running,
+  `SCRYPT_MAX_QUEUE` waiting, then `503 busy` + `Retry-After`).
 - Input validation with Zod on body, query and params; responses are serialized through the same
   schemas, so no unexpected field leaks. Extra guards: JSON only (`text/plain` and forms are `415`),
   1 MiB body limit (`413`), prototype-pollution payloads are `400`, U+0000 in any string, key,
