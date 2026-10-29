@@ -13,7 +13,9 @@ export function containsNul(value: unknown): boolean {
     if (typeof current === 'string') {
       if (current.includes('\u0000')) return true;
     } else if (Array.isArray(current)) {
-      pending.push(...current);
+      // A loop, not push(...current): spreading a large array exceeds the argument limit (RangeError) and
+      // every body route would answer 500 (B-10).
+      for (const item of current) pending.push(item);
     } else if (current !== null && typeof current === 'object') {
       for (const [key, v] of Object.entries(current)) {
         if (key.includes('\u0000')) return true;

@@ -48,8 +48,11 @@ export const healthRoutes: FastifyPluginAsyncZod<HealthRoutesOptions> = async (
     }
   };
 
+  // Both probes are exempt from the per-IP rate limiter (`rateLimit: false`): a balancer that shares an address with
+  // traffic, or an unset TRUST_PROXY_HOPS, must never get 429 and drain a healthy instance (B-09). /ready is cheap:
+  // concurrent calls share one database probe.
   // Liveness: the process answers. Never touches the database, so a database outage does not get the API restarted.
-  app.get('/health', { config: { public: true }, schema: { tags: ['ops'], response: { 200: HealthResponse } } }, async () => ({
+  app.get('/health', { config: { public: true, rateLimit: false }, schema: { tags: ['ops'], response: { 200: HealthResponse } } }, async () => ({
     status: 'ok' as const,
     version,
     uptimeSec: Math.floor((Date.now() - started) / 1000),
@@ -58,7 +61,7 @@ export const healthRoutes: FastifyPluginAsyncZod<HealthRoutesOptions> = async (
   // Readiness: the API can serve traffic, i.e. the database executes a query right now.
   app.get(
     '/ready',
-    { config: { public: true }, schema: { tags: ['ops'], response: { 200: ReadyResponse, 503: ReadyResponse } } },
+    { config: { public: true, rateLimit: false }, schema: { tags: ['ops'], response: { 200: ReadyResponse, 503: ReadyResponse } } },
     async (request, reply) => {
       const db = await databaseReady();
       if (!db) request.log.warn({ database: 'unavailable', timeoutMs: readyTimeoutMs }, 'readiness check failed');
