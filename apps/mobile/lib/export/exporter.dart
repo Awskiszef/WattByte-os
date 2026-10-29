@@ -173,8 +173,7 @@ class Exporter {
 
   /// Whether [e] rests on a measurement or on a capacity to estimate from. A
   /// session with neither has no energy at all, which is not the same as 0 Wh.
-  static bool _energyIsKnown(SessionEnergy e, EnergyCalc calc) =>
-      !e.mahEstimated || !e.whEstimated || calc.canEstimateFromPercent;
+  static bool _energyIsKnown(SessionEnergy e, EnergyCalc calc) => !e.isUnknown;
 
   /// A finite double for JSON, `null` otherwise; `-0.0` becomes `0.0`.
   static double? _number(double v) => v.isFinite ? (v == 0 ? 0.0 : v) : null;

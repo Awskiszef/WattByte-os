@@ -125,8 +125,11 @@ class SessionEnergy {
     required this.whEstimated,
     required this.wallWh,
     required this.cost,
+    this.knownSessions = 0,
+    this.unknownSessions = 0,
   });
 
+  /// Nothing charged: a real zero (no sessions), not an unknown one.
   static const zero = SessionEnergy(
     mah: 0,
     mahEstimated: false,
@@ -135,6 +138,36 @@ class SessionEnergy {
     wallWh: 0,
     cost: 0,
   );
+
+  /// One session whose energy cannot be told: no usable counter delta and no battery capacity to estimate from. The
+  /// numbers are 0 only because a field has to hold something; [isUnknown] says they are not a measurement and no
+  /// surface may print or send them as one (audit G-02).
+  static const unknownSession = SessionEnergy(
+    mah: 0,
+    mahEstimated: true,
+    batteryWh: 0,
+    whEstimated: true,
+    wallWh: 0,
+    cost: 0,
+    unknownSessions: 1,
+  );
+
+  /// How many of the summed sessions have a known / an unknown energy (1 and 0, or 0 and 1, for a single session).
+  final int knownSessions;
+  final int unknownSessions;
+
+  /// Every session in this total has an unknown energy (and there is at least one): print [Units.placeholder] and
+  /// send nothing, not 0.
+  bool get isUnknown => unknownSessions > 0 && knownSessions == 0;
+
+  /// Some sessions of the total are known, some are not: the figures are a lower bound.
+  bool get isPartial => unknownSessions > 0 && knownSessions > 0;
+
+  /// For display: NaN when [isUnknown] (every `Units` formatter prints the placeholder for a non-finite number).
+  double get mahShown => isUnknown ? double.nan : mah;
+  double get batteryWhShown => isUnknown ? double.nan : batteryWh;
+  double get wallWhShown => isUnknown ? double.nan : wallWh;
+  double get costShown => isUnknown ? double.nan : cost;
 
   final double mah;
   final bool mahEstimated;
@@ -159,6 +192,8 @@ class SessionEnergy {
         whEstimated: whEstimated || o.whEstimated,
         wallWh: wallWh + o.wallWh,
         cost: cost + o.cost,
+        knownSessions: knownSessions + o.knownSessions,
+        unknownSessions: unknownSessions + o.unknownSessions,
       );
 }
 

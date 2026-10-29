@@ -128,7 +128,12 @@ class _Body extends StatelessWidget {
     final period = thirtyDays ? l.periodLast30Days : l.periodLast7Days;
     final today = m.today;
     final todayEstimated = today.estimated;
-    final energyTotal = energy.fold<double>(0, (a, x) => a + x.wallWh);
+    final energyUnknown = energy.isNotEmpty &&
+        energy.every((x) => x.isUnknown || x.knownSessions == 0) &&
+        energy.any((x) => x.isUnknown);
+    final energyTotal = energyUnknown
+        ? double.nan
+        : energy.fold<double>(0, (a, x) => a + x.wallWh);
 
     return Column(
       // Full-width cards: the battery card used to be as wide as its content.
@@ -226,16 +231,29 @@ class _Body extends StatelessWidget {
         AdaptiveColumns(
           minColumnWidth: 150,
           children: [
-            StatCard(
-              label: l.energyAdded,
-              value: e.batteryWh,
-              format: units.wh,
-              estimated: e.whEstimated,
-              accent: WbColors.bolt,
-              sub: units.approx(units.kwh(e.batteryWh),
-                  estimated: e.whEstimated),
-            ),
-            if (hasPrice)
+            if (e.isUnknown)
+              _NeedsCapacityCard(
+                  label: l.energyAdded,
+                  dot: WbColors.bolt,
+                  hint: l.setCapacityHint)
+            else
+              StatCard(
+                label: l.energyAdded,
+                value: e.batteryWh,
+                format: units.wh,
+                estimated: e.whEstimated,
+                accent: WbColors.bolt,
+                sub: units.approx(units.kwh(e.batteryWh),
+                    estimated: e.whEstimated),
+              ),
+            if (e.isUnknown && hasPrice)
+              _NeedsCapacityCard(
+                  label: priceIsAverage
+                      ? l.estimatedChargingCost
+                      : l.electricityCost,
+                  dot: WbColors.cost,
+                  hint: l.setCapacityHint)
+            else if (hasPrice)
               StatCard(
                 label: priceIsAverage
                     ? l.estimatedChargingCost
@@ -275,7 +293,7 @@ class _Body extends StatelessWidget {
         const SizedBox(height: 12),
 
         // Battery charged. Unknown capacity: say so, never invent a number.
-        if (e.mahEstimated && !canEstimateMah)
+        if (e.isUnknown || (e.mahEstimated && !canEstimateMah))
           WbCard(
             semanticLabel: joinSpoken([l.batteryCharged, l.setCapacityHint]),
             child: Column(
@@ -594,6 +612,34 @@ class _PermissionCard extends StatelessWidget {
                 style: Theme.of(context).textTheme.labelMedium)
           else
             FilledButton(onPressed: onOpen, child: Text(l.usageAccessButton)),
+        ],
+      ),
+    );
+  }
+}
+
+/// A card whose number cannot be told because the battery capacity is unknown: the placeholder and the way out, never a 0.
+class _NeedsCapacityCard extends StatelessWidget {
+  const _NeedsCapacityCard(
+      {required this.label, required this.dot, required this.hint});
+
+  final String label;
+  final Color dot;
+  final String hint;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return WbCard(
+      semanticLabel: joinSpoken([label, hint]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Label(label, dot: dot),
+          const SizedBox(height: 10),
+          Text(Units.placeholder, style: theme.textTheme.displayMedium),
+          const SizedBox(height: 6),
+          Text(hint, style: theme.textTheme.labelMedium),
         ],
       ),
     );

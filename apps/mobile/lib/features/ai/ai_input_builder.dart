@@ -14,9 +14,9 @@ class AiPeriodStats {
     required this.wifiDataGb,
     required this.totalDataGb,
     required this.chargingSessions,
-    required this.batteryEnergyKwh,
-    required this.wallEnergyKwh,
-    required this.electricityCost,
+    this.batteryEnergyKwh,
+    this.wallEnergyKwh,
+    this.electricityCost,
     required this.currency,
     this.previousPeriodChangePercent,
     this.wifiSharePercent,
@@ -29,9 +29,12 @@ class AiPeriodStats {
   final double wifiDataGb;
   final double totalDataGb;
   final int chargingSessions;
-  final double batteryEnergyKwh;
-  final double wallEnergyKwh;
-  final double electricityCost;
+
+  /// null = UNKNOWN (the battery capacity is not set, so no session has a usable energy): left out of the request,
+  /// never sent as 0 (the model would read it as a fact).
+  final double? batteryEnergyKwh;
+  final double? wallEnergyKwh;
+  final double? electricityCost;
   final String currency;
 
   /// Mobile data this month so far vs the same days of last month; null if last month has none.
@@ -67,17 +70,18 @@ class AiPeriodStats {
       wifiDataGb: gb(data.wifi),
       totalDataGb: gb(data.total),
       chargingSessions: mine.length,
-      batteryEnergyKwh: _round(energy.batteryKwh, 4),
-      wallEnergyKwh: _round(energy.wallKwh, 4),
-      electricityCost: _round(energy.cost, 4),
+      batteryEnergyKwh: energy.isUnknown ? null : _round(energy.batteryKwh, 4),
+      wallEnergyKwh: energy.isUnknown ? null : _round(energy.wallKwh, 4),
+      electricityCost: energy.isUnknown ? null : _round(energy.cost, 4),
       currency: currency,
       previousPeriodChangePercent: prev.mobile > 0
           ? _round((data.mobile - prev.mobile) / prev.mobile * 100, 1)
           : null,
       wifiSharePercent:
           data.total > 0 ? _round(data.wifi / data.total * 100, 1) : null,
-      averageSessionMah:
-          mine.isNotEmpty ? _round(energy.mah / mine.length, 0) : null,
+      averageSessionMah: mine.isNotEmpty && !energy.isUnknown
+          ? _round(energy.mah / energy.knownSessions, 0)
+          : null,
     );
   }
 

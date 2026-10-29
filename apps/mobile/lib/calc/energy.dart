@@ -125,7 +125,14 @@ class EnergyCalc {
     }
     // A counter delta that is <= 0 (reset/unsupported) or absurdly large (glitch)
     // is not trusted and falls back to the estimate.
-    mah ??= batteryCapacityMah * s.addedPercent / 100;
+    final measuredEnergy = s.energyDeltaNwh != null &&
+        s.energyDeltaNwh! > 0 &&
+        s.energyDeltaNwh! <= maxSessionEnergyNwh;
+    // Neither counter gave a usable delta and there is no capacity to estimate from: the energy of this session is
+    // UNKNOWN. It used to come out as 0 mAh / 0 Wh / 0 cost, which every screen printed as a measurement (G-02).
+    if (mah == null && !measuredEnergy && !canEstimateFromPercent) {
+      return SessionEnergy.unknownSession;
+    }
 
     final mv = s.avgVoltageMv;
     final volts =
@@ -135,13 +142,16 @@ class EnergyCalc {
 
     double wh;
     var whEstimated = true;
-    final ed = s.energyDeltaNwh;
-    if (ed != null && ed > 0 && ed <= maxSessionEnergyNwh) {
-      wh = ed / 1e9;
+    if (measuredEnergy) {
+      wh = s.energyDeltaNwh! / 1e9;
       whEstimated = false;
     } else {
-      wh = whFromMah(mah, volts);
+      wh = whFromMah(mah ?? batteryCapacityMah * s.addedPercent / 100, volts);
     }
+    // Only the energy counter worked: the charge follows from it at the cell voltage (an estimate).
+    mah ??= measuredEnergy
+        ? wh * 1000 / volts
+        : batteryCapacityMah * s.addedPercent / 100;
     final wall = wallFromBattery(wh, efficiency);
     return SessionEnergy(
       mah: mah,
@@ -150,6 +160,7 @@ class EnergyCalc {
       whEstimated: whEstimated,
       wallWh: wall,
       cost: costOf(kwhFromWh(wall), pricePerKwh),
+      knownSessions: 1,
     );
   }
 

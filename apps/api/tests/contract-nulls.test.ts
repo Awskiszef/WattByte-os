@@ -253,7 +253,7 @@ function describeNulls(label: string, make: FixtureFactory, enabled = true): voi
         'modelIdentifier',
       ]);
       expect(names('POST /api/v1/usage/sync').sort()).toEqual(['days.0.dataEstimated', 'days.0.energyEstimated']);
-      expect(names('POST /api/v1/ai/insight').sort()).toEqual(['input.averageSessionMah', 'input.previousPeriodChangePercent', 'input.wifiSharePercent', 'locale', 'mode']);
+      expect(names('POST /api/v1/ai/insight').sort()).toEqual(['input.averageSessionMah', 'input.batteryEnergyKwh', 'input.electricityCost', 'input.previousPeriodChangePercent', 'input.wallEnergyKwh', 'input.wifiSharePercent', 'locale', 'mode']);
       expect(names('POST /api/v1/auth/login')).toEqual([]);
     });
 

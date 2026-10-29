@@ -112,6 +112,8 @@ class Records {
     for (final s in sessions) {
       if (longest == null || s.duration > longest.duration) longest = s;
       final e = calc.session(s);
+      // A session whose energy is unknown takes part in no energy or cost record (it would count as 0).
+      if (e.isUnknown) continue;
       if (largestEnergy == null || e.batteryWh > largestEnergy.batteryWh) {
         largest = s;
         largestEnergy = e;
@@ -124,6 +126,7 @@ class Records {
     DateTime? energyDay;
     SessionEnergy? energyDayEnergy;
     energyByDay(sessions, calc).forEach((day, e) {
+      if (e.isUnknown) return;
       if (energyDayEnergy == null || e.wallWh > energyDayEnergy!.wallWh) {
         energyDay = day;
         energyDayEnergy = e;

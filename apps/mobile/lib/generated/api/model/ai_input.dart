@@ -19,9 +19,9 @@ class AIInput {
     required this.wifiDataGb,
     required this.totalDataGb,
     required this.chargingSessions,
-    required this.batteryEnergyKwh,
-    required this.wallEnergyKwh,
-    required this.electricityCost,
+    this.batteryEnergyKwh,
+    this.wallEnergyKwh,
+    this.electricityCost,
     required this.currency,
     this.previousPeriodChangePercent,
     this.wifiSharePercent,
@@ -50,15 +50,15 @@ class AIInput {
 
   /// Minimum value: 0
   /// Maximum value: 1000000
-  num batteryEnergyKwh;
+  num? batteryEnergyKwh;
 
   /// Minimum value: 0
   /// Maximum value: 1000000
-  num wallEnergyKwh;
+  num? wallEnergyKwh;
 
   /// Minimum value: 0
   /// Maximum value: 1000000000
-  num electricityCost;
+  num? electricityCost;
 
   String currency;
 
@@ -101,9 +101,9 @@ class AIInput {
       (wifiDataGb.hashCode) +
       (totalDataGb.hashCode) +
       (chargingSessions.hashCode) +
-      (batteryEnergyKwh.hashCode) +
-      (wallEnergyKwh.hashCode) +
-      (electricityCost.hashCode) +
+      (batteryEnergyKwh == null ? 0 : batteryEnergyKwh!.hashCode) +
+      (wallEnergyKwh == null ? 0 : wallEnergyKwh!.hashCode) +
+      (electricityCost == null ? 0 : electricityCost!.hashCode) +
       (currency.hashCode) +
       (previousPeriodChangePercent == null
           ? 0
@@ -123,9 +123,21 @@ class AIInput {
     json[r'wifiDataGb'] = this.wifiDataGb;
     json[r'totalDataGb'] = this.totalDataGb;
     json[r'chargingSessions'] = this.chargingSessions;
-    json[r'batteryEnergyKwh'] = this.batteryEnergyKwh;
-    json[r'wallEnergyKwh'] = this.wallEnergyKwh;
-    json[r'electricityCost'] = this.electricityCost;
+    if (this.batteryEnergyKwh != null) {
+      json[r'batteryEnergyKwh'] = this.batteryEnergyKwh;
+    } else {
+      json[r'batteryEnergyKwh'] = null;
+    }
+    if (this.wallEnergyKwh != null) {
+      json[r'wallEnergyKwh'] = this.wallEnergyKwh;
+    } else {
+      json[r'wallEnergyKwh'] = null;
+    }
+    if (this.electricityCost != null) {
+      json[r'electricityCost'] = this.electricityCost;
+    } else {
+      json[r'electricityCost'] = null;
+    }
     json[r'currency'] = this.currency;
     if (this.previousPeriodChangePercent != null) {
       json[r'previousPeriodChangePercent'] = this.previousPeriodChangePercent;
@@ -180,18 +192,6 @@ class AIInput {
             'Required key "AIInput[chargingSessions]" is missing from JSON.');
         assert(json[r'chargingSessions'] != null,
             'Required key "AIInput[chargingSessions]" has a null value in JSON.');
-        assert(json.containsKey(r'batteryEnergyKwh'),
-            'Required key "AIInput[batteryEnergyKwh]" is missing from JSON.');
-        assert(json[r'batteryEnergyKwh'] != null,
-            'Required key "AIInput[batteryEnergyKwh]" has a null value in JSON.');
-        assert(json.containsKey(r'wallEnergyKwh'),
-            'Required key "AIInput[wallEnergyKwh]" is missing from JSON.');
-        assert(json[r'wallEnergyKwh'] != null,
-            'Required key "AIInput[wallEnergyKwh]" has a null value in JSON.');
-        assert(json.containsKey(r'electricityCost'),
-            'Required key "AIInput[electricityCost]" is missing from JSON.');
-        assert(json[r'electricityCost'] != null,
-            'Required key "AIInput[electricityCost]" has a null value in JSON.');
         assert(json.containsKey(r'currency'),
             'Required key "AIInput[currency]" is missing from JSON.');
         assert(json[r'currency'] != null,
@@ -206,9 +206,15 @@ class AIInput {
         wifiDataGb: num.parse('${json[r'wifiDataGb']}'),
         totalDataGb: num.parse('${json[r'totalDataGb']}'),
         chargingSessions: mapValueOfType<int>(json, r'chargingSessions')!,
-        batteryEnergyKwh: num.parse('${json[r'batteryEnergyKwh']}'),
-        wallEnergyKwh: num.parse('${json[r'wallEnergyKwh']}'),
-        electricityCost: num.parse('${json[r'electricityCost']}'),
+        batteryEnergyKwh: json[r'batteryEnergyKwh'] == null
+            ? null
+            : num.parse('${json[r'batteryEnergyKwh']}'),
+        wallEnergyKwh: json[r'wallEnergyKwh'] == null
+            ? null
+            : num.parse('${json[r'wallEnergyKwh']}'),
+        electricityCost: json[r'electricityCost'] == null
+            ? null
+            : num.parse('${json[r'electricityCost']}'),
         currency: mapValueOfType<String>(json, r'currency')!,
         previousPeriodChangePercent:
             json[r'previousPeriodChangePercent'] == null
@@ -282,9 +288,6 @@ class AIInput {
     'wifiDataGb',
     'totalDataGb',
     'chargingSessions',
-    'batteryEnergyKwh',
-    'wallEnergyKwh',
-    'electricityCost',
     'currency',
   };
 }

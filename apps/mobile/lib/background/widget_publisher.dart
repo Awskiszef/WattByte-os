@@ -58,16 +58,16 @@ class WidgetPublisher {
       {
         'data_today': units.approx(units.bytes(model.today.total),
             estimated: model.today.estimated),
-        'energy_today':
-            units.approx(units.kwh(model.todayEnergy.wallWh), estimated: true),
+        'energy_today': units.approx(units.kwh(model.todayEnergy.wallWhShown),
+            estimated: true),
         'cost_today': hasPrice
-            ? units.approx(units.money(model.todayEnergy.cost, currency),
+            ? units.approx(units.money(model.todayEnergy.costShown, currency),
                 estimated: true)
             : Units.placeholder,
         'data_month': units.approx(units.bytes(model.month.total),
             estimated: model.month.estimated),
         'cost_month': hasPrice
-            ? units.approx(units.money(model.monthEnergy.cost, currency),
+            ? units.approx(units.money(model.monthEnergy.costShown, currency),
                 estimated: true)
             : Units.placeholder,
         'label_data_today': l10n.widgetDataToday,

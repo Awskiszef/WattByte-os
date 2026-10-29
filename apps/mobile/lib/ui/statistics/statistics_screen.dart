@@ -106,7 +106,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                     _Row(l.avgAdded, units.percent(cs.avgAddedPercent)),
                     _Row(
                         l.totalMah,
-                        units.approx(units.mah(cs.energy.mah),
+                        units.approx(units.mah(cs.energy.mahShown),
                             estimated: cs.energy.mahEstimated),
                         estimated: cs.energy.mahEstimated),
                   ],
@@ -120,24 +120,24 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                   children: [
                     _Row(
                         l.batteryEnergy,
-                        units.approx(units.wh(cs.energy.batteryWh),
+                        units.approx(units.wh(cs.energy.batteryWhShown),
                             estimated: cs.energy.whEstimated),
                         estimated: cs.energy.whEstimated),
                     _Row(
                         l.wallEnergy,
-                        units.approx(units.wh(cs.energy.wallWh),
+                        units.approx(units.wh(cs.energy.wallWhShown),
                             estimated: true),
                         estimated: true),
                     _Row(
                         'kWh',
-                        units.approx(units.kwh(cs.energy.wallWh),
+                        units.approx(units.kwh(cs.energy.wallWhShown),
                             estimated: true),
                         estimated: true),
                     _Row(
                         l.electricityCost,
                         calc.pricePerKwh > 0
                             ? units.approx(
-                                units.money(cs.energy.cost, currency),
+                                units.money(cs.energy.costShown, currency),
                                 estimated: true)
                             : l.notSet,
                         estimated: calc.pricePerKwh > 0),
@@ -280,7 +280,7 @@ class _RecordsCard extends StatelessWidget {
         (
           Icons.bolt_rounded,
           l.recordMostEnergyDay,
-          units.approx(units.wh(r.mostEnergyDayEnergy!.wallWh),
+          units.approx(units.wh(r.mostEnergyDayEnergy!.wallWhShown),
               estimated: true),
           dateFmt.format(r.mostEnergyDay!)
         ),
@@ -288,7 +288,7 @@ class _RecordsCard extends StatelessWidget {
         (
           Icons.battery_charging_full_rounded,
           l.recordLargestSession,
-          units.approx(units.mah(r.largestSessionEnergy!.mah),
+          units.approx(units.mah(r.largestSessionEnergy!.mahShown),
               estimated: r.largestSessionEnergy!.mahEstimated),
           dateFmt.format(r.largestSession!.start)
         ),

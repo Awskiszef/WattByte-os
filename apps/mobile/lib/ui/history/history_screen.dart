@@ -232,8 +232,8 @@ class _ChargingList extends StatelessWidget {
             for (final s in groups[day]!) ...[
               Builder(builder: (context) {
                 final e = calc.session(s);
-                final charge = units.mah(e.mah);
-                final energy = units.wh(e.batteryWh);
+                final charge = units.mah(e.mahShown);
+                final energy = units.wh(e.batteryWhShown);
                 return WbCard(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
@@ -336,11 +336,11 @@ class _EnergyList extends StatelessWidget {
         final e = byDay[days[i]]!;
         final title = dayTitle(context, days[i], now);
         final battery =
-            units.approx(units.wh(e.batteryWh), estimated: e.whEstimated);
-        final wall = units.approx(units.kwh(e.wallWh), estimated: true);
+            units.approx(units.wh(e.batteryWhShown), estimated: e.whEstimated);
+        final wall = units.approx(units.kwh(e.wallWhShown), estimated: true);
         final second = hasPrice
-            ? units.approx(units.money(e.cost, currency), estimated: true)
-            : units.approx(units.wh(e.wallWh), estimated: true);
+            ? units.approx(units.money(e.costShown, currency), estimated: true)
+            : units.approx(units.wh(e.wallWhShown), estimated: true);
         return WbCard(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
           semanticLabel: joinSpoken([
@@ -436,19 +436,30 @@ Future<void> showSessionSheet(
             row(l.duration, units.duration(s.duration)),
             const Divider(),
             row(l.charge,
-                units.approx(units.mah(e.mah), estimated: e.mahEstimated),
+                units.approx(units.mah(e.mahShown), estimated: e.mahEstimated),
                 estimated: e.mahEstimated),
-            row(l.batteryEnergy,
-                units.approx(units.wh(e.batteryWh), estimated: e.whEstimated),
+            row(
+                l.batteryEnergy,
+                units.approx(units.wh(e.batteryWhShown),
+                    estimated: e.whEstimated),
                 estimated: e.whEstimated),
-            row(l.energy,
-                units.approx(units.kwh(e.batteryWh), estimated: e.whEstimated)),
+            row(
+                l.energy,
+                units.approx(units.kwh(e.batteryWhShown),
+                    estimated: e.whEstimated)),
             const Divider(),
-            row(l.wallEnergy, units.approx(units.wh(e.wallWh), estimated: true),
+            row(l.wallEnergy,
+                units.approx(units.wh(e.wallWhShown), estimated: true),
                 estimated: true),
-            row(l.cost,
-                units.approx(units.money(e.cost, currency), estimated: true),
+            row(
+                l.cost,
+                units.approx(units.money(e.costShown, currency),
+                    estimated: true),
                 estimated: true),
+            if (e.isUnknown) ...[
+              const SizedBox(height: 8),
+              Text(l.setCapacityHint, style: theme.textTheme.labelMedium),
+            ],
             if (s.sparse) ...[
               const SizedBox(height: 8),
               Text(l.sparseNote, style: theme.textTheme.labelMedium),

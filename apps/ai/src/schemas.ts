@@ -29,9 +29,11 @@ export const AIInputSchema = z
     wifiDataGb: bounded(1_000_000),
     totalDataGb: bounded(2_000_000),
     chargingSessions: z.number().int().nonnegative().max(100_000),
-    batteryEnergyKwh: bounded(1_000_000),
-    wallEnergyKwh: bounded(1_000_000),
-    electricityCost: bounded(1_000_000_000),
+    // Absent (or null) = UNKNOWN, e.g. the phone's battery capacity is not known so no energy can be derived. It is not
+    // zero, and the prompt must not present it as zero (audit G-02).
+    batteryEnergyKwh: bounded(1_000_000).nullable().optional(),
+    wallEnergyKwh: bounded(1_000_000).nullable().optional(),
+    electricityCost: bounded(1_000_000_000).nullable().optional(),
     /** ISO 4217 shape: three capital letters. */
     currency: z.string().regex(/^[A-Z]{3}$/, 'must be three capital letters'),
     previousPeriodChangePercent: z.number().finite().min(-100).max(1_000_000).nullable().optional(),

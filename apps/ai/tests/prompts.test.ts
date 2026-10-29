@@ -36,4 +36,24 @@ describe('buildPrompt', () => {
       expect(p.user.toLowerCase()).not.toContain(forbidden.toLowerCase());
     }
   });
+
+  it('states unknown energy and cost as unknown, never as 0 (G-02)', () => {
+    for (const unknown of [{}, { batteryEnergyKwh: null, wallEnergyKwh: null, electricityCost: null }]) {
+      const { batteryEnergyKwh: _b, wallEnergyKwh: _w, electricityCost: _c, ...rest } = input;
+      const parsed = AIInputSchema.parse({ ...rest, ...unknown });
+      const p = buildPrompt('weekly_summary', 'normal', 'en', parsed);
+      expect(p.user).not.toMatch(/kWh/);
+      expect(p.user).not.toContain('electricity cost');
+      expect(p.user).toContain('energy and cost: unknown');
+      expect(p.user).toContain('12.5 GB');
+    }
+  });
+
+  it('a known figure next to an unknown one keeps only the known one', () => {
+    const { wallEnergyKwh: _w, electricityCost: _c, ...rest } = input;
+    const p = buildPrompt('weekly_summary', 'normal', 'en', AIInputSchema.parse(rest));
+    expect(p.user).toContain('0.11 kWh');
+    expect(p.user).not.toContain('energy drawn from the wall');
+    expect(p.user).not.toContain('energy and cost: unknown');
+  });
 });

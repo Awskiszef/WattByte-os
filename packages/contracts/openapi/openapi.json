@@ -679,17 +679,20 @@
           "batteryEnergyKwh": {
             "type": "number",
             "minimum": 0,
-            "maximum": 1000000
+            "maximum": 1000000,
+            "nullable": true
           },
           "wallEnergyKwh": {
             "type": "number",
             "minimum": 0,
-            "maximum": 1000000
+            "maximum": 1000000,
+            "nullable": true
           },
           "electricityCost": {
             "type": "number",
             "minimum": 0,
-            "maximum": 1000000000
+            "maximum": 1000000000,
+            "nullable": true
           },
           "currency": {
             "type": "string",
@@ -721,9 +724,6 @@
           "wifiDataGb",
           "totalDataGb",
           "chargingSessions",
-          "batteryEnergyKwh",
-          "wallEnergyKwh",
-          "electricityCost",
           "currency"
         ],
         "additionalProperties": false

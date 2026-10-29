@@ -51,10 +51,14 @@ export function buildPrompt(task: AITask, mode: AIMode, locale: AILocale, input:
     `wifi data: ${input.wifiDataGb} GB`,
     `total data: ${input.totalDataGb} GB`,
     `charging sessions: ${input.chargingSessions}`,
-    `energy stored in battery: ${input.batteryEnergyKwh} kWh`,
-    `energy drawn from the wall (estimated): ${input.wallEnergyKwh} kWh`,
-    `electricity cost (estimated): ${input.electricityCost} ${input.currency}`,
   ];
+  // An unknown figure is stated as unknown, never as a number: the model must not read 0 kWh into a missing capacity.
+  if (input.batteryEnergyKwh != null) lines.push(`energy stored in battery: ${input.batteryEnergyKwh} kWh`);
+  if (input.wallEnergyKwh != null) lines.push(`energy drawn from the wall (estimated): ${input.wallEnergyKwh} kWh`);
+  if (input.electricityCost != null) lines.push(`electricity cost (estimated): ${input.electricityCost} ${input.currency}`);
+  if (input.batteryEnergyKwh == null && input.wallEnergyKwh == null && input.electricityCost == null) {
+    lines.push('energy and cost: unknown (the battery capacity is not set); say nothing about energy or cost');
+  }
   if (input.previousPeriodChangePercent != null) {
     lines.push(`change vs previous ${input.periodType}: ${input.previousPeriodChangePercent}%`);
   }

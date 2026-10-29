@@ -377,6 +377,26 @@ void main() {
       expect(find.text(Units.placeholder), findsWidgets);
     });
 
+    testWidgets(
+        'unknown battery capacity with a price: energy and cost say so too, no zero (G-02)',
+        (tester) async {
+      await _pump(tester,
+          const _Scenario('unknown capacity, priced', unknownCapacity: true),
+          semantics: true, tall: true);
+      final tree = semanticsTree(tester);
+      final energy = oneNodeWith(tree, [_en.energyAdded, _en.setCapacityHint]);
+      expect(energy.spoken, isNot(matches(RegExp(r'\d\s*(Wh|kWh)'))),
+          reason: 'no invented energy');
+      final cost = tree.where((n) =>
+          (n.spoken.contains(_en.electricityCost) ||
+              n.spoken.contains(_en.estimatedChargingCost)) &&
+          n.spoken.contains(_en.setCapacityHint));
+      expect(cost, isNotEmpty, reason: 'the cost card asks for the capacity');
+      for (final n in cost) {
+        expect(n.spoken, isNot(matches(RegExp(r'\d'))), reason: n.spoken);
+      }
+    });
+
     testWidgets('no price: one tappable card that offers to enter it',
         (tester) async {
       await _pump(tester, _scenarios[5], semantics: true, tall: true);
