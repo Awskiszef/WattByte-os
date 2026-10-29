@@ -258,7 +258,7 @@ if (isMainModule(import.meta.url)) {
     if (dryRun) console.warn(applied.length ? `would apply: ${applied.join(', ')}` : 'schema up to date');
     else console.warn(applied.length ? `applied: ${applied.join(', ')}` : 'schema up to date');
   } catch (e) {
-    console.error(e instanceof MigrationError ? e.message : e);
+    console.error(e instanceof Error ? e.message : e);
     process.exit(1);
   }
 }
