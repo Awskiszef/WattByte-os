@@ -236,4 +236,57 @@ void main() {
       expect(await db.receiptCount('a'), 1);
     });
   });
+
+  group(
+      'the database opens even with duplicate sessions from an old build (F-17)',
+      () {
+    test(
+        'upgrading v1 keeps the first of two sessions with the same start and builds the unique index',
+        () async {
+      const path = '${inMemoryDatabasePath}_dup_sessions';
+      await deleteDatabase(path);
+      final old = await openDatabase(path, version: 1, onCreate: (db, _) async {
+        await db.execute(
+            'CREATE TABLE battery_samples(id INTEGER PRIMARY KEY AUTOINCREMENT, time_ms INTEGER NOT NULL, level INTEGER NOT NULL, plugged INTEGER NOT NULL, charge_uah INTEGER, energy_nwh INTEGER, voltage_mv INTEGER, source TEXT NOT NULL)');
+        await db.execute(
+            'CREATE TABLE daily_data(day TEXT PRIMARY KEY, mobile_rx INTEGER NOT NULL DEFAULT 0, mobile_tx INTEGER NOT NULL DEFAULT 0, wifi_rx INTEGER NOT NULL DEFAULT 0, wifi_tx INTEGER NOT NULL DEFAULT 0, estimated INTEGER NOT NULL DEFAULT 0)');
+        await db.execute(
+            'CREATE TABLE charging_sessions(id INTEGER PRIMARY KEY AUTOINCREMENT, start_ms INTEGER NOT NULL, end_ms INTEGER NOT NULL, start_level INTEGER NOT NULL, end_level INTEGER NOT NULL, charge_delta_uah INTEGER, energy_delta_nwh INTEGER, avg_voltage_mv INTEGER, sparse INTEGER NOT NULL DEFAULT 0)');
+        await db.execute(
+            'CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+        for (final end in [5000, 9000, 7000]) {
+          await db.insert('charging_sessions', {
+            'start_ms': 1000,
+            'end_ms': end,
+            'start_level': 20,
+            'end_level': 80,
+          });
+        }
+        await db.insert('charging_sessions', {
+          'start_ms': 20000,
+          'end_ms': 30000,
+          'start_level': 10,
+          'end_level': 50
+        });
+      });
+      await old.close();
+
+      final db = await WattByteDb.open(path: path);
+      addTearDown(db.close);
+      final sessions = await db.allSessions();
+      expect(
+          sessions.map((s) => s.start.millisecondsSinceEpoch), [1000, 20000]);
+      expect(sessions.first.end.millisecondsSinceEpoch, 5000,
+          reason: 'the first one is kept');
+      await db.insertSessions([
+        ChargingSession(
+            start: DateTime.fromMillisecondsSinceEpoch(1000),
+            end: DateTime.fromMillisecondsSinceEpoch(2000),
+            startLevel: 1,
+            endLevel: 2)
+      ]);
+      expect(await db.allSessions(), hasLength(2),
+          reason: 'a second insert of the same start is a no-op');
+    });
+  });
 }

@@ -29,6 +29,10 @@ class WattByteDb {
   /// run v1 `_create` followed by every migration, so both paths converge.
   static const migrations = <int, List<String>>{
     2: [
+      // Two sessions with the same start (the same charge stored twice by an old build) made the UNIQUE index below fail,
+      // and with it every open of the database. Keep the first of each, then make a second insert a no-op.
+      'DELETE FROM charging_sessions WHERE id NOT IN '
+          '(SELECT MIN(id) FROM charging_sessions GROUP BY start_ms)',
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_start ON charging_sessions(start_ms)',
       'CREATE INDEX IF NOT EXISTS idx_sessions_end ON charging_sessions(end_ms)',
       'CREATE INDEX IF NOT EXISTS idx_samples_time ON battery_samples(time_ms)',
