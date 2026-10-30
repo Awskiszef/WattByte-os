@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /// Widget-test harness for the real WattByte app.
 ///
 /// Pumps the REAL `WattByteApp` (real MaterialApp builder, theme, l10n, start

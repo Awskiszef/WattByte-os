@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import type { AIGateway } from '@wattbyte/ai';

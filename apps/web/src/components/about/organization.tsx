@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { ArrowUpRight } from 'lucide-react';
 import { LogoMark } from '@/components/layout/logo';
 import { Reveal } from '@/components/ui/reveal';

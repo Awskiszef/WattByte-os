@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Data-subject rights reachable from the app (audit F-15): a copy of the cloud data, erasing it without deleting the account,
 // removing a device. The API already offered all three; the Account screen now does too.
 import 'dart:convert';

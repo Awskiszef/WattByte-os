@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it } from 'vitest';
 
 import { AIGateway, AIInputSchema, MockProvider, ProviderError, ProviderRouter, type AIGatewayError } from '../src/index.js';

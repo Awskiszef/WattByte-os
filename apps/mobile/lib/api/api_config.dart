@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import '../config/app_environment.dart';
 import '../config/url_rules.dart';
 

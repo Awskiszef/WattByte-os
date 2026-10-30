@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { OpenAIProvider, ProviderError, REASONING_HEADROOM_TOKENS, XAIProvider, resolveModel, type ProviderEnv, providersFromEnv } from '../src/index.js';

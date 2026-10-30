@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { Apple, Play } from 'lucide-react';
 import { site } from '@/config/site';
 import { cn } from '@/lib/cn';

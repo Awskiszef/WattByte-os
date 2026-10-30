@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Source-level guards for the backend-configuration rules.
 //
 // `validateBackendConfig` (lib/config/backend_config.dart) is unit-tested on its

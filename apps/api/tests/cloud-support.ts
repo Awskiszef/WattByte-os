@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Shared fixtures for the cloud-data suites (delete, export, delete-account). Each suite runs on the
  * in-memory repositories and on PostgreSQL through the same `CloudFixture` interface, so both

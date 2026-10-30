@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { ProviderError } from '@wattbyte/ai';
 import type { FastifyRequest } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';

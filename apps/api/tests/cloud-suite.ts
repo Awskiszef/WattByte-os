@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * The behaviour of `DELETE /me/cloud-data` and `GET /me/export`, written once and run against every
  * repository implementation (see cloud-data.test.ts and db/cloud-data.integration.test.ts).

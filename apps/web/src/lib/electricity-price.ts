@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Household electricity price from Eurostat `nrg_pc_204`, the same query the
  * WattByte API uses (band DC: 2 500 to 4 999 kWh a year, all taxes and levies

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // iOS: the local database stays out of backups and of a restore onto another iPhone (audit H-06).
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wattbyte/storage/database.dart';

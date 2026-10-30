@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // tsc does not copy non-TypeScript files: the SQL migrations must sit next to dist/database/migrate.js,
 // otherwise `node dist/database/migrate.js` (production deploys run the built output) finds no schema.
 import { cpSync, existsSync, mkdirSync, readdirSync } from 'node:fs';

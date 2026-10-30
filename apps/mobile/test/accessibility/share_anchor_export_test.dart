@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Regression for the iOS 26+ share-sheet crash ("sharePositionOrigin must be
 // non-zero"): the Export rows of Settings hand the real share channel a
 // non-empty anchor, a localized subject, and a failure becomes a message.

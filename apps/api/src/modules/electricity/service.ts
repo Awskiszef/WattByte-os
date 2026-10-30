@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import type { ElectricityPriceDto } from '@wattbyte/contracts';
 
 import type { ElectricityPriceRepository, ElectricityPriceRow } from '../../database/repositories.js';

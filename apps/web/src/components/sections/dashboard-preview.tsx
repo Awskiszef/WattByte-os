@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { MetricCard } from '@/components/home/metric-card';
 import { Counter } from '@/components/home/counter';
 import { UsageChart } from '@/components/home/usage-chart';

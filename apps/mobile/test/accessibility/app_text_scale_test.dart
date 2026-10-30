@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // lib/app.dart honours the system text scale in full. There used to be a
 // MediaQuery.withClampedTextScaling(maxScaleFactor: 1.35) around the whole app
 // because the Dashboard broke with big text; the layouts now adapt instead

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * The numbers shown in every mockup. They are illustrative and every mockup
  * that shows them carries the demo label from `site.ts`.

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Welcome: responsive at every text scale on small and large phones, light and
 // dark, English and Polish; no throw on wide layouts; readable by a screen reader.
 import 'package:flutter/material.dart';

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import type { FastifyRequest } from 'fastify';
 
 import { HttpError } from '../errors/http-error.js';

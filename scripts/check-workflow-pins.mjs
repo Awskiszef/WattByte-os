@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Static checks on the GitHub workflows (audit E-09, E-10, E-20):
 //
 //   node scripts/check-workflow-pins.mjs [workflow files...]      (default: .github/workflows/*.yml)

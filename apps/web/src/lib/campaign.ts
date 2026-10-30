@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Campaign tags (`utm_*`) for launch-list sign-ups. The tags are read from the
  * landing URL, kept in memory and in session storage for the visit (never in a

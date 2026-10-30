@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Secret scan: pure Node, no dependencies. Scans the files that WOULD be tracked
 // by Git (it honours every .gitignore in the tree itself, so it works in a folder
 // that is not a repository yet) and fails on anything that looks like a credential.

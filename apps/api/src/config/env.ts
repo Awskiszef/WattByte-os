@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { isIPv4, isIPv6 } from 'node:net';
 
 import { AI_PROVIDER_IDS, modelPriceFor, PROVIDER_ENV_VARS, providerEnvProblems } from '@wattbyte/ai';

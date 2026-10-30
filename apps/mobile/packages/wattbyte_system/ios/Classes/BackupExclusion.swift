@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import Foundation
 
 /// Marks files as excluded from iCloud / iTunes backups, and so from a restore onto another device (audit H-06). Pure

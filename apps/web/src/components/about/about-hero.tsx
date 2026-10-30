@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { ButtonLink } from '@/components/ui/button';
 import { aboutHero } from '@/config/about';
 import { Eyebrow } from './eyebrow';

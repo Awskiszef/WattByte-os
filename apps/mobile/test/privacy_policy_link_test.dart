@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // The privacy policy is one tap away where an account is created and in Settings, when the build has an address for it
 // (audit F-09, G-05). Without an address nothing is shown: a dead link is worse than none.
 import 'package:flutter/material.dart';

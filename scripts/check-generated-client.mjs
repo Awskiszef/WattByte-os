@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Proves that the Dart client committed in apps/mobile/lib/generated/api is exactly what
 // packages/contracts/openapi/openapi.json generates: nobody edited a generated file by hand and
 // nobody changed the contracts without regenerating.

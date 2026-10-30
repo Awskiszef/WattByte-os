@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // The server's feature kill switches reach the app and are obeyed (audit F-04): the default fetcher asks
 // GET /api/v1/config, the flags merge build and server, the AI card and the cloud sync switch follow them.
 import 'package:flutter/material.dart';

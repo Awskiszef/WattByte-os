@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /// Command-line front end of [validateBackendConfig]: the same rules the app
 /// applies at start-up, run before a build is made. `tool/check_backend_config.dart`
 /// is a thin wrapper that only turns the return value into an exit code; the

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /// URL checks shared by the API address and the privacy-policy link.
 ///
 /// Reserved names (RFC 2606 / 6761) are placeholders by definition: they can

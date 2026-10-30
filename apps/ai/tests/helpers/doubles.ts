@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { expect } from 'vitest';
 
 import { AI_OUTPUT_JSON_SCHEMA, AnthropicProvider, GoogleProvider, OpenAIProvider, REASONING_HEADROOM_TOKENS, XAIProvider } from '../../src/index.js';

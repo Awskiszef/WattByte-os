@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { ComingSoon } from '@/components/ui/badge';
 import { DemoLabel } from '@/components/ui/demo-label';
 import { Reveal } from '@/components/ui/reveal';

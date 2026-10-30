@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Audit B-12: a failure can be told apart without putting its data in the log, and the service can be measured.
 import { afterEach, describe, expect, it } from 'vitest';
 

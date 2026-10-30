@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // The shared building blocks (lib/ui/widgets, lib/ui/theme.dart): what they
 // promise at any text size, what a screen reader gets, and the colour contrast
 // of the theme.

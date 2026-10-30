@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Generates the Dart API client from packages/contracts/openapi/openapi.json
 // into apps/mobile/lib/generated/api (plain Dart sources, no codegen step in
 // the Flutter app). Requires Java (openapi-generator is a JVM tool). The generator is the jar pinned in

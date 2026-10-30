@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /// Checks the backend configuration of a build before it is made (CI, release
 /// workflow). Usage and rules: lib/config/backend_config_cli.dart.
 ///

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // The single required check, "CI result".
 //
 //   NEEDS='<toJSON(needs)>' node scripts/ci-gate.mjs

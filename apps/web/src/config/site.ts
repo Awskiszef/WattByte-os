@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Site-wide facts. Everything that names the product, its URL or its public
  * contact points lives here so no component repeats it.

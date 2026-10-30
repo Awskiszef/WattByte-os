@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright 2026 ATLASHC Paweł Dolatowski
+# SPDX-License-Identifier: Apache-2.0
+
 # The WattByteWidget extension must link system libraries only (audit H-07): a WidgetKit process has a small memory budget and
 # must not load Flutter or any plugin framework. Fails when `otool -L` of the built extension lists anything outside
 # /System/ and /usr/lib/ (a Flutter plugin appears as @rpath/<plugin>.framework/<plugin>).

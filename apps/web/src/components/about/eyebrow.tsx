@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { cn } from '@/lib/cn';
 
 /** The small capitalised line the About brief asks for above three of its headings. */

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { envValue, PROVIDER_ENV_VARS, providerFromEnv, type ProviderEnv } from '../src/env.js';
 import type { FetchLike } from '../src/providers/http.js';
 import { buildPrompt } from '../src/prompts/index.js';

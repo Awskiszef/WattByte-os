@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // History (Data / Charging / Energy tabs and the session sheet) at every text
 // size, phone, theme and language; what a screen reader says about its rows;
 // touch targets; contrast.

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // node --test scripts/check-openapi-compat.test.mjs
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

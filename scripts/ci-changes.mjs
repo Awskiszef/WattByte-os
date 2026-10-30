@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Decides which CI jobs a change needs.
 //
 //   node scripts/ci-changes.mjs --base <sha> [--head HEAD] --event pull_request|push|schedule|workflow_dispatch

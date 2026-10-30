@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { Sparkles } from 'lucide-react';
 import { aiDemo, todayDemo } from '@/config/demo-data';
 import { cn } from '@/lib/cn';

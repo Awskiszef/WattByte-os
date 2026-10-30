@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Account: signed out (form), signed in (sync section, destructive action) and
 // the "cloud features are off" build, at every text scale.
 import 'package:flutter/material.dart';

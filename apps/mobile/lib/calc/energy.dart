@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import '../domain/models.dart';
 
 /// Thrown when an energy calculation receives a value that cannot be physical:

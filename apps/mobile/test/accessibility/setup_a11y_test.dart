@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Automatic setup review ("Your setup"): responsive in every state it can be in
 // (everything detected, battery unknown, price unavailable, offline, custom
 // price), at every text scale, and readable by a screen reader.

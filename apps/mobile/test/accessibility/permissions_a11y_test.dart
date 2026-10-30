@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Permissions: explanation first, system prompt only after a tap; responsive
 // on iOS and Android.
 import 'package:flutter/material.dart';

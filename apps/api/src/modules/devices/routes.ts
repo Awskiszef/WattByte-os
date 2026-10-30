@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { DeviceDto, DeviceListResponse, DeviceRegisterRequest, DeviceSpecificationDto, DeviceSpecificationParams, ErrorResponse } from '@wattbyte/contracts';
 import { lookupDeviceSpecification } from '@wattbyte/device-specs';
 import type { FastifyRequest } from 'fastify';

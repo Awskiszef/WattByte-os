@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // The collection pass must not lose data when something fails half way (audit G-11, H-05, G-12). Driven through the real
 // Collector, a scripted native side and a real in-memory SQLite database.
 import 'package:flutter_test/flutter_test.dart';

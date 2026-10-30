@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // The share sheet needs a non-empty anchor rectangle on iOS 26+ and on iPad;
 // a missing one crashed the export ("sharePositionOrigin must be non-zero").
 // These tests pin the rule: whatever the geometry, the anchor is never empty.

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /// Dart side of the WattByte platform bridge.
 ///
 /// Every method maps 1:1 to an official system API on Android or iOS; see the

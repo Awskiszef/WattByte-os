@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Where an account-level value came from (`*Source` on `/me/settings`), written once and run against every repository
  * implementation (see setting-source.test.ts and db/setting-source.integration.test.ts). The device-side meaning of these

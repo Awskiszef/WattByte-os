@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { type AIGateway, AIGatewayError, type AIMode, type AITask, type GatewayStatus } from '@wattbyte/ai';
 import type { AIGenerateRequest, AIGenerateResponse } from '@wattbyte/contracts';
 

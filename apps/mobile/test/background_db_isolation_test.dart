@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // G-01: on Android the WorkManager task runs in its own FlutterEngine inside the
 // SAME process as the UI. sqflite_android keeps its single-instance registry in JVM
 // statics shared by every engine, answers a second `singleInstance` open of a path with

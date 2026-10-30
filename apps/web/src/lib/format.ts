@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /** Number formatting shared by counters and mockups (en-US, matches the demo copy). */
 const formatter = new Intl.NumberFormat('en-US');
 

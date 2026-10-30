@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Provider call hardening from the audit appendix: a provider's redirect is not followed with the API key attached, a
 // provider's answer is read only up to a cap, a `models/<id>` name from ListModels does not break the Google URL, and a
 // budget limit that is NaN (which would silently switch the cap off) is refused.

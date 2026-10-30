@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Settings > Device with an ESTIMATED full-charge capacity: the read-only row
 // "Estimated full charge capacity" ("~3,600 mAh", "Estimated from the battery
 // charge counter. Confidence: high") sits beside the design capacity and must

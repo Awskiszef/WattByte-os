@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Shared flat config for every TypeScript package in the monorepo.
 import tseslint from 'typescript-eslint';
 

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { ButtonLink } from '@/components/ui/button';
 import { DemoLabel } from '@/components/ui/demo-label';
 import { todayDemo } from '@/config/demo-data';

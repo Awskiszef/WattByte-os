@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { createBudgetGuard, ProviderError } from '@wattbyte/ai';
 import { afterEach, describe, expect, it } from 'vitest';
 

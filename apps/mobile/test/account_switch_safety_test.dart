@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // An account switch cannot leak across accounts through the account-settings calls (F-13) or through a failed swap of the
 // locally stored settings (F-21).
 import 'dart:async';
