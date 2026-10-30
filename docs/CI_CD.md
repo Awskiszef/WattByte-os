@@ -8,7 +8,7 @@ How to contribute: `CONTRIBUTING.md`. What the optimisation changed and what is 
 > **Status of the restructured pipeline: configured, statically verified, NOT RUN on GitHub.** The previous pipeline passed (pull request 19,
 > 15 of 15 jobs). The one in this file was written after GitHub began refusing every job of the account ("recent account payments have
 > failed or your spending limit needs to be increased"). What was verified instead: YAML validity, the pin checker, 32 unit tests of the scope
-> classifier and the gate, a dry run of the classifier on real diffs. Until a run is green, treat each statement about runtime behaviour as unproven.
+> classifier and the gate, a dry run of the classifier on real diffs; GitHub's parser accepted the file (pull request 28 created the jobs under their new names) but refused to start any of them. Until a run is green, treat each statement about runtime behaviour as unproven.
 
 ## Workflows
 
