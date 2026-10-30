@@ -45,7 +45,8 @@ Dependabot opened one PR per directory (#14, #15, #16, closed) and one for the r
 
 ## Not done yet, and why
 
-Steps 1 to 7 are not started. They need the PostgreSQL tests, Java for the Dart client and the e2e job, i.e. a working Docker Desktop and GitHub Actions
-minutes. At the time of writing Docker is stopped on the development machine and the repository's Actions jobs are refused by GitHub
-("recent account payments have failed or your spending limit needs to be increased"). Doing the migration without those checks would only move risk to the
+Steps 1 to 7 are not started. They need the PostgreSQL tests, Java for the Dart client and the e2e job. As of 2026-10-30 the local side is ready: Docker Desktop runs, the whole chain
+(API tests with PostgreSQL 777 of 777, `pnpm dart-client:check` with the JDK bundled in Android Studio, the Dart e2e 45 of 45 against a live API) was run by hand on the code as it is today, so there is a green baseline
+to compare the migrated code with (`docs/security/PUBLIC_RELEASE_REPORT.md`, "Code"). What is still missing is GitHub Actions: the repository's jobs are refused by GitHub
+("recent account payments have failed or your spending limit needs to be increased"), so the migration cannot yet be confirmed by the CI that guards `main`. Doing the migration without that check would only move risk to the
 mobile clients.
