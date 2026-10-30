@@ -1,0 +1,231 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ------------------------------------------------------------------ tokens */
+:root {
+  --bg: #ffffff;
+  --bg-elevated: #fafafa;
+  --surface: #f4f4f5;
+  --surface-2: #e9e9ec;
+  --border: rgb(0 0 0 / 0.08);
+  --border-strong: rgb(0 0 0 / 0.16);
+  --fg: #0a0a0a;
+  --fg-muted: #52525b;
+  --fg-subtle: #65656e; /* 5.8:1 on --bg, 4.8:1 on --surface-2 (WCAG AA for small text) */
+  --energy: #a8690f;
+  --energy-soft: rgb(168 105 15 / 0.12);
+  --data: #0b6f87;
+  --data-soft: rgb(11 111 135 / 0.12);
+  --glow-energy: rgb(240 179 91 / 0.18);
+  --glow-data: rgb(98 208 230 / 0.16);
+  --ring: #0a0a0a;
+  --phone: #0a0a0a;
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #000000;
+  --bg-elevated: #0b0b0d;
+  --surface: #121214;
+  --surface-2: #1a1a1e;
+  --border: rgb(255 255 255 / 0.08);
+  --border-strong: rgb(255 255 255 / 0.16);
+  --fg: #f4f4f5;
+  --fg-muted: #a1a1aa;
+  --fg-subtle: #85858f; /* 5.8:1 on --bg, 4.8:1 on --surface-2 (WCAG AA for small text) */
+  --energy: #f0b35b;
+  --energy-soft: rgb(240 179 91 / 0.14);
+  --data: #62d0e6;
+  --data-soft: rgb(98 208 230 / 0.14);
+  --glow-energy: rgb(240 179 91 / 0.14);
+  --glow-data: rgb(98 208 230 / 0.12);
+  --ring: #f4f4f5;
+  --phone: #050506;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-energy: var(--energy);
+  --color-energy-soft: var(--energy-soft);
+  --color-data: var(--data);
+  --color-data-soft: var(--data-soft);
+  --color-ring: var(--ring);
+  --color-phone: var(--phone);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, 'SF Pro Text', 'Segoe UI', sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  --breakpoint-xs: 26rem;
+  --breakpoint-3xl: 112rem;
+
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ------------------------------------------------------------------- base */
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv11', 'ss01';
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+
+::selection {
+  background: var(--energy);
+  color: #000;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ---------------------------------------------------------------- helpers */
+@utility container-x {
+  width: 100%;
+  max-width: 76rem;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+  @media (width >= 40rem) {
+    padding-inline: 2rem;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility text-balance {
+  text-wrap: balance;
+}
+
+@utility text-pretty {
+  text-wrap: pretty;
+}
+
+@utility hairline {
+  border: 1px solid var(--border);
+}
+
+/* Subtle energy/data glows, used once per section at most. */
+@utility glow-energy {
+  background: radial-gradient(60% 60% at 50% 50%, var(--glow-energy), transparent 70%);
+}
+@utility glow-data {
+  background: radial-gradient(60% 60% at 50% 50%, var(--glow-data), transparent 70%);
+}
+
+/* The one page-load sequence (hero). */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* Same motion without the fade: Chrome never reports an element that first
+   painted at opacity 0 as a Largest Contentful Paint candidate, so the hero
+   headline and its lead paragraph slide in at full opacity. */
+@keyframes rise-solid {
+  from {
+    transform: translateY(12px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.rise {
+  animation: rise 0.7s var(--ease-out-quint) both;
+}
+.rise-solid {
+  animation: rise-solid 0.7s var(--ease-out-quint) both;
+}
+.rise-1 { animation-delay: 0.05s; }
+.rise-2 { animation-delay: 0.15s; }
+.rise-3 { animation-delay: 0.25s; }
+.rise-4 { animation-delay: 0.35s; }
+
+@keyframes drift {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(2%, -3%, 0); }
+}
+.drift {
+  animation: drift 14s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.pulse-dot {
+  animation: pulse-dot 2.4s ease-in-out infinite;
+}
+
+/* Elements revealed when scrolled into view (see useInView). */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 0.6s var(--ease-out-quint),
+    transform 0.6s var(--ease-out-quint);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .rise,
+  .rise-solid,
+  .drift,
+  .pulse-dot {
+    animation: none !important;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .motion-flow animateMotion {
+    display: none;
+  }
+  .motion-flow circle {
+    display: none;
+  }
+  *,
+  ::before,
+  ::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

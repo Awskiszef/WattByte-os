@@ -9,6 +9,8 @@ packages:
 # esbuild's postinstall only validates its platform binary; allow it so vitest/tsx work.
 allowBuilds:
   esbuild: true
+  # workerd (Cloudflare Workers runtime used by wrangler dev/preview in apps/web) only validates its platform binary.
+  workerd: true
   # eslint-config-next's resolver ships prebuilt binaries; its postinstall is only a fallback.
   unrs-resolver: false
 
@@ -17,6 +19,11 @@ allowBuilds:
 overrides:
   "fast-uri@>=3.0.0 <3.1.9": "^3.1.9"
   "fast-uri@>=4.0.0 <4.2.3": "^4.2.3"
+  # Found when apps/web joined the lockfile (2026-10-30): transitive packages of openai (undici) and of the OpenNext deploy
+  # tooling (glob, body-parser). Patch-level raises within the same major line.
+  "undici@>=7.0.0 <7.30.1": "^7.30.1"
+  "glob@>=10.2.0 <10.5.0": "^10.5.0"
+  "body-parser@>=2.0.0 <2.4.0": "^2.4.0"
 
 auditConfig:
   ignoreGhsas:
@@ -25,4 +32,3 @@ auditConfig:
     # `zod/v4` is openai's optional `openai/helpers/zod`, which nothing here uses, and request bodies are capped at 16 KiB.
     # The real fix is the zod 3 -> 4 migration (fastify-type-provider-zod, contracts, ai, api). Remove this entry when that lands.
     - GHSA-mrhx-c7xc-m3w5
-
