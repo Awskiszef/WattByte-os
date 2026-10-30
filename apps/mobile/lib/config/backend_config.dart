@@ -14,6 +14,7 @@
 /// | any        | present, wrong | any              | invalid (never "local-only")      |
 /// | debug      | valid          | `true`           | invalid (contradiction)           |
 /// | debug      | missing        | `true`, APP_ENV staging / production | invalid       |
+/// | profile / release | any     | APP_ENV=development, or a non-public host (localhost, IP, `.local`, `example.com`) | invalid |
 ///
 /// Without `APP_ENV` a profile or release build is validated as `production`
 /// (https only), see [effectiveEnvironment].
@@ -25,6 +26,7 @@ library;
 
 import '../api/api_config.dart';
 import 'app_environment.dart';
+import 'url_rules.dart';
 
 /// Flutter's three build modes (`flutter run --debug|--profile|--release`).
 /// [kBuildMode] in `app_config.dart` is the mode this binary was compiled in.
@@ -128,8 +130,12 @@ BackendConfigCheck validateBackendConfig({
   required BuildMode buildMode,
   String apiBaseUrl = '',
   String localOnlyDev = '',
-  AppEnvironment environment = AppEnvironment.development,
+  AppEnvironment? environment,
 }) {
+  // Not given: the rule set the build would get without APP_ENV (development for debug, production otherwise).
+  final env =
+      environment ?? effectiveEnvironment(buildMode: buildMode, appEnv: '');
+  environment = env;
   final errors = <String>[];
 
   final flagRaw = localOnlyDev.trim();
@@ -154,6 +160,24 @@ BackendConfigCheck validateBackendConfig({
   final apiProblem = api.problem;
   final apiPresent = api.isConfigured || apiProblem != null;
   if (apiProblem != null) errors.add(apiProblem);
+
+  // A build that ships is not a development build (F-14): `APP_ENV=development` relaxes https and placeholder-host rules for a
+  // laptop, and a release carrying it would talk cleartext to whatever the address says. The address must also be a name a
+  // stranger's phone can resolve: localhost, an IP literal, a single-label name or a reserved domain (`.local`, `example.com`)
+  // is a development address whatever APP_ENV says.
+  if (buildMode != BuildMode.debug) {
+    if (environment == AppEnvironment.development) {
+      errors.add(
+          'APP_ENV=development is not allowed in ${buildMode.wireName} builds '
+          '(use staging or production)');
+    }
+    final host = Uri.tryParse(apiBaseUrl.trim())?.host ?? '';
+    if (apiProblem == null && api.isConfigured && isNonPublicHost(host)) {
+      errors.add(
+          'API_BASE_URL must be a public host in ${buildMode.wireName} builds '
+          '(not localhost, an IP address, a single-label name or a reserved domain)');
+    }
+  }
 
   if (apiPresent) {
     if (flagOn && buildMode == BuildMode.debug) {

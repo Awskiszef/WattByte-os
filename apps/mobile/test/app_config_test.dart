@@ -519,15 +519,23 @@ void main() {
           expect(c.isValid, isFalse, reason: '${mode.name} $bad');
           expect(c.isLocalOnlyDev, isFalse);
         }
-        // An explicit APP_ENV is honoured.
+        // A shipped build is never `development`, whatever the define says (F-14).
         expect(
             AppConfig.fromDefines(
                     buildMode: mode,
                     appEnv: 'development',
                     apiBaseUrl: 'http://127.0.0.1:8080')
                 .isValid,
-            isTrue,
+            isFalse,
             reason: 'explicit development in ${mode.name}');
+        expect(
+            AppConfig.fromDefines(
+                    buildMode: mode,
+                    appEnv: 'development',
+                    apiBaseUrl: _publicApi)
+                .isValid,
+            isFalse,
+            reason: 'development with a public address in ${mode.name}');
       }
     });
 

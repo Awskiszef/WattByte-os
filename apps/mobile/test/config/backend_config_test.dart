@@ -19,7 +19,7 @@ BackendConfigCheck _check(
   BuildMode mode, {
   String api = '',
   String flag = '',
-  AppEnvironment env = AppEnvironment.development,
+  AppEnvironment? env,
 }) =>
     validateBackendConfig(
       buildMode: mode,
@@ -125,9 +125,12 @@ void main() {
     test('release + no API + LOCAL_ONLY_DEV=true reports both reasons', () {
       final c = _check(_release, flag: 'true');
       _expectInvalid(c);
-      expect(c.errors, hasLength(2));
+      // A release build is validated as production (not development, F-14), so the flag is wrong twice.
+      expect(c.errors, hasLength(3));
       expect(c.errors, _hasError(['API_BASE_URL', 'required']));
       expect(c.errors, _hasError(['LOCAL_ONLY_DEV', 'only allowed in debug']));
+      expect(
+          c.errors, _hasError(['LOCAL_ONLY_DEV', 'development environment']));
     });
 
     test('release + no API + LOCAL_ONLY_DEV=false is invalid, one reason', () {
@@ -290,12 +293,47 @@ void main() {
       }
     });
 
-    test('https is valid in every environment and mode', () {
+    test(
+        'https is valid in every environment; a shipped build is never development (F-14)',
+        () {
       for (final env in AppEnvironment.values) {
         for (final mode in BuildMode.values) {
-          _expectOnline(_check(mode, api: _api, env: env),
-              reason: '${env.name} ${mode.name}');
+          final c = _check(mode, api: _api, env: env);
+          if (env == AppEnvironment.development && mode != BuildMode.debug) {
+            _expectInvalid(c, reason: '${env.name} ${mode.name}');
+            expect(c.errors, _hasError(['APP_ENV=development', 'not allowed']));
+          } else {
+            _expectOnline(c, reason: '${env.name} ${mode.name}');
+          }
         }
+      }
+    });
+
+    test(
+        'a release or profile build refuses an address nobody else can reach (F-14)',
+        () {
+      for (final mode in [_profile, _release]) {
+        for (final address in [
+          'https://localhost',
+          'https://127.0.0.1',
+          'https://10.0.2.2:8443',
+          'https://intranet',
+          'https://api.company.local',
+          'https://api.example.com',
+        ]) {
+          for (final env in [
+            AppEnvironment.staging,
+            AppEnvironment.production
+          ]) {
+            final c = _check(mode, api: address, env: env);
+            _expectInvalid(c, reason: '${mode.name} ${env.name} $address');
+            expect(c.errors, _hasError(['public host']), reason: address);
+            expect(c.errors.join(), isNot(contains(address)),
+                reason: 'the address is never echoed');
+          }
+        }
+        // The same addresses are fine for a debug build on a laptop.
+        _expectOnline(_check(_debug, api: 'http://127.0.0.1:8080'));
       }
     });
 
@@ -675,6 +713,10 @@ void main() {
         for (final (mode, address, flag, want) in table) {
           if (address == wrong) continue;
           if (want == localOnly && env != AppEnvironment.development) continue;
+          // A shipped build is never `development` (F-14): covered by its own test.
+          if (env == AppEnvironment.development && mode != BuildMode.debug) {
+            continue;
+          }
           final c =
               _check(mode, api: addresses[address]!, flag: flag, env: env);
           expect(c.mode, modeOf(want),

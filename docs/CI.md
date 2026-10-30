@@ -162,7 +162,8 @@ The matrix uses `macos-latest` (Apple Silicon) and `macos-15-intel` (Intel). Hon
   `release.yml` passes `API_BASE_URL` only. Without `APP_ENV` a release build is validated as `production` (https only,
   no `.invalid` host), so the check and the app are strict about that address; `PRIVACY_POLICY_URL` is not passed, so a
   build made by the workflow has no privacy-policy URL compiled in (see "Release workflow"). An explicit
-  `APP_ENV=development` would still be honoured in a release check.
+  `APP_ENV=development`, or an API host nobody else can reach (`localhost`, an IP address, a single-label name, `.local`,
+  `.test`, `.invalid`, `example.com`), is rejected in a release or profile check (F-14).
 - The `--builds` step of the `android` job runs three real Gradle release builds: two are meant to fail, one builds an
   unsigned arm64 APK. It adds a release build to that job (`timeout-minutes` is 40; the whole script took 44 s on a developer Mac with warm
   caches, and how long the step takes on a cold runner is unknown, because the job has never run) and is only as good as the markers it looks for (`[WB-CONFIG-001]`,

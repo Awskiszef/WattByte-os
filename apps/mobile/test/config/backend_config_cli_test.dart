@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wattbyte/config/backend_config_cli.dart';
 
 // Fixtures only: made-up hosts, never an address of this product.
-const _https = 'https://api.ci-guard.test';
+const _https = 'https://api.ci-guard.dev';
 const _http = 'http://api.ci-guard.test';
 const _local = 'http://127.0.0.1:8080';
 const _placeholder = 'https://api.ci-guard.invalid';
@@ -493,8 +493,14 @@ void main() {
       expect(_run(_args('debug', api: _http)).code, kBackendConfigExitOk);
     });
 
-    test('an explicit APP_ENV=development is honoured in a release check', () {
-      expect(_run(_args('release', api: _local, appEnv: 'development')).code,
+    test('an explicit APP_ENV=development is refused in a release check (F-14)',
+        () {
+      final r = _run(_args('release', api: _local, appEnv: 'development'));
+      expect(r.code, isNot(kBackendConfigExitOk));
+      expect(_run(_args('release', api: _https, appEnv: 'development')).code,
+          isNot(kBackendConfigExitOk),
+          reason: 'not even with a public https address');
+      expect(_run(_args('debug', api: _local, appEnv: 'development')).code,
           kBackendConfigExitOk);
     });
   });

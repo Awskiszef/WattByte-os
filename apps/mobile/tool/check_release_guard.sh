@@ -21,7 +21,7 @@
 # builds an UNSIGNED arm64 APK with a made-up address, inspects it and deletes it again (an app-release.apk that was already
 # there is put aside and restored).
 #
-# Fixture hosts are made up (.test / .invalid), never an address of the product. Nothing here is a secret.
+# Fixture hosts are made up (a public-looking .dev name, and .invalid for the placeholder; release builds refuse reserved .test / .local / localhost / IP hosts), never an address of the product. Nothing here is a secret.
 # Works from any directory; needs `dart` (and `flutter` with --builds) on PATH and `flutter pub get` done.
 set -euo pipefail
 
@@ -46,8 +46,8 @@ fi
 work="$(mktemp -d "${TMPDIR:-/tmp}/wb-release-guard.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 
-HTTPS_API='https://api.ci-guard.test'
-HTTP_API='http://api.ci-guard.test'
+HTTPS_API='https://api.ci-guard.dev'
+HTTP_API='http://api.ci-guard.dev'
 PLACEHOLDER_API='https://api.ci-guard.invalid'
 LOCAL_API='http://127.0.0.1:8080'
 
