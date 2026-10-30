@@ -116,5 +116,5 @@ desktop.ini
 .claude/worktrees/
 .claude/scheduled_tasks.lock
 
-# Rendered videos and other build output of the promo module (large, reproducible)
+# Local build output and rendered media; never committed
 /output/

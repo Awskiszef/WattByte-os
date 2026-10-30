@@ -148,7 +148,7 @@ Both need a port, so run them outside any sandbox. `deploy` needs a logged-in Wr
 | `routes` | `wattbyte.app`, `www.wattbyte.app` as custom domains | Cloudflare creates the DNS records and the certificate itself; the zone `wattbyte.app` must be in the same account. `next.config.ts` redirects `www.` to the apex with 308. |
 | `workers_dev` | `false` | no `*.workers.dev` hostname for the production Worker |
 | `compatibility_flags` | `nodejs_compat` | required by OpenNext (and by the `runtime = 'nodejs'` route handler) |
-| `kv_namespaces` | `NEXT_INC_CACHE_KV` → `wattbyte-web-cache` | ISR and `fetch` cache |
+| `kv_namespaces` | `NEXT_INC_CACHE_KV` → your namespace | ISR and `fetch` cache. The committed id is a placeholder: run `npx wrangler kv namespace create wattbyte-web-cache` once and put the id it prints into `wrangler.jsonc` (keep that edit out of commits to a public fork) |
 | `services` | `WORKER_SELF_REFERENCE` → `wattbyte-web` | the revalidation queue calls the Worker back |
 | `vars` | `NEXT_PUBLIC_SITE_URL=https://wattbyte.app` | canonical URLs, sitemap, Open Graph |
 
@@ -171,8 +171,7 @@ or with the commands above from this directory. Never put them in `vars`.
 because those requests are answered by the asset layer, not by the Worker code. Plain-HTTP requests and the
 `www.` host are 308-redirected to `https://wattbyte.app` by `next.config.ts`.
 
-First production deploy: 2026-10-20 (Worker version `18eb6351`), account `atlashc`; both custom domains
-were created by that deploy, and `wattbyte-web-cache` was populated with the prerendered pages. Note that
+The first deploy creates both custom domains and populates the KV cache with the prerendered pages. Note that
 `opennextjs-cloudflare deploy` on its own uploads the existing `.open-next/` build; always run the `deploy`
 package script with `pnpm run deploy` (build + deploy) after a code change.
 
