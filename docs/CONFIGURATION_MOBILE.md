@@ -271,8 +271,7 @@ so no normal build can show them. The text itself is the constant
 `kDebugMode ? 'LOCAL ONLY DEVELOPMENT MODE' : ''`: in a profile or release build it
 is the empty string, so the literal itself is not in those binaries, independent of
 how the compiler treats the code around it. `tool/check_release_guard.sh --builds`
-is the check that greps a real release binary for it (above; its result is in
-`docs/STATUS.md`). It is not localised on purpose. The error screen never shows it.
+is the check that greps a real release binary for it (above). It is not localised on purpose. The error screen never shows it.
 `test/config/backend_config_invariants_test.dart` keeps the sources honest at
 source level (the text is spelled out once, used by the widget and the debug log
 only, built in `lib/app.dart` behind the debug condition).
@@ -503,8 +502,7 @@ was involved.
 Not part of the table above. The results of the verification run for that change
 (format, analyze, the whole test suite, the debug builds, `tool/check_release_guard.sh`
 with and without `--builds`, the two runs of `test/config/define_wiring_test.dart`
-with defines) are in `docs/REGRESSION_TESTS.md`, "Verification (2026-10-14)" and in
-`docs/STATUS.md`, section 20. In short: 1974 tests pass (38 skipped), format and analyze
+with defines) are in `docs/REGRESSION_TESTS.md`, "Verification (2026-10-14)". In short: 1974 tests pass (38 skipped), format and analyze
 are clean, the guard script's 26 checks and its three real release builds behave as
 specified, and the debug app was started once on the iOS simulator in each of the two
 modes (local-only with the banner; no define with the error screen).

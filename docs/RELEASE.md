@@ -4,7 +4,7 @@ How to get WattByte from this repository to a device, TestFlight and the stores,
 done (or verified) without an Apple Developer account and a Google Play key. The automated route is the manual
 `release.yml` workflow (`docs/CI.md`, "Release workflow"); this page is the human checklist behind it.
 
-Statuses: IMPLEMENTED, TESTED, BUILD VERIFIED, NOT VERIFIED, BLOCKED (see `docs/FIX_REPORT.md`). Everything that needs an
+Statuses: IMPLEMENTED, TESTED, BUILD VERIFIED, NOT VERIFIED, BLOCKED (see `docs/VERIFICATION_STATUS.md`). Everything that needs an
 Apple Developer Program membership, App Store Connect, a Play Console account or a release key is **BLOCKED** in this
 environment and says so. Nothing below was executed against Apple's or Google's services.
 
@@ -201,16 +201,14 @@ The Flutter build rows of the log above were made on 2026-10-13, before the back
 listed carry no `--dart-define`. A profile or release build now needs `API_BASE_URL`: the release rows that get as far as the Dart compile
 (`flutter build ios --release --no-codesign`, and `appbundle --release` / `apk --release` once a key or the unsigned switch is set) stop
 there with `[WB-CONFIG-001]` unless `--dart-define=API_BASE_URL=https://<host>` (or a `--dart-define-from-file`) is given; without a key
-and without the switch the Gradle signing check still fails first, as in the table. The rows above were not re-run for this change, so they are history, not a re-verification; the runs made for this change are listed below
-and in `docs/STATUS.md`. On iOS the compile error is only visible with `-v`: `flutter build ios --release --no-codesign` without
+and without the switch the Gradle signing check still fails first, as in the table. The rows above were not re-run for this change, so they are history, not a re-verification; the runs made for this change are listed below. On iOS the compile error is only visible with `-v`: `flutter build ios --release --no-codesign` without
 `API_BASE_URL` fails, but without `-v` Flutter prints a "Development Team" hint instead of `[WB-CONFIG-001]`. Debug builds are unaffected
 (they compile without defines).
 
 What the guard adds is `tool/check_release_guard.sh --builds`: three real `flutter build apk --release` runs (two refused with
 `[WB-CONFIG-001]` / `[WB-CONFIG-002]`, one with a valid made-up address that builds an unsigned arm64 APK, which is inspected and deleted;
 `docs/CI.md`). It is not an `appbundle` or an iOS build, and it signs nothing. Its results, and the results of the rest of the
-verification run of that change (2026-10-14), are in `docs/REGRESSION_TESTS.md`, "Verification (2026-10-14)" and in `docs/STATUS.md`,
-section 20. For the release builds: the three Android builds of the script behaved as specified (two refused with `[WB-CONFIG-001]` /
+verification run of that change (2026-10-14), are in `docs/REGRESSION_TESTS.md`, "Verification (2026-10-14)". For the release builds: the three Android builds of the script behaved as specified (two refused with `[WB-CONFIG-001]` /
 `[WB-CONFIG-002]`, one built, no banner text in `libapp.so`), `flutter build ios --release --no-codesign` with a made-up address built
 (no banner text in `App.framework/App`), and without `API_BASE_URL` it failed with `[WB-CONFIG-001]` (visible with `-v`). No signed build, no
 `appbundle` and no `ipa` was made.

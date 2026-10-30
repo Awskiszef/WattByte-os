@@ -1,6 +1,6 @@
 # CI/CD on GitHub
 
-Repository: `Awskiszef/WattByte`, default branch `main`. Visibility and the state of the public release: `docs/security/PUBLIC_RELEASE_REPORT.md`.
+Repository: `Awskiszef/WattByte`, default branch `main`.
 This page separates what is **active** from what is **prepared** and what **needs a different GitHub plan or a person**.
 Workflows: `.github/workflows/ci.yml`, `release.yml`; Dependabot: `.github/dependabot.yml`. How to run each step locally: `docs/CI.md`.
 How to contribute: `CONTRIBUTING.md`. What the optimisation changed and what is measured versus estimated: `docs/CI_OPTIMIZATION_REPORT.md`.
@@ -9,7 +9,7 @@ How to contribute: `CONTRIBUTING.md`. What the optimisation changed and what is 
 > 15 of 15 jobs). The one in this file was written after GitHub began refusing every job of the account ("recent account payments have
 > failed or your spending limit needs to be increased"). What was verified instead: YAML validity, the pin checker, 32 unit tests of the scope
 > classifier and the gate, a dry run of the classifier on real diffs; GitHub's parser accepted the file (pull request 28 created the jobs under their new names) but refused to start any of them (a re-run on 2026-10-30 at 20:18 UTC was refused the same way). Until a run is green, treat each statement about runtime behaviour as unproven.
-> The commands of the jobs (PostgreSQL tests, production and image smoke tests, Gitleaks, end to end, Dart client check, release guard) were also run by hand on a Mac with Docker: that proves the commands, not the workflow, the caches or the scope rules. Results: `docs/security/PUBLIC_RELEASE_REPORT.md`.
+> The commands of the jobs (PostgreSQL tests, production and image smoke tests, Gitleaks, end to end, Dart client check, release guard) were also run by hand on a Mac with Docker: that proves the commands, not the workflow, the caches or the scope rules.
 
 ## Workflows
 
@@ -53,8 +53,7 @@ classifier runs everything instead of guessing.
   can read the cache of `main` but cannot write to it. No cache holds a secret. Not measured: hit rates need runs.
 * Concurrency: a new push to a pull request cancels the older run; runs on `main`, scheduled and manual runs are never cancelled by a later one; the release workflow is
   never cancelled.
-* Forks: `pull_request` gives a fork a read-only token and no secrets; first-time contributors need a maintainer's approval before workflows run (a repository setting, see
-  `docs/security/PUBLIC_RELEASE_REPORT.md`). The release workflow can only be started by someone with write access and signs only inside the `release` environment.
+* Forks: `pull_request` gives a fork a read-only token and no secrets; first-time contributors need a maintainer's approval before workflows run (a repository setting: Settings → Actions → General). The release workflow can only be started by someone with write access and signs only inside the `release` environment.
 
 ## Repository settings that are active (verified through the API on 2026-10-30)
 

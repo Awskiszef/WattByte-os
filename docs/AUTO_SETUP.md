@@ -266,7 +266,7 @@ cached specification and the server rows are in `docs/BATTERY_CAPACITY.md`
 
 ## Verification (2026-10-13)
 
-Statuses follow `docs/FIX_REPORT.md`: SIMULATOR VERIFIED means observed on the
+Statuses follow `docs/VERIFICATION_STATUS.md`: SIMULATOR VERIFIED means observed on the
 iOS Simulator against the local API and Docker PostgreSQL; nothing here was run
 on a physical phone.
 

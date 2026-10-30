@@ -13,6 +13,7 @@ implemented things "planned".
 | [../README.md](../README.md) | Quickstarts for the backend and the app |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Prerequisites, first run, every test command, what `pnpm ci:local` does and does not cover |
 | [architecture.md](architecture.md) | Layers, data flow, modules, contracts |
+| [PROJECT_STATUS.md](PROJECT_STATUS.md) | What exists, and what not to assume about a pre-release project |
 
 ## Reference
 
@@ -42,7 +43,7 @@ implemented things "planned".
 | [CI_OPTIMIZATION_REPORT.md](CI_OPTIMIZATION_REPORT.md) | Before and after, what is estimated, what could have been lost |
 | [ZOD4_MIGRATION.md](ZOD4_MIGRATION.md) | Plan and risks of the zod 3 to 4 migration (removes the last audit exception) |
 | [RELEASE.md](RELEASE.md) | Store checklist, signing, what needs an Apple or Google account |
-| [REPOSITORY.md](REPOSITORY.md) | What is ignored, what would be committed, the first commit |
+| [REPOSITORY.md](REPOSITORY.md) | What Git ignores, what is tracked on purpose, local configuration templates, how to check what a commit would contain |
 | [DEVICE_TEST_PLAN.md](DEVICE_TEST_PLAN.md) | What to check on real phones |
 
 ## Privacy and security
@@ -53,6 +54,8 @@ implemented things "planned".
 | [security.md](security.md) | Authentication, sessions, limits, retention, threat notes |
 | [security/PUBLIC_RELEASE_AUDIT.md](security/PUBLIC_RELEASE_AUDIT.md) | What was classified, found and scanned before a public release |
 | [security/PUBLIC_RELEASE_REPORT.md](security/PUBLIC_RELEASE_REPORT.md) | Outcome: what is done, what blocks publication, what only the owner can do |
+| [security/WATTBYTE_OS_RELEASE_REPORT.md](security/WATTBYTE_OS_RELEASE_REPORT.md) | Private: the publication to the public repository, with every check and its result |
+| [security/PUBLIC_SYNC_WORKFLOW.md](security/PUBLIC_SYNC_WORKFLOW.md) | Private: how changes move from the private repository to the public one, and what stops them |
 
 ## Verification, audit and history
 
@@ -60,6 +63,7 @@ implemented things "planned".
 |---|---|
 | [remediation/PROGRESS.md](remediation/PROGRESS.md) | The audit remediation: state, with [PLAN](remediation/PLAN.md), [DECISIONS](remediation/DECISIONS.md), [BLOCKERS](remediation/BLOCKERS.md), [TEST_RESULTS](remediation/TEST_RESULTS.md) and `ISSUES.csv` (one row per finding) |
 | [REGRESSION_TESTS.md](REGRESSION_TESTS.md) | The regression suites and how to run them |
+| [VERIFICATION_STATUS.md](VERIFICATION_STATUS.md) | What the status words (TESTED, BUILD VERIFIED, BLOCKED, ...) mean |
 | [FIX_REPORT.md](FIX_REPORT.md) | An earlier fix round and how each fix was verified |
 | [IOS_SIMULATOR_REPORT.md](IOS_SIMULATOR_REPORT.md) | A run on the iOS simulator |
 | [AUDIT.md](AUDIT.md) | An earlier audit (**Polish**) |

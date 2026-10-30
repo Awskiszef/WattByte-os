@@ -1,6 +1,6 @@
 ## What and why
 
-<!-- One logical change. Link the audit row (docs/remediation/ISSUES.csv) or the issue. -->
+<!-- One logical change. Link the issue. -->
 
 ## How it was checked
 

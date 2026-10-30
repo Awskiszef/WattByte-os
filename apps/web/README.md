@@ -16,6 +16,7 @@ pnpm --filter @wattbyte/web build      # next build, then `start`
 | Path | Holds |
 |---|---|
 | `src/config/site.ts` | name, URL, support mailbox, store URLs (`null` = "Coming soon"), legal dates |
+| `src/config/operator.ts` | the business that operates the site (name, tax and registry ids, postal address) and the person named on /about. The legal pages print it. In the public repository every value is a placeholder: replace them before you deploy |
 | `src/config/navigation.ts` | navbar, footer columns, the list of public routes (sitemap + link tests) |
 | `src/config/pricing.ts` | the plans; a plan without `price` renders "Pricing announced at launch" |
 | `src/config/features.ts` | every product claim shown on the site, with `comingSoon` flags |
@@ -125,7 +126,7 @@ Drop `--preset=desktop` for the mobile run. Any Chromium build works as `CHROME_
 
 The site runs as the Cloudflare Worker `wattbyte-web`, built with the
 [OpenNext Cloudflare adapter](https://opennext.js.org/cloudflare) from the normal `next build` output
-(`open-next.config.ts`, `wrangler.jsonc`). Static files are served by Workers Static Assets; the home
+(`open-next.config.ts`, `wrangler.jsonc`; in the public repository copy `wrangler.example.jsonc` to the git-ignored `wrangler.jsonc` first and put your own hostnames and KV id in it). Static files are served by Workers Static Assets; the home
 page is ISR (the Eurostat price is fetched with `revalidate: 86400`), so prerendered pages and the fetch
 cache live in the Workers KV namespace `wattbyte-web-cache` (binding `NEXT_INC_CACHE_KV`).
 

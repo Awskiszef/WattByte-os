@@ -2,7 +2,7 @@
 
 Scope: Dashboard, History (+ session sheet), Insights (+ AI card), Statistics, Data by app, the bottom navigation bar and
 the shared widgets (`lib/ui/widgets`, `lib/ui/theme.dart`). The onboarding, account and settings screens have their own
-building blocks (`lib/ui/settings/flow_widgets.dart`). Statuses follow `docs/FIX_REPORT.md`: everything below is
+building blocks (`lib/ui/settings/flow_widgets.dart`). Statuses follow `docs/VERIFICATION_STATUS.md`: everything below is
 IMPLEMENTED and TESTED with widget tests (`apps/mobile/test/accessibility`); nothing is SIMULATOR VERIFIED or DEVICE
 VERIFIED by this document, and no screen reader (VoiceOver, TalkBack) was run.
 

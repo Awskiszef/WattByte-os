@@ -2,7 +2,7 @@
 
 What the server holds about an account, how to erase part of it (`DELETE /api/v1/me/cloud-data`),
 how to take a copy (`GET /api/v1/me/export`), what `DELETE /api/v1/me` removes, and what none of
-them can reach. Status words follow `docs/FIX_REPORT.md`.
+them can reach. Status words follow `docs/VERIFICATION_STATUS.md`.
 
 **In the app** (Account screen, "Your data in the cloud"; `lib/features/auth/presentation/cloud_data_section.dart`,
 `lib/sync/cloud_data_service.dart`): *Download a copy* fetches `GET /me/export` and hands the JSON exactly as the server sent it

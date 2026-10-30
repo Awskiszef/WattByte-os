@@ -4,7 +4,7 @@ Why a day is "synced" for an account and not for the phone, how the opt-in works
 often and how persistently the app talks to the server, and what happens on sign-out,
 account switch and account deletion. Code: `apps/mobile/lib/sync/`,
 `lib/storage/database.dart`, `lib/api/`, `lib/cloud_providers.dart`,
-`lib/background/foreground_refresh.dart`. Status words follow `docs/FIX_REPORT.md`; the
+`lib/background/foreground_refresh.dart`. Status words follow `docs/VERIFICATION_STATUS.md`; the
 last section lists what was actually run.
 
 ## The problem this replaces

@@ -10,7 +10,7 @@ final privacyPolicyUrlProvider =
     Provider<Uri?>((ref) => ref.watch(appConfigProvider).privacyPolicyUrl);
 
 /// Opens the privacy policy in the browser. Nothing is shown when the build has no address: a link that goes nowhere would
-/// be worse than none (the address is the owner's to publish, see docs/remediation/BLOCKERS.md B-10).
+/// be worse than none (the address is the owner's to publish).
 class PrivacyPolicyLink extends ConsumerWidget {
   const PrivacyPolicyLink({super.key, this.alignment = Alignment.center});
 

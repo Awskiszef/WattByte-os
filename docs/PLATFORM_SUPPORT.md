@@ -1,7 +1,7 @@
 # Platform support and native configuration
 
 What WattByte v1 supports on iOS and Android, why, and how the native projects are configured. Statuses follow
-`docs/FIX_REPORT.md` (IMPLEMENTED, TESTED, BUILD VERIFIED, INTEGRATION VERIFIED, SIMULATOR VERIFIED, DEVICE VERIFIED,
+`docs/VERIFICATION_STATUS.md` (IMPLEMENTED, TESTED, BUILD VERIFIED, INTEGRATION VERIFIED, SIMULATOR VERIFIED, DEVICE VERIFIED,
 NOT VERIFIED, BLOCKED, NOT IMPLEMENTED). Nothing in this file is DEVICE VERIFIED: no physical phone was available to the
 author of these changes. `docs/DEVICE_TEST_PLAN.md` is the checklist for that, `docs/RELEASE.md` covers signing and the stores.
 
@@ -182,7 +182,7 @@ Mismatches with `docs/privacy.md` (owner: whoever maintains that file; only its 
 Facts, not new features: `containerBackground` is used on iOS 17+ with a fallback below; the display name and description
 (`"WattByte"`, `"Data and energy at a glance."`) are fixed English strings, not localized, and the placeholder values are English;
 the timeline asks to reload after 30 minutes, which WidgetKit treats as a hint within its own budget. The small and medium
-widgets were seen on the simulator (`docs/IOS_SIMULATOR_REPORT.md`); large was never run; nothing ran on a device.
+widgets were seen on the simulator; large was never run; nothing ran on a device.
 
 ## Android configuration reference
 

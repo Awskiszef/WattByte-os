@@ -23,7 +23,7 @@ workflows (`.github/workflows`). Findings in third-party dependencies are welcom
 ## Known limitations
 
 The known, documented gaps (for example no e-mail verification or password reset yet) are listed in
-[docs/remediation/BLOCKERS.md](docs/remediation/BLOCKERS.md) and [docs/security.md](docs/security.md). Reports about those
+[docs/security.md](docs/security.md). Reports about those
 are still useful if you can show a concrete attack.
 
 ## Secrets

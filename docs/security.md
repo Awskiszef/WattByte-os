@@ -135,12 +135,12 @@ Consequences worth knowing:
   session for the caller. `GET /me/sessions` lists the live devices.
 * Not done: `DELETE /me` still needs only a bearer token (adding a password would break installed apps; it needs a
   coordinated client change), and there is no e-mail verification or password reset (needs an outbound e-mail
-  provider, see `docs/remediation/BLOCKERS.md`).
+  provider, see "Known limitations" in `SECURITY.md`).
 
 ### Operator procedure while there is no account recovery (A-03)
 
 There is no e-mail verification and no password reset yet (it needs an outbound e-mail provider and a decision on the
-sender domain, see `docs/remediation/BLOCKERS.md`). Until then, for a user who cannot sign in:
+sender domain, see "Known limitations" in `SECURITY.md`). Until then, for a user who cannot sign in:
 
 1. **Identity:** verify the requester out of band (the address the account was registered with, a reply from it to a
    message the operator sends first). Never act on a request that only quotes the e-mail address.

@@ -1,7 +1,6 @@
 # Regression tests
 
-What guards each of the twelve bugs found on the iOS Simulator (`docs/IOS_SIMULATOR_REPORT.md`, "Errors Found" and "Fixes
-Applied"), and what else this suite pins. Status words follow `docs/FIX_REPORT.md` (IMPLEMENTED, TESTED, BUILD VERIFIED,
+What guards each of the twelve bugs found on the iOS Simulator (an iOS Simulator run), and what else this suite pins. Status words follow `docs/VERIFICATION_STATUS.md` (IMPLEMENTED, TESTED, BUILD VERIFIED,
 INTEGRATION VERIFIED, SIMULATOR VERIFIED, DEVICE VERIFIED, NOT VERIFIED, BLOCKED, NOT IMPLEMENTED). Nothing here is DEVICE
 VERIFIED. A test of configuration proves that the configuration is what it was; it does not prove that the app builds or
 launches: that is the build and the simulator, named in the "Verification" column where it matters.
@@ -89,7 +88,7 @@ as a function, not on a real spoofed binary). The banner on a device and the err
 The verification of this change covers the `test/config` files above and `test/app_config_test.dart`;
 `dart run tool/check_backend_config.dart` over the combinations of the matrix; `tool/check_release_guard.sh` with and without
 `--builds`; `flutter test test/config/define_wiring_test.dart` with each of the two defines; format, analyze, the whole suite
-and the debug builds. The results below are also in `docs/STATUS.md` (section 20):
+and the debug builds. The results:
 
 | Check (2026-10-14, `apps/mobile`) | Result |
 |---|---|

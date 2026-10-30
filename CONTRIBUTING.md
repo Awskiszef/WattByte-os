@@ -34,6 +34,22 @@ Branch protection (pull request required, `CI result` required, no force push, n
 active. A local `pre-push` hook (`.githooks/pre-push`; enable once per clone with `git config core.hooksPath .githooks`)
 refuses a direct push to `main` and force pushes. The current state is recorded in [docs/CI_CD.md](docs/CI_CD.md).
 
+## Private configuration never enters the repository
+
+No environment file, key, keystore, provisioning profile, service-account or Firebase file, database dump, Terraform state, real
+`wrangler.jsonc` or file that names your own infrastructure may be committed; use the `*.example` templates and keep your copy
+untracked ([docs/REPOSITORY.md](docs/REPOSITORY.md) lists them). CI job **Public Configuration Security Gate** runs on every pull
+request, whatever the files changed, and fails on such files, on configuration files it does not know and on credentials or
+account-specific values in the tree or in the history. Run it before you push:
+
+```bash
+node scripts/check-public-config.mjs --history
+```
+
+A new configuration file (a manifest, a build setting) is added to `scripts/public-config.allowlist.json` with a reason and the way it was
+reviewed. The output never prints a matched value. Your commits carry your name and e-mail address: use your GitHub `noreply`
+address if you do not want yours to be public.
+
 ## Dependencies
 
 Dependabot opens grouped weekly pull requests for minor and patch updates and security updates; majors are not opened

@@ -1,0 +1,30 @@
+name: Feature request
+description: Propose a change or an addition.
+labels: [enhancement]
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options: [Mobile app, API, AI gateway, Website, CI / workflows, Documentation, Other]
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What can you not do today, and why does it matter?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: What you would change. Mention anything that touches stored data, the API contract (`/api/v1` may only grow) or what leaves the phone.
+  - type: checkboxes
+    id: safe
+    attributes:
+      label: Before you submit
+      options:
+        - label: This request contains no secrets, tokens or personal data.
+          required: true

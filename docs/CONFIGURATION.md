@@ -257,6 +257,25 @@ data out and erase it, whatever the deployment has switched off.
 in batches, is idempotent, and takes an advisory lock so two runs never overlap. Schedule it daily.
 What it purges and what is kept until the account is deleted: `docs/security.md`, "Retention".
 
+## Public configuration
+
+The repository is public, so configuration follows one rule: **a file is private until it has been classified** (`PRIVATE_CONFIG_DENY_BY_DEFAULT`).
+
+| Class | Meaning | In the repository? |
+|---|---|---|
+| `PRIVATE_SECRET`, `PRIVATE_INFRASTRUCTURE`, `PRIVATE_ENVIRONMENT`, `PRIVATE_BUSINESS` | credentials and keys; account-specific deployment config (Cloudflare, Terraform); real `.env` files; business identifiers | never |
+| `PUBLIC_BUILD_REQUIRED` | needed to build or test (manifests, compiler and Gradle settings, workflows) | after a content review |
+| `PUBLIC_EXAMPLE` | a template with synthetic values (`.env.example`, `wrangler.example.jsonc`, `key.properties.example`, `config/*.example.json`) | yes |
+| `PUBLIC_SOURCE` | code and resources | after review |
+
+`scripts/check-public-config.mjs` enforces it: private file names fail whatever they contain, a configuration-like file that
+`scripts/public-config.allowlist.json` does not list fails, and the content of every file is scanned for credentials, Cloudflare and
+other account ids, connection strings with credentials, local paths and business registry numbers. With `--history` it checks
+every path ever added, every added line, the author and committer addresses and the commit messages. List the configuration
+files that remain: `node scripts/check-public-config.mjs --manifest`. The templates, the git-ignored copies you create from them and
+the variables each service reads are in [docs/REPOSITORY.md](REPOSITORY.md), this page ("Variables") and
+[CONFIGURATION_MOBILE.md](CONFIGURATION_MOBILE.md).
+
 ## Known limits
 
 * AI keys: `OPENAI_API_KEY` and `XAI_API_KEY` (and the other two) are secrets. Development: your own untracked

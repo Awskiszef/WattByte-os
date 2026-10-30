@@ -8,7 +8,7 @@ older versions. Code: `apps/mobile/lib/settings/setting_source.dart`,
 `lib/setup/setup_controller.dart`, `lib/providers.dart` (`SettingsNotifier`),
 `lib/cloud_providers.dart` (`AccountSettingsController`); API:
 `apps/api/src/modules/users/routes.ts`, migration `0007_setting_sources.sql`.
-Status words follow `docs/FIX_REPORT.md`; the last section says what was run.
+Status words follow `docs/VERIFICATION_STATUS.md`; the last section says what was run.
 
 ## The problem this replaces
 
@@ -274,7 +274,7 @@ or on another device.
 
 ## Verification (2026-10-14)
 
-Statuses follow `docs/FIX_REPORT.md`: TESTED = automated tests on this tree; SIMULATOR VERIFIED = observed on the iOS Simulator
+Statuses follow `docs/VERIFICATION_STATUS.md`: TESTED = automated tests on this tree; SIMULATOR VERIFIED = observed on the iOS Simulator
 against the local API and Docker PostgreSQL. Nothing here was run on a physical phone or on Android.
 
 | Step | Result |

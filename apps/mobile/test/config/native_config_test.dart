@@ -12,7 +12,7 @@ import 'plist.dart';
 /// an App Transport Security exception in the release plist, turns Android
 /// backups on, or commits a signing key. What they cannot show is that the app
 /// builds or runs: that is the job of `flutter build` and the simulator
-/// (`docs/IOS_SIMULATOR_REPORT.md`, `docs/PLATFORM_SUPPORT.md`).
+/// (`docs/PLATFORM_SUPPORT.md`).
 void main() {
   String read(String path) => File(path).readAsStringSync();
 

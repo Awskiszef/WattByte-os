@@ -1,0 +1,41 @@
+name: Bug report
+description: Something does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not post secrets, tokens, `.env` contents, personal data or screenshots of real accounts. A security vulnerability is **not** a
+        bug report: see SECURITY.md and report it privately.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options: [Mobile app, API, AI gateway, Website, CI / workflows, Documentation, Other]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The smallest set of steps or the failing command. Include the commit you are on.
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS, Node / Flutter version, device or emulator, API commit.
+  - type: checkboxes
+    id: safe
+    attributes:
+      label: Before you submit
+      options:
+        - label: This report contains no secrets, tokens or personal data.
+          required: true

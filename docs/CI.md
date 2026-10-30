@@ -120,7 +120,7 @@ IMPLEMENTED and their rules TESTED (`test/config/backend_config_test.dart`, `tes
 `test/config/define_wiring_test.dart`, `docs/REGRESSION_TESTS.md`); neither the jobs nor the `--builds` step has run on
 GitHub. Whether the real Gradle builds fail with the expected marker on a runner (rather than at an earlier point),
 and whether the positive-control build and the inspection of its binary (`unzip`, `grep`) work on one, is unverified.
-The local results of the guard are in the final report of the change and in `docs/STATUS.md`.
+The local results of the guard are in the final report of the change.
 
 ### The iOS job and the CPU architecture
 
@@ -145,8 +145,7 @@ The matrix uses `macos-latest` (Apple Silicon) and `macos-15-intel` (Intel). Hon
   (GitHub's billing page and retirement announcements were not read; the README only lists the labels). If the
   label is rejected or retired, delete the `macos-15-intel` entry; nothing else changes.
 - The runner images carry Xcode 26.x (macOS 26: 26.0.1 to 26.5; macOS 15: up to 26.3). Xcode 27 exists only as a
-  public preview on a macOS 27 image. The project is verified locally with Xcode 27 and the iOS 27 simulator
-  (docs/IOS_SIMULATOR_REPORT.md), so CI compiles with an older SDK than the one the project is tested with.
+  public preview on a macOS 27 image. The project is verified locally with Xcode 27 and the iOS 27 simulator, so CI compiles with an older SDK than the one the project is tested with.
   A difference between the two is possible and unverified.
 - Neither macOS job runs the app: it compiles it. Launching it needs a simulator, which CI does not start.
 

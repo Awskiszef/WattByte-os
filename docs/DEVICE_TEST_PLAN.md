@@ -8,7 +8,7 @@ Result values: `NOT VERIFIED` (default), `DEVICE VERIFIED` (passed, evidence att
 `BLOCKED` (could not run, say why), `NOT APPLICABLE`.
 
 Related: `docs/PLATFORM_SUPPORT.md` (support matrix, native configuration), `docs/RELEASE.md` (signing),
-`docs/AUTO_SETUP.md` (setup flow), `docs/IOS_SIMULATOR_REPORT.md` (what the simulator already showed).
+`docs/AUTO_SETUP.md` (setup flow).
 
 ## 0. Rules for honest results
 

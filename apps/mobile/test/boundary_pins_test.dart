@@ -1,6 +1,5 @@
 // Boundaries that decide what is uploaded, what money is shown and which sessions exist (audit F-22). Each test names the
-// edge it pins; the mutants it was written against (>= for >, a 24-hour day, a currency left out of ==, ...) are listed in
-// docs/remediation/TEST_RESULTS.md.
+// edge it pins; the mutants it was written against (>= for >, a 24-hour day, a currency left out of ==, ...) are listed in the test names below.
 import 'dart:convert';
 import 'dart:io';
 
