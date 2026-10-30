@@ -264,6 +264,7 @@
   "enterManually": "Wpisz ręcznie",
   "specificationSource": "Źródło",
   "detectAgain": "Wykryj ponownie",
+  "cloudSyncUnavailable": "Synchronizacja z chmurą jest chwilowo niedostępna. Spróbuj później.",
   "privacyPolicy": "Polityka prywatności",
   "settingsLoadFailedTitle": "Nie udało się wczytać ustawień",
   "settingsLoadFailedBody": "WattByte nie mógł przełączyć się na ustawienia tego konta, więc nie pokazuje niczego zamiast wartości innego konta. Spróbuj ponownie albo wyloguj się.",

@@ -9,6 +9,7 @@ import 'package:wattbyte/api/api_factory.dart';
 import 'package:wattbyte/background/app_notifier.dart';
 import 'package:wattbyte/background/widget_publisher.dart';
 import 'package:wattbyte/cloud_providers.dart';
+import 'package:wattbyte/config/config_providers.dart';
 import 'package:wattbyte/core/units.dart';
 import 'package:wattbyte/domain/battery_capacity.dart';
 import 'package:wattbyte/domain/models.dart';
@@ -609,6 +610,8 @@ class ProviderRig {
       dbProvider.overrideWithValue(db),
       systemProvider.overrideWithValue(fake.system),
       apiConfigProvider.overrideWithValue(config),
+      // These tests count every request of the sync chain: the feature-config fetch has its own test.
+      serverConfigFetcherProvider.overrideWithValue(null),
       apiFactoryProvider.overrideWithValue(
           ApiFactory(config, httpClient: net, clock: () => now.value)),
       authRepositoryProvider.overrideWithValue(UserAwareRepo()),

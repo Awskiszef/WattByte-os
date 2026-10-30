@@ -7,6 +7,7 @@ import '../../features/ai/ai_input_builder.dart';
 import '../../features/ai/ai_service.dart';
 import '../../features/auth/domain/auth_models.dart';
 import '../../features/auth/presentation/auth_controller.dart';
+import '../../config/config_providers.dart' show featureFlagsProvider;
 import '../../providers.dart';
 import '../theme.dart';
 import '../widgets/wb_widgets.dart';
@@ -79,6 +80,8 @@ class _AiCardState extends ConsumerState<AiCard> {
   @override
   Widget build(BuildContext context) {
     if (ref.watch(aiServiceProvider) == null) return const SizedBox.shrink();
+    // The server's kill switch (or the build's FEATURE_AI=false) takes the card away (F-04).
+    if (!ref.watch(featureFlagsProvider).ai) return const SizedBox.shrink();
     final l = context.l10n;
     final signedIn = ref.watch(authControllerProvider).value is SignedIn;
     final theme = Theme.of(context);

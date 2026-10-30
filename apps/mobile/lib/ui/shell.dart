@@ -11,6 +11,7 @@ import '../cloud_providers.dart';
 import '../core/error_log.dart';
 import '../features/auth/domain/auth_models.dart';
 import '../features/auth/presentation/auth_controller.dart';
+import '../config/config_providers.dart' show serverConfigProvider;
 import '../providers.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'history/history_screen.dart';
@@ -50,6 +51,8 @@ class _ShellScreenState extends ConsumerState<ShellScreen>
       // Another device may have changed the account's settings, and a change made
       // here while offline has not reached it yet.
       _reconcileAccountSettings();
+      // Feature kill switches and plan limits come from the server (F-04).
+      unawaited(ref.read(serverConfigProvider.notifier).refreshIfStale());
     });
     _loop.start();
     // The loop belongs to the signed-in account: it stops on sign-out and restarts
@@ -76,7 +79,10 @@ class _ShellScreenState extends ConsumerState<ShellScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _loop.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.resumed) _reconcileAccountSettings();
+    if (state == AppLifecycleState.resumed) {
+      _reconcileAccountSettings();
+      unawaited(ref.read(serverConfigProvider.notifier).refreshIfStale());
+    }
   }
 
   /// Best effort and silent: offline it changes nothing, the value and the

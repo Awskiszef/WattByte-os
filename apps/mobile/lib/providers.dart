@@ -15,6 +15,7 @@ import 'collection/collector.dart';
 import 'collection/session_builder.dart';
 import 'core/units.dart';
 import 'cloud_providers.dart';
+import 'config/config_providers.dart' show featureFlagsProvider;
 import 'core/error_log.dart';
 import 'domain/battery_capacity.dart';
 import 'domain/models.dart';
@@ -54,6 +55,7 @@ final refreshServiceProvider = Provider<RefreshService>((ref) => RefreshService(
       widgets: ref.watch(widgetPublisherProvider),
       notifier: ref.watch(notifierProvider),
       sync: ref.watch(syncServiceProvider),
+      syncAllowed: () => ref.read(featureFlagsProvider).cloudSync,
     ));
 
 final settingsStoreProvider =

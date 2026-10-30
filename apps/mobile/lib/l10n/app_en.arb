@@ -370,6 +370,7 @@
   "enterManually": "Enter manually",
   "specificationSource": "Source",
   "detectAgain": "Detect again",
+  "cloudSyncUnavailable": "Cloud sync is temporarily unavailable. Try again later.",
   "privacyPolicy": "Privacy policy",
   "settingsLoadFailedTitle": "Your settings could not be loaded",
   "settingsLoadFailedBody": "WattByte could not switch to the settings of this account, so it shows nothing instead of another account's values. Try again, or sign out.",

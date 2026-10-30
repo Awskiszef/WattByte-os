@@ -24,6 +24,7 @@ class RefreshService {
     required this.widgets,
     required this.notifier,
     this.sync,
+    this.syncAllowed,
   });
 
   final Collector collector;
@@ -33,6 +34,9 @@ class RefreshService {
 
   /// Cloud uploader; null in the background isolate and in the local-only development mode.
   final SyncService? sync;
+
+  /// False while the build or the server has cloud sync switched off (kill switch, F-04); null = always allowed.
+  final bool Function()? syncAllowed;
 
   Future<CollectResult?> run({
     required Settings settings,
@@ -86,7 +90,7 @@ class RefreshService {
     // consent from the per-account ledger itself, never from a UI flag, uploads at
     // most every 5 minutes and honours the backoff of a failed attempt. A changing
     // current day therefore cannot turn this 60-second pass into a request loop.
-    if (sync != null) {
+    if (sync != null && (syncAllowed?.call() ?? true)) {
       try {
         await sync!.syncIfDue();
       } catch (e, st) {

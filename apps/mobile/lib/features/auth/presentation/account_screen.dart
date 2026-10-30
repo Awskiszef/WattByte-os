@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../app.dart';
 import '../../../cloud_providers.dart';
+import '../../../config/config_providers.dart' show featureFlagsProvider;
 import '../../../providers.dart';
 import '../../../sync/sync_service.dart';
 import '../../../ui/settings/flow_widgets.dart';
@@ -180,6 +181,11 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                   subtitle: l.cloudSyncBody,
                   value: settings.cloudSync,
                   onChanged: (on) async {
+                    if (on && !ref.read(featureFlagsProvider).cloudSync) {
+                      // The server (or this build) has cloud sync switched off: it can be turned off, not on (F-04).
+                      setState(() => _syncMessage = l.cloudSyncUnavailable);
+                      return;
+                    }
                     if (on) {
                       final o = await ref.read(cloudSyncProvider).enable();
                       if (mounted) setState(() => _syncMessage = _syncText(o));

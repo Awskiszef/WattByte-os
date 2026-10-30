@@ -1,10 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/error_log.dart';
-import '../providers.dart' show prefsProvider;
+import '../api/api_failure.dart' show guarded;
+import '../features/auth/presentation/auth_controller.dart'
+    show apiConfigProvider, apiFactoryProvider;
+import '../generated/api/api.dart' as generated;
+import '../providers.dart' show clockProvider, prefsProvider;
 import 'app_config.dart';
 import 'feature_flags.dart';
 
@@ -24,7 +29,25 @@ final buildFeatureFlagsProvider = Provider<FeatureFlags>(
 /// generated client call yet) the app runs on the cache or the build defaults.
 typedef ServerConfigFetcher = Future<ServerFeatureConfig?> Function();
 
-final serverConfigFetcherProvider = Provider<ServerConfigFetcher?>((_) => null);
+///
+/// The default (F-04) asks the build's own API when there is one: `GET /api/v1/config`, public, through the same client and
+/// timeout rules as every other call. A build without an API address has nothing to ask.
+final serverConfigFetcherProvider = Provider<ServerConfigFetcher?>((ref) {
+  final api = ref.watch(apiConfigProvider);
+  if (!api.isConfigured) return null;
+  final apis = ref.watch(apiFactoryProvider);
+  final clock = ref.watch(clockProvider);
+  return () async {
+    final dto = await guarded(
+        () => generated.ConfigApi(apis.anonymous()).apiV1ConfigGet());
+    return dto == null
+        ? null
+        : ServerFeatureConfig.fromServerJson(
+            // Through JSON text: the generated toJson() keeps nested model objects, the parser wants plain maps.
+            jsonDecode(jsonEncode(dto)),
+            fetchedAt: clock());
+  };
+});
 
 /// What [ServerConfigNotifier.refresh] did.
 enum ServerConfigRefresh {
@@ -89,6 +112,21 @@ class ServerConfigNotifier extends Notifier<ServerFeatureConfig?> {
   /// configuration (or none) in effect.
   Future<ServerConfigRefresh> refresh() =>
       _inFlight ??= _refresh().whenComplete(() => _inFlight = null);
+
+  DateTime? _lastAttempt;
+
+  /// [refresh] unless one was made within [every] (the foreground calls this on every resume; a kill switch should reach
+  /// the app within minutes, not hammer the server).
+  Future<ServerConfigRefresh> refreshIfStale(
+      {Duration every = const Duration(minutes: 15)}) {
+    final now = ref.read(clockProvider)();
+    final last = _lastAttempt;
+    if (last != null && now.difference(last) < every) {
+      return Future.value(ServerConfigRefresh.unavailable);
+    }
+    _lastAttempt = now;
+    return refresh();
+  }
 
   Future<ServerConfigRefresh> _refresh() async {
     if (_disposed) return ServerConfigRefresh.unavailable;
