@@ -2,6 +2,7 @@
   "name": "@wattbyte/contracts",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "description": "Public API contracts (Zod schemas) shared by the TypeScript API; the OpenAPI document generated from them feeds the Dart client.",
   "type": "module",
   "main": "./dist/index.js",

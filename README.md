@@ -16,7 +16,7 @@ wattbyte/
 ├── infrastructure/docker/   local PostgreSQL (wattbyte + wattbyte_test)
 ├── scripts/           Dart client generation (pinned generator), secret scan, workflow checks, DB helpers, production smoke test
 ├── docs/              start at docs/README.md
-└── .github/workflows/ ci.yml (CI), release.yml (manual, gated, signed builds)
+└── .github/workflows/ ci.yml (CI), ios.yml (macOS checks), release.yml (manual, gated, signed builds)
 ```
 
 Boundaries (see `docs/architecture.md`):
@@ -75,8 +75,17 @@ What each CI job runs and its local equivalent: [docs/CI.md](docs/CI.md). OpenAP
 
 ## Contributing
 
-The repository is private; `main` changes only through pull requests with a green CI result: [CONTRIBUTING.md](CONTRIBUTING.md). The pipelines and
-what GitHub enforces on this plan: [docs/CI_CD.md](docs/CI_CD.md).
+Contributions are welcome through pull requests; `main` changes only with a green CI result. How to branch, what to run and the
+rules that never bend: [CONTRIBUTING.md](CONTRIBUTING.md). The pipelines and what is enforced: [docs/CI_CD.md](docs/CI_CD.md).
+
+## Security
+
+Report vulnerabilities privately, never as a public issue: [SECURITY.md](SECURITY.md).
+
+## License
+
+WattByte is licensed under the [Apache License, Version 2.0](LICENSE) ([NOTICE](NOTICE)). The name and logo are not covered by
+the license (section 6). Third-party material and its licenses are listed in `NOTICE`.
 
 ## Documentation
 

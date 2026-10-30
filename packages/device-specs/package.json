@@ -2,6 +2,7 @@
   "name": "@wattbyte/device-specs",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "description": "Nominal battery capacities per phone model. The same catalog is bundled in the mobile app (assets/device_specs) and served by the API for models newer than the app build.",
   "type": "module",
   "main": "./dist/index.js",

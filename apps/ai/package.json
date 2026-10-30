@@ -2,6 +2,7 @@
   "name": "@wattbyte/ai",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "description": "WattByte AI Gateway: one interface over OpenAI, Anthropic, Google and xAI with routing, fallback, structured output and usage accounting.",
   "type": "module",
   "main": "./dist/index.js",

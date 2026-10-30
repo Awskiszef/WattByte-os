@@ -1,0 +1,18 @@
+WattByte
+Copyright 2026 ATLASHC Paweł Dolatowski
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+"WattByte" and the WattByte logo are names and marks of the copyright holder. The Apache License does not grant
+permission to use them (section 6); a fork should use its own name and artwork. The launcher icons under
+apps/mobile/assets/branding are provisional artwork derived from the in-app mark, not a final brand asset.
+
+Third-party material shipped in this repository
+-----------------------------------------------
+* apps/web/src/fonts: Geist and Geist Mono (SIL Open Font License 1.1, text in apps/web/src/fonts/LICENSE.txt).
+* Dependencies are installed from the npm and pub registries and keep their own licenses (MIT, Apache-2.0, BSD,
+  ISC and similar; a small number of build-time packages are MPL-2.0 or CC-BY-4.0 data). None of them is copied into
+  this repository. The optional platform binary @img/sharp-libvips-* (LGPL-3.0-or-later) is pulled in by Next.js image
+  optimisation at install time and is not redistributed here.
+* packages/device-specs/src/devices.json lists manufacturer-published nominal battery capacities (facts, not creative
+  text); sources are described in docs/BATTERY_CAPACITY.md.

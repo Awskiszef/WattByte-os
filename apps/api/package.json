@@ -2,6 +2,7 @@
   "name": "@wattbyte/api",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "description": "WattByte REST API: auth, devices, aggregate sync, AI gateway access.",
   "type": "module",
   "scripts": {
