@@ -190,7 +190,7 @@ describe('smoke:ai is not part of the unit test run', () => {
 
   it('`test` is plain vitest and `smoke:ai` is a separate script that does not go through vitest', () => {
     expect(pkg.scripts.test).toBe('vitest run');
-    expect(pkg.scripts['smoke:ai']).toMatch(/node dist-smoke\/scripts\/smoke\.js/);
+    expect(pkg.scripts['smoke:ai']).toMatch(/node( --env-file-if-exists=\S+)? dist-smoke\/scripts\/smoke\.js/);
     expect(pkg.scripts['smoke:ai']).not.toContain('vitest');
     expect(pkg.scripts.test).not.toContain('smoke');
   });

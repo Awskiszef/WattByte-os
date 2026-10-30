@@ -214,10 +214,12 @@ describe('documentation matches the code', () => {
     );
     const env = loadEnv(values);
     expect(env.APP_ENV).toBe('development');
-    expect(env.AI_MOCK).toBe('0');
+    // The template starts a first run without any provider key (E-15); staging and production refuse the mock below.
+    expect(env.AI_MOCK).toBe('1');
     // copying the template to a staging or production host is refused, not silently accepted
     expect(() => loadEnv({ ...values, NODE_ENV: 'production' })).toThrow(/skip the production guards/); // APP_ENV=development in the file
     expect(() => loadEnv({ ...values, NODE_ENV: 'production', APP_ENV: 'production' })).toThrow(/placeholder/);
     expect(() => loadEnv({ ...values, NODE_ENV: 'production', APP_ENV: 'staging' })).toThrow(/development credentials/);
+    expect(() => loadEnv({ ...values, NODE_ENV: 'production', APP_ENV: 'staging', JWT_SECRET: 'k3J9xQ2vLm8Zp4Rt7Yw1Nb6Hc5Df0Gs2AaBbCcDd', DATABASE_URL: 'postgres://app:s3cr3t-db-pass@db.internal:5432/wattbyte', TRUST_PROXY_HOPS: '1' })).toThrow(/AI_MOCK=1 is not allowed/);
   });
 });
