@@ -1,20 +1,32 @@
 name: CI
 
-# Local equivalents of every step: docs/CI.md. Status of this file: CONFIGURED, NOT REMOTELY VERIFIED
-# (the repository had no GitHub remote when it was written; see docs/CI.md and docs/REPOSITORY.md).
+# Local equivalents of every step: docs/CI.md. How the pipeline is shaped and why: docs/CI_CD.md.
+#
+# FAST (pull requests): `changes` reads the files the change touches (scripts/ci-changes.mjs) and switches on only the jobs the
+# change can affect. `hygiene` (secrets, history, dependency audit, docs, workflow pins, script tests) runs for every change.
+# FULL (schedule, manual run, and a push to main that spans components or touches a shared input): every job, both Node versions,
+# three time zones, the release-guard builds and the macOS build.
+#
+# The required check is `CI result` (scripts/ci-gate.mjs): a job the change needs must have SUCCEEDED; "skipped" counts only for a
+# job the change does not need. A skipped, cancelled or missing job is never read as a pass.
 
 on:
   push:
     branches: [main]
   pull_request:
+  # Weekly full run on the default branch (GitHub disables scheduled workflows after 60 days without repository activity).
+  schedule:
+    - cron: '17 3 * * 1'
   workflow_dispatch:
 
-# A new push to the same branch / pull request replaces the run that is still going.
+# A new push to the same pull request replaces the run that is still going. Runs on main, scheduled and manual runs are never
+# cancelled by a later one (each has its own group).
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Least privilege: nothing here writes to the repository, packages or checks.
+# Least privilege: nothing here writes to the repository, packages or checks. Pull requests from forks run with the same
+# read-only token and without any secret (this workflow uses `pull_request`, never `pull_request_target`).
 permissions:
   contents: read
 
@@ -29,9 +41,46 @@ env:
   PG_URL_BASE: postgres://wattbyte:wattbyte@localhost:5432
 
 jobs:
-  # ------------------------------------------------------------------ secret hygiene
-  secret-scan:
-    name: Secret scan
+  # ------------------------------------------------------------------ what does this change need
+  changes:
+    name: Scope of the change
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      full: ${{ steps.scope.outputs.full }}
+      docs_only: ${{ steps.scope.outputs.docs_only }}
+      ts: ${{ steps.scope.outputs.ts }}
+      ts_api: ${{ steps.scope.outputs.ts_api }}
+      ts_filters: ${{ steps.scope.outputs.ts_filters }}
+      ts_build_filters: ${{ steps.scope.outputs.ts_build_filters }}
+      node_matrix: ${{ steps.scope.outputs.node_matrix }}
+      web: ${{ steps.scope.outputs.web }}
+      api_production: ${{ steps.scope.outputs.api_production }}
+      contracts: ${{ steps.scope.outputs.contracts }}
+      flutter_static: ${{ steps.scope.outputs.flutter_static }}
+      flutter_test: ${{ steps.scope.outputs.flutter_test }}
+      tz_matrix: ${{ steps.scope.outputs.tz_matrix }}
+      e2e: ${{ steps.scope.outputs.e2e }}
+      android: ${{ steps.scope.outputs.android }}
+      android_full: ${{ steps.scope.outputs.android_full }}
+      kotlin: ${{ steps.scope.outputs.kotlin }}
+      ios: ${{ steps.scope.outputs.ios }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          # The base commit has to be present to list the changed files.
+          fetch-depth: 0
+      - name: Classify the changed files
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: node scripts/ci-changes.mjs --base "$BASE_SHA" --event "$EVENT_NAME"
+
+  # ------------------------------------------------------------------ always: secrets, history, dependencies, docs, workflows
+  hygiene:
+    name: Hygiene (secrets, history, audit, docs, workflows, script tests)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -40,11 +89,13 @@ jobs:
           persist-credentials: false
           # The history scan reads every commit.
           fetch-depth: 0
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: ${{ env.NODE_VERSION }}
+      # Hermetic: no database, no network, no toolchain beyond Node.
       - name: Unit tests of the repository scripts
-        run: node --test scripts/secret-scan-history.test.mjs scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs scripts/is-main.test.mjs scripts/openapi-generator.test.mjs scripts/check-workflow-pins.test.mjs scripts/smoke-production.test.mjs scripts/check-docs.test.mjs
+        run: node --test scripts/*.test.mjs
       - name: Scan the tree for credentials (masked output)
         run: node scripts/secret-scan.mjs
       # A key committed once and deleted later is still in the history that gets cloned.
@@ -61,10 +112,118 @@ jobs:
       # Docs index complete, relative links resolve, architecture page not in the future tense.
       - name: Check the documentation
         run: node scripts/check-docs.mjs
+      # Production AND development dependencies (the test tooling is part of what runs on a contributor's machine).
+      - name: Dependency audit (all dependencies)
+        run: pnpm audit
+
+  # ------------------------------------------------- TypeScript: API, AI gateway, contracts, device catalog
+  ts:
+    name: TypeScript (lint, typecheck, test, build) + PostgreSQL (Node ${{ matrix.node }})
+    needs: changes
+    if: needs.changes.outputs.ts == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Node 22 is the floor (package.json engines, .nvmrc); 24 is the current LTS. A pull request runs 22; a shared-input change
+    # (lockfile, workspace files, toolchain) and every FULL run run both.
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ${{ fromJSON(needs.changes.outputs.node_matrix) }}
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: wattbyte
+          POSTGRES_PASSWORD: wattbyte
+          POSTGRES_DB: wattbyte_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U wattbyte -d wattbyte_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+          --health-start-period 10s
+    env:
+      TEST_DATABASE_URL: postgres://wattbyte:wattbyte@localhost:5432/wattbyte_test
+      # The PostgreSQL suites must run here: a missing TEST_DATABASE_URL fails tests/db/require-database.test.ts instead of skipping them silently.
+      REQUIRE_PG_TESTS: '1'
+      # The packages this change reaches, with their dependents (scripts/ci-changes.mjs): `--filter <name> ...`.
+      TS_FILTERS: ${{ needs.changes.outputs.ts_filters }}
+      TS_BUILD_FILTERS: ${{ needs.changes.outputs.ts_build_filters }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          # The base branch is needed to compare the published contract with it.
+          fetch-depth: 0
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Installed apps keep calling the next server: the /api/v1 contract may only grow (docs/API_COMPATIBILITY.md).
+      - name: OpenAPI backward compatibility (pull requests)
+        if: github.event_name == 'pull_request' && needs.changes.outputs.ts_api == 'true'
+        run: |
+          git show "origin/${{ github.base_ref }}:packages/contracts/openapi/openapi.json" > "$RUNNER_TEMP/openapi-base.json"
+          node scripts/check-openapi-compat.mjs "$RUNNER_TEMP/openapi-base.json"
+      # The service reports "healthy" before the first step runs; this proves a real query works with the URL the tests use.
+      - name: Wait for PostgreSQL
+        run: node scripts/wait-for-db.mjs "$TEST_DATABASE_URL" --timeout 60
+      # $TS_FILTERS is deliberately unquoted: it expands to several `--filter <name>` arguments.
+      - name: Lint
+        run: pnpm $TS_FILTERS lint
+      - name: Typecheck
+        run: pnpm $TS_FILTERS typecheck
+      - name: AI gateway tests (hermetic, mock transports, no network, no keys)
+        run: |
+          case "$TS_FILTERS" in
+            *@wattbyte/ai*) pnpm --filter @wattbyte/ai test ;;
+            *) echo "the AI gateway is not part of this change" ;;
+          esac
+      - name: API, contracts and device-catalog tests (includes the PostgreSQL integration suites in apps/api/tests/db)
+        run: pnpm $TS_FILTERS --filter '!@wattbyte/ai' test
+      - name: Build (with the packages they import)
+        run: pnpm $TS_BUILD_FILTERS build
+
+  # ------------------------------------------------------------------ the website
+  web:
+    name: Web (lint, typecheck, test, Next.js build)
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Next.js keeps its incremental build cache in .next/cache. The key follows the lockfile (Next.js and its plugins) and
+      # the sources; a pull request can read the cache of main but writes only its own (GitHub scopes caches per ref), so an
+      # untrusted pull request cannot poison the cache a later main run restores.
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: apps/web/.next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/src/**', 'apps/web/*.ts', 'apps/web/*.mjs', 'apps/web/package.json') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+      - run: pnpm --filter @wattbyte/web lint
+      - run: pnpm --filter @wattbyte/web typecheck
+      - run: pnpm --filter @wattbyte/web test
+      - run: pnpm --filter @wattbyte/web build
 
   # ------------------------------------------------- the COMPILED API, started the way a deployment starts it
   api-production:
     name: API production build (compiled output, guards, migrate, Docker image)
+    needs: changes
+    if: needs.changes.outputs.api_production == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
@@ -107,84 +266,11 @@ jobs:
       - name: Smoke test of the API image
         run: node scripts/smoke-image.mjs "$PG_URL_BASE/wattbyte" --image wattbyte-api:ci
 
-  # ------------------------------------------------- TypeScript: API, AI gateway, contracts
-  node:
-    name: TypeScript (lint, typecheck, test, build) + PostgreSQL (Node ${{ matrix.node }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    # Node 22 is the floor (package.json engines, .nvmrc); 24 is the current LTS. Both must stay green.
-    strategy:
-      fail-fast: false
-      matrix:
-        node: ['22', '24']
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: wattbyte
-          POSTGRES_PASSWORD: wattbyte
-          POSTGRES_DB: wattbyte_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U wattbyte -d wattbyte_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 12
-          --health-start-period 10s
-    env:
-      TEST_DATABASE_URL: postgres://wattbyte:wattbyte@localhost:5432/wattbyte_test
-      # The PostgreSQL suites must run here: a missing TEST_DATABASE_URL fails tests/db/require-database.test.ts instead of skipping them silently.
-      REQUIRE_PG_TESTS: '1'
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-          # The base branch is needed to compare the published contract with it.
-          fetch-depth: 0
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version: ${{ matrix.node }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      # Installed apps keep calling the next server: the /api/v1 contract may only grow (docs/API_COMPATIBILITY.md).
-      - name: OpenAPI backward compatibility (pull requests)
-        if: github.event_name == 'pull_request'
-        run: |
-          git show "origin/${{ github.base_ref }}:packages/contracts/openapi/openapi.json" > "$RUNNER_TEMP/openapi-base.json"
-          node scripts/check-openapi-compat.mjs "$RUNNER_TEMP/openapi-base.json"
-      # The two script suites need no database.
-      - name: Script tests
-        run: node --test scripts/*.test.mjs
-      # The service reports "healthy" before the first step runs; this proves a real query works with the URL the tests use.
-      - name: Wait for PostgreSQL
-        run: node scripts/wait-for-db.mjs "$TEST_DATABASE_URL" --timeout 60
-      - run: pnpm lint
-      - run: pnpm typecheck
-      - name: AI gateway tests (hermetic, mock transports, no network, no keys)
-        run: pnpm --filter @wattbyte/ai test
-      - name: API, contracts and device-catalog tests (includes the PostgreSQL integration suites in apps/api/tests/db)
-        run: pnpm --filter '!@wattbyte/ai' test
-      - run: pnpm build
-
-  audit:
-    name: Dependency audit (all dependencies)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - run: pnpm audit
-
   # ---------------------------------------- contracts: OpenAPI, device catalog, Dart client
   contracts:
     name: Contracts (OpenAPI, device catalog, generated Dart client)
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -228,10 +314,16 @@ jobs:
           dart analyze lib/generated/api
 
   # -------------------------------------------------------------------------- Flutter
+  # Static checks and the release configuration guard share one job (one Flutter setup, one `pub get`).
+  # A build without a valid backend configuration must never become an app that skips the account (local-only is a
+  # debug-only development mode). The guard runs the same rules the app applies at start-up (lib/config/backend_config.dart)
+  # over every combination that matters; the release builds themselves are refused at compile time (see the android job).
   flutter-static:
-    name: Flutter (format, analyze)
+    name: Flutter (format, analyze, release configuration guard)
+    needs: changes
+    if: needs.changes.outputs.flutter_static == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: apps/mobile
@@ -250,28 +342,6 @@ jobs:
       - name: Format (no file may change)
         run: dart format --output=none --set-exit-if-changed lib test packages tool
       - run: flutter analyze
-
-  # A build without a valid backend configuration must never become an app that skips the account (local-only is a
-  # debug-only development mode). This job runs the same rules the app applies at start-up (lib/config/backend_config.dart)
-  # over every combination that matters; the release builds themselves are refused at compile time (see the android job).
-  mobile-config-guard:
-    name: Flutter (release configuration guard)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: apps/mobile
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - run: flutter gen-l10n
       - name: Release without API_BASE_URL, or with LOCAL_ONLY_DEV=true, is rejected
         run: bash tool/check_release_guard.sh
       # The one link no unit test can see: the real compile-time defines reach AppConfig.fromEnvironment (a plain
@@ -283,15 +353,18 @@ jobs:
 
   flutter-test:
     name: Flutter tests (TZ ${{ matrix.tz }})
+    needs: changes
+    if: needs.changes.outputs.flutter_test == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     strategy:
       fail-fast: false
-      # Calendar logic (LocalDate, periods, DST days, daily aggregates) must hold in a zone without
-      # daylight saving (UTC), one with it in the northern spring (Europe/Warsaw) and one with a different
-      # transition date (America/New_York). The whole suite runs in each zone.
+      # Calendar logic (LocalDate, periods, DST days, daily aggregates) must hold in a zone without daylight saving (UTC), one
+      # with it in the northern spring (Europe/Warsaw) and one with a different transition date (America/New_York). A pull
+      # request runs the whole suite in Europe/Warsaw; the other two zones join when the change touches date or time code
+      # (scripts/ci-changes.mjs) and in every FULL run. The deterministic DST and date-boundary tests run in every zone anyway.
       matrix:
-        tz: [UTC, Europe/Warsaw, America/New_York]
+        tz: ${{ fromJSON(needs.changes.outputs.tz_matrix) }}
     defaults:
       run:
         working-directory: apps/mobile
@@ -329,6 +402,8 @@ jobs:
 
   e2e:
     name: End to end (Dart client -> API -> PostgreSQL)
+    needs: changes
+    if: needs.changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     services:
@@ -431,7 +506,9 @@ jobs:
 
   # ---------------------------------------------------------------------- Android
   android:
-    name: Android (debug APK + AAB)
+    name: Android (debug build, and in FULL runs the bundle and release guard builds)
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     defaults:
@@ -453,6 +530,7 @@ jobs:
           df -h / | tail -1
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /opt/hostedtoolcache/CodeQL /usr/local/lib/node_modules /usr/local/.ghcup || true
           df -h / | tail -1
+      # setup-gradle writes its cache only on the default branch; pull requests (including forks) read it and never write it.
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
@@ -462,17 +540,24 @@ jobs:
       - run: flutter pub get
       - run: flutter gen-l10n
       - run: flutter build apk --debug
-      - run: flutter build appbundle --debug
+      # The bundle and the three real release builds are the expensive half: they run when the Android project, the plugin, the
+      # release guard or a shared input changed, and in every FULL run.
+      - name: App bundle
+        if: needs.changes.outputs.android_full == 'true'
+        run: flutter build appbundle --debug
       # The compile-time half of the release guard, with real Gradle builds: a release build without API_BASE_URL
       # ([WB-CONFIG-001]) or with LOCAL_ONLY_DEV=true ([WB-CONFIG-002]) must fail to compile, and the log must say so
       # (any other failure fails the step). A release build with a valid API_BASE_URL must still build (positive control)
       # and its binary must not contain the development banner text. Needs no signing key (WATTBYTE_ALLOW_UNSIGNED_RELEASE
       # is set by the script), leaves no artifact behind.
       - name: Release guard - invalid configurations must not compile, a valid one builds without the dev banner
+        if: needs.changes.outputs.android_full == 'true'
         run: bash tool/check_release_guard.sh --builds
 
   kotlin:
     name: Kotlin (wattbyte_system plugin unit tests)
+    needs: changes
+    if: needs.changes.outputs.kotlin == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -489,30 +574,80 @@ jobs:
       - run: gradle test
         working-directory: apps/mobile/packages/wattbyte_system/android/jvm-tests
 
+  # ---------------------------------------------------------------------- iOS
+  # macOS minutes cost ten times a Linux minute: this job runs only when the iOS project, the plugin's Swift code, the native
+  # dependencies or the workflows changed, and in the weekly / manual FULL run. It never signs anything.
+  ios:
+    name: iOS build (simulator and device SDK, unsigned)
+    needs: changes
+    if: needs.changes.outputs.ios == 'true'
+    # `macos-latest` is macOS 26 on arm64 (Xcode 26 SDK). The app's background plugin needs the iOS 26 SDK
+    # (BGContinuedProcessingTask), so older Intel images (macos-15-intel) cannot build it and are not used.
+    runs-on: macos-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      # The toolchain actually in use, for the log; the build needs the iOS 26 SDK.
+      - name: Runner details
+        run: |
+          echo "machine: $(uname -m)"
+          sw_vers
+          xcodebuild -version
+          flutter --version
+          xcodebuild -showsdks | grep -E "iphoneos2[6-9]|iphonesimulator2[6-9]" || { echo "::error::this runner has no iOS 26 SDK"; exit 1; }
+      - run: flutter pub get
+      - run: flutter gen-l10n
+      # ios/Flutter/WattByte.xcconfig picks the simulator architecture from the machine that builds.
+      - run: flutter build ios --simulator --debug
+      # The widget extension must link system libraries only: no Flutter, no plugin framework (audit H-07).
+      - name: The widget extension links no plugin framework
+        run: bash tool/check_widget_links.sh
+      # The plugin's pure Swift logic (NET_RT_IFLIST2 parser, backup exclusion) runs on the macOS runner itself: no simulator needed.
+      - name: Swift unit checks of the plugin
+        working-directory: apps/mobile/packages/wattbyte_system/ios
+        run: |
+          swiftc -o "$RUNNER_TEMP/check_ifc" Classes/InterfaceCounterParser.swift Tests/InterfaceCounters/main.swift
+          "$RUNNER_TEMP/check_ifc"
+          swiftc -o "$RUNNER_TEMP/check_backup" Classes/BackupExclusion.swift Tests/BackupExclusion/main.swift
+          "$RUNNER_TEMP/check_backup"
+      - run: flutter build ios --debug --no-codesign
+
   # ----------------------------------------------------------- single status for branch protection
   ci-ok:
     name: CI result
     if: always()
     needs:
-      - secret-scan
-      - node
+      - changes
+      - hygiene
+      - ts
+      - web
       - api-production
-      - audit
       - contracts
       - flutter-static
-      - mobile-config-guard
       - flutter-test
       - e2e
       - android
       - kotlin
+      - ios
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Every job must have succeeded (skipped and cancelled count as failures)
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts
+      # A job the change needs must have succeeded; a skipped, cancelled or missing job is a failure (scripts/ci-gate.mjs).
+      - name: Every job this change needs has succeeded
         env:
-          RESULTS: ${{ join(needs.*.result, ' ') }}
-        run: |
-          echo "job results: $RESULTS"
-          for r in $RESULTS; do
-            if [ "$r" != "success" ]; then echo "::error::at least one job did not succeed"; exit 1; fi
-          done
+          NEEDS: ${{ toJSON(needs) }}
+        run: node scripts/ci-gate.mjs
