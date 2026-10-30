@@ -530,7 +530,7 @@ export function loadAllowlist(file, readText = (f) => readFileSync(f, 'utf8')) {
   return { entries, errors };
 }
 
-function isAllowed(entries, { finding, raw }) {
+export function isAllowed(entries, { finding, raw }) {
   for (const e of entries) {
     if (e.rule !== '*' && e.rule !== finding.rule) continue;
     if (e.pathRes.length && !e.pathRes.some((re) => re.test(finding.file))) continue;

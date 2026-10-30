@@ -38,13 +38,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+          # The history scan reads every commit.
+          fetch-depth: 0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: ${{ env.NODE_VERSION }}
       - name: Unit tests of the repository scripts
-        run: node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs scripts/is-main.test.mjs scripts/openapi-generator.test.mjs scripts/check-workflow-pins.test.mjs scripts/smoke-production.test.mjs scripts/check-docs.test.mjs
+        run: node --test scripts/secret-scan-history.test.mjs scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs scripts/is-main.test.mjs scripts/openapi-generator.test.mjs scripts/check-workflow-pins.test.mjs scripts/smoke-production.test.mjs scripts/check-docs.test.mjs
       - name: Scan the tree for credentials (masked output)
         run: node scripts/secret-scan.mjs
+      # A key committed once and deleted later is still in the history that gets cloned.
+      - name: Scan the Git history for credentials (masked output)
+        run: node scripts/secret-scan-history.mjs
       # Every action pinned to a commit SHA; the release workflow gated by `guard`, its secrets confined to the signing jobs.
       - name: Check the workflows (pinned actions, release gate)
         run: node scripts/check-workflow-pins.mjs
