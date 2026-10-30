@@ -1,6 +1,7 @@
 // Generates the Dart API client from packages/contracts/openapi/openapi.json
 // into apps/mobile/lib/generated/api (plain Dart sources, no codegen step in
-// the Flutter app). Requires Java (openapi-generator is a JVM tool).
+// the Flutter app). Requires Java (openapi-generator is a JVM tool). The generator is the jar pinned in
+// scripts/openapi-generator.pin.json (downloaded once, SHA-256 checked), not whatever npm resolves today.
 //
 //   pnpm openapi && pnpm dart-client
 import { execSync } from 'node:child_process';
@@ -10,6 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { postProcessClient } from './dart-client-postprocess.mjs';
+import { ensureGeneratorJar, runGenerator } from './openapi-generator.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const spec = path.join(root, 'packages', 'contracts', 'openapi', 'openapi.json');
@@ -29,10 +31,8 @@ try {
   const specCopy = path.join(work, 'openapi.json');
   copyFileSync(spec, specCopy);
   const out = path.join(work, 'out');
-  run(
-    `npx --yes @openapitools/openapi-generator-cli generate -i openapi.json -g dart -o out ` +
-      '--additional-properties=pubName=wattbyte_api,pubLibrary=wattbyte_api,enumUnknownDefaultCase=true --global-property=apis,models,supportingFiles',
-  );
+  const gen = runGenerator(await ensureGeneratorJar(), work);
+  if (gen.status !== 0) throw new Error(`openapi-generator failed (exit ${gen.status ?? gen.error?.message})`);
   const rewritten = postProcessClient(path.join(out, 'lib'));
   console.warn(`enum decoders made tolerant: ${rewritten}`);
   rmSync(target, { recursive: true, force: true });

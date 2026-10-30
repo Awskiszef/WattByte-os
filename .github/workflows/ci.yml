@@ -42,7 +42,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
       - name: Unit tests of the repository scripts
-        run: node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs scripts/is-main.test.mjs
+        run: node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs scripts/is-main.test.mjs scripts/openapi-generator.test.mjs
       - name: Scan the tree for credentials (masked output)
         run: node scripts/secret-scan.mjs
 
@@ -130,7 +130,9 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
-      # openapi-generator is a JVM tool (scripts/generate-dart-client.mjs, scripts/check-generated-client.mjs).
+      # openapi-generator is a JVM tool (scripts/generate-dart-client.mjs, scripts/check-generated-client.mjs). The jar is the
+      # one pinned in scripts/openapi-generator.pin.json: downloaded from Maven Central and checked against its SHA-256, never
+      # resolved through npm.
       - uses: actions/setup-java@v6
         with:
           distribution: temurin

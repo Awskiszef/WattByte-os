@@ -21,6 +21,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { postProcessClient } from './dart-client-postprocess.mjs';
+import { ensureGeneratorJar, runGenerator } from './openapi-generator.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const option = (name) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
@@ -32,21 +33,6 @@ const keep = process.argv.includes('--keep');
 /** Lines of unified diff shown per differing file (and files shown) unless --full. */
 const LINES_PER_FILE = 40;
 const FILES_SHOWN = 12;
-
-// Same invocation as scripts/generate-dart-client.mjs.
-const GENERATOR_ARGS = [
-  '--yes',
-  '@openapitools/openapi-generator-cli',
-  'generate',
-  '-i',
-  'openapi.json',
-  '-g',
-  'dart',
-  '-o',
-  'out',
-  '--additional-properties=pubName=wattbyte_api,pubLibrary=wattbyte_api,enumUnknownDefaultCase=true',
-  '--global-property=apis,models,supportingFiles',
-];
 
 /** A path as the repo knows it when it is inside the repo. */
 const shown = (p) => (p.startsWith(root + path.sep) ? path.relative(root, p) : p);
@@ -89,7 +75,15 @@ try {
   const java = run('java', ['-version'], work);
   if (java.status !== 0) fail('Java is required (openapi-generator is a JVM tool) but "java -version" failed');
 
-  const gen = run('npx', GENERATOR_ARGS, work);
+  // The same pinned, hash-checked jar and arguments as scripts/generate-dart-client.mjs.
+  let jar;
+  try {
+    jar = await ensureGeneratorJar();
+  } catch (e) {
+    fail(`cannot get the pinned openapi-generator: ${e instanceof Error ? e.message : e}`);
+  }
+  const gen = runGenerator(jar, work, { stdio: 'pipe' });
+  if (gen.error) fail(`cannot run java: ${gen.error.message}`);
   if (gen.status !== 0) fail(`openapi-generator failed (exit ${gen.status}):\n${gen.stdout}\n${gen.stderr}`);
   const regenerated = path.join(work, 'out', 'lib');
   if (!existsSync(regenerated)) fail(`the generator wrote no lib/ directory:\n${gen.stdout}\n${gen.stderr}`);

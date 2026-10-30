@@ -1,0 +1,6 @@
+{
+  "$comment": "The OpenAPI generator that produces apps/mobile/lib/generated/api. scripts/openapi-generator.mjs downloads exactly this jar from Maven Central, refuses it unless its SHA-256 matches, and runs it with java. Change the version and the hash together, regenerate the client (pnpm dart-client) and keep openapitools.json at the same version. Maven Central publishes only md5/sha1 for the jar; the SHA-256 was computed from a download whose SHA-1 (b96b148fcf482808037f68fbad99cb4d7e65d40b) matched Maven's published .sha1.",
+  "version": "7.26.0",
+  "url": "https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/7.26.0/openapi-generator-cli-7.26.0.jar",
+  "sha256": "1760050094997b9cc790cc1350be095f15da8c08a996b184d3eadc4ccda5e35e"
+}

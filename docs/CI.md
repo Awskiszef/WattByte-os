@@ -58,7 +58,7 @@ default `PATH`: use `npx pnpm …` for `pnpm`, `~/.docker/bin/docker` for Docker
 | `audit` | production dependencies | `pnpm audit --prod` |
 | `contracts` | OpenAPI is generated from the routes and the committed copy is current | `pnpm openapi && git diff --exit-code -- packages/contracts/openapi/openapi.json`. Before the first commit there is no Git: `cp packages/contracts/openapi/openapi.json /tmp/openapi.before && pnpm openapi && diff /tmp/openapi.before packages/contracts/openapi/openapi.json` |
 | | device catalog drift | `pnpm device-specs:check` (`pnpm device-specs:sync` repairs it) |
-| | committed Dart client = generator output for `openapi.json` | `pnpm dart-client:check` (needs Java 17 and network for the generator) |
+| | committed Dart client = generator output for `openapi.json` | `pnpm dart-client:check` (needs Java 17; the generator is the jar pinned with its SHA-256 in `scripts/openapi-generator.pin.json`, downloaded once into `~/.cache/wattbyte/openapi-generator` or `$WATTBYTE_OPENAPI_GENERATOR_DIR`; to upgrade, change version and hash together, keep `openapitools.json` equal, run `pnpm dart-client`) |
 | | the Dart client compiles | `cd apps/mobile && flutter pub get && dart analyze lib/generated/api` (exit code 3 on any compile error, proven on a deliberately broken copy) |
 | `flutter-static` | format, analyze | `cd apps/mobile && flutter pub get && flutter gen-l10n && dart format --output=none --set-exit-if-changed lib test packages tool && flutter analyze` |
 | `mobile-config-guard` | the configuration matrix: 26 checks, a build without a valid backend configuration is rejected | `cd apps/mobile && flutter pub get && flutter gen-l10n && bash tool/check_release_guard.sh` |
@@ -154,7 +154,7 @@ The matrix uses `macos-latest` (Apple Silicon) and `macos-15-intel` (Intel). Hon
 
 - `e2e` also asks the API for a household electricity price, which calls Eurostat over the public internet; a
   Eurostat outage fails the job although the code is fine.
-- `contracts` downloads the openapi-generator through `npx` (Maven Central); `audit` needs the npm registry.
+- `contracts` downloads the pinned openapi-generator jar from Maven Central and verifies its SHA-256 (the npm CLI is not used); `audit` needs the npm registry.
   `pnpm audit --prod` can start failing on a new advisory without any change in the repository.
 - The secret scan reads every file Git tracks (also one that `.gitignore` says to ignore but that was added with `git add -f`),
   every untracked file `.gitignore` does not hide, UTF-16 files, long lines (in overlapping windows) and the printable strings
