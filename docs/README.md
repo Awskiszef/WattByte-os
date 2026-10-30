@@ -27,7 +27,6 @@ implemented things "planned".
 | [BATTERY_CAPACITY.md](BATTERY_CAPACITY.md) | Where the battery capacity comes from and how reliable it is |
 | [SETTING_SOURCES.md](SETTING_SOURCES.md) | Which source a setting came from and which one wins |
 | [SYNC_OWNERSHIP.md](SYNC_OWNERSHIP.md) | Who owns local data versus account data, account switching |
-| [ZOD4_MIGRATION.md](ZOD4_MIGRATION.md) | Plan and risks of the zod 3 to 4 migration (removes the last audit exception) |
 | [CLOUD_DATA.md](CLOUD_DATA.md) | What is uploaded, exported and erased |
 | [PLATFORM_SUPPORT.md](PLATFORM_SUPPORT.md) | What each OS version can and cannot measure |
 | [ACCESSIBILITY_DATA_SCREENS.md](ACCESSIBILITY_DATA_SCREENS.md) | Accessibility of the data screens |
