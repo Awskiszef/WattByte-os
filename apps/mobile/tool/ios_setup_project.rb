@@ -66,11 +66,17 @@ wprivacy = file_in(wgroup, 'PrivacyInfo.xcprivacy')
 widget.add_file_references([swift_ref]) unless widget.source_build_phase.files_references.include?(swift_ref)
 widget.resources_build_phase.add_file_reference(wprivacy) unless widget.resources_build_phase.files_references.include?(wprivacy)
 
-runner_xcconfigs = runner.build_configurations.to_h { |c| [c.name, c.base_configuration_reference] }
+# The widget gets its OWN xcconfig chain (ios/Flutter/Widget-Debug.xcconfig, Widget-Release.xcconfig): the same
+# Generated/WattByte/Local includes as Runner but NOT the CocoaPods Pods-Runner xcconfig, whose OTHER_LDFLAGS would link every
+# Flutter plugin framework into a WidgetKit extension that imports only SwiftUI and WidgetKit (audit H-07).
+flutter_group = project.main_group['Flutter']
+widget_xcconfigs = %w[Widget-Debug.xcconfig Widget-Release.xcconfig].to_h do |name|
+  [name, flutter_group.files.find { |f| f.path == "Flutter/#{name}" } || flutter_group.new_file("Flutter/#{name}")]
+end
 widget.build_configurations.each do |c|
   s = c.build_settings
-  # Same Flutter xcconfig as Runner: provides FLUTTER_BUILD_NAME / FLUTTER_BUILD_NUMBER.
-  c.base_configuration_reference = runner_xcconfigs[c.name] || runner_xcconfigs['Release']
+  # Debug uses the Debug chain; Profile and Release use the Release chain (as Runner does).
+  c.base_configuration_reference = widget_xcconfigs[c.name == 'Debug' ? 'Widget-Debug.xcconfig' : 'Widget-Release.xcconfig']
   s['PRODUCT_BUNDLE_IDENTIFIER'] = '$(WB_BUNDLE_ID).WattByteWidget'
   s['PRODUCT_NAME'] = '$(TARGET_NAME)'
   s['INFOPLIST_FILE'] = 'WattByteWidget/Info.plist'

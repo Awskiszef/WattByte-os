@@ -67,7 +67,7 @@ Run from the repository root unless a `cd` says otherwise. Prerequisites and the
 | `android` | debug APK and AAB | `cd apps/mobile && flutter build apk --debug && flutter build appbundle --debug` |
 | | release guard: invalid configurations must not compile, a valid one builds without the development banner | `cd apps/mobile && bash tool/check_release_guard.sh --builds` (the matrix, then three real release builds with Gradle; duration on a runner not measured) |
 | `kotlin` | plugin JVM tests | `cd apps/mobile/packages/wattbyte_system/android/jvm-tests && gradle test` |
-| `ios` | simulator debug, then device-SDK debug without signing | `cd apps/mobile && flutter build ios --simulator --debug && flutter build ios --debug --no-codesign` |
+| `ios` | simulator debug, the widget extension links system libraries only (`otool -L`), then device-SDK debug without signing | `cd apps/mobile && flutter build ios --simulator --debug && bash tool/check_widget_links.sh && flutter build ios --debug --no-codesign` |
 
 ### Time-zone matrix
 

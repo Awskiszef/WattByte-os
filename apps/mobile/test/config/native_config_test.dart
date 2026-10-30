@@ -99,6 +99,94 @@ void main() {
     });
   });
 
+  group('iOS: the widget extension links no Flutter plugin (audit H-07)', () {
+    final pbxproj = read('ios/Runner.xcodeproj/project.pbxproj');
+
+    /// `#include` / `#include?` targets of an xcconfig, comments ignored.
+    List<String> includes(String path) => RegExp(r'^\s*#include\??\s+"([^"]+)"',
+            multiLine: true)
+        // `#include` starts with '#', so only the `//` comments may be dropped here.
+        .allMatches(read(path)
+            .split('\n')
+            .where((l) => !l.trimLeft().startsWith('//'))
+            .join('\n'))
+        .map((m) => m.group(1)!)
+        .toList();
+
+    /// All includes reachable from [path], following the files that live in ios/Flutter.
+    Set<String> chain(String path, [Set<String>? seen]) {
+      seen ??= {};
+      for (final inc in includes(path)) {
+        if (seen.add(inc) && File('ios/Flutter/$inc').existsSync()) {
+          chain('ios/Flutter/$inc', seen);
+        }
+      }
+      return seen;
+    }
+
+    /// The `baseConfigurationReference` name of each configuration of the widget target.
+    Map<String, String> widgetBases() {
+      final list = RegExp(
+              r'buildConfigurationList = (\w+) /\* Build configuration list for PBXNativeTarget "WattByteWidget" \*/')
+          .firstMatch(pbxproj)!
+          .group(1)!;
+      final listBlock = RegExp(
+              '$list /\\* Build configuration list for PBXNativeTarget "WattByteWidget" \\*/ = \\{[\\s\\S]*?\\};')
+          .firstMatch(pbxproj)!
+          .group(0)!;
+      final out = <String, String>{};
+      for (final m
+          in RegExp(r'(\w{24}) /\* (\w+) \*/,').allMatches(listBlock)) {
+        final cfg = RegExp(
+                '${m.group(1)} /\\* ${m.group(2)} \\*/ = \\{\\s*isa = XCBuildConfiguration;\\s*baseConfigurationReference = \\w+ /\\* ([\\w.\\-]+) \\*/;')
+            .firstMatch(pbxproj)!;
+        out[m.group(2)!] = cfg.group(1)!;
+      }
+      return out;
+    }
+
+    test(
+        'every widget configuration has a base xcconfig of its own, not Runner\'s',
+        () {
+      expect(widgetBases(), {
+        'Debug': 'Widget-Debug.xcconfig',
+        'Release': 'Widget-Release.xcconfig',
+        'Profile': 'Widget-Release.xcconfig',
+      });
+    });
+
+    test('and nothing it includes, directly or not, pulls in CocoaPods', () {
+      for (final f in ['Widget-Debug.xcconfig', 'Widget-Release.xcconfig']) {
+        final reachable = chain('ios/Flutter/$f');
+        expect(
+            reachable, containsAll(['Generated.xcconfig', 'WattByte.xcconfig']),
+            reason: '$f still gets the version numbers and the identity');
+        expect(reachable.where((i) => i.contains('Pods')), isEmpty,
+            reason:
+                '$f must not include a Pods xcconfig (OTHER_LDFLAGS would link every plugin)');
+      }
+    });
+
+    test('Runner still gets the Pods xcconfig (the check above can fail)', () {
+      expect(
+          chain('ios/Flutter/Debug.xcconfig')
+              .any((i) => i.contains('Pods-Runner')),
+          isTrue);
+      expect(
+          chain('ios/Flutter/Release.xcconfig')
+              .any((i) => i.contains('Pods-Runner')),
+          isTrue);
+    });
+
+    test('the setup script produces the same arrangement', () {
+      final rb = read('tool/ios_setup_project.rb');
+      expect(rb, contains('Widget-Debug.xcconfig'));
+      expect(rb, contains('Widget-Release.xcconfig'));
+      expect(
+          stripLineComments(rb), isNot(contains('runner_xcconfigs[c.name]')));
+    });
+  });
+
   group('iOS: simulator architectures (bug 2, Xcode 27 lipo -verify_arch)', () {
     final files = <String, String>{
       'ios/Podfile': read('ios/Podfile'),

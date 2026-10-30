@@ -1,0 +1,9 @@
+// Base configuration of the WattByteWidget extension (Release and Profile). It deliberately does NOT include
+// "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig": that file adds `-framework <plugin>` for every Flutter
+// plugin to OTHER_LDFLAGS, and a WidgetKit extension that only imports SwiftUI and WidgetKit would link (and load, inside a
+// process with a small memory budget) Flutter's plugin frameworks it never uses. What it needs from Runner's chain is the
+// version numbers (Generated.xcconfig), the identity (WattByte.xcconfig) and the optional per-developer overrides.
+#include "Generated.xcconfig"
+#include "WattByte.xcconfig"
+// Optional, git-ignored: DEVELOPMENT_TEAM, WB_BUNDLE_ID. Keep this include last so it can override.
+#include? "Local.xcconfig"

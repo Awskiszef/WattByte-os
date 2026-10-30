@@ -83,6 +83,8 @@
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		78E0A7A72DC9AD7400C4905E /* FlutterGeneratedPluginSwiftPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = FlutterGeneratedPluginSwiftPackage; path = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage; sourceTree = "<group>"; };
+		5C1A0D3E7B2F4A6980D1E3F2 /* Widget-Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Widget-Debug.xcconfig; path = Flutter/Widget-Debug.xcconfig; sourceTree = "<group>"; };
+		5C1A0D3E7B2F4A6980D1E3F3 /* Widget-Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Widget-Release.xcconfig; path = Flutter/Widget-Release.xcconfig; sourceTree = "<group>"; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
 		8C949B2D2CAFD56B826D8390 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		8F8166827B1FAAAA60B7E2CA /* Runner.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
@@ -180,6 +182,8 @@
 				3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */,
 				9740EEB21CF90195004384FC /* Debug.xcconfig */,
 				7AFA3C8E1D35360C0083082E /* Release.xcconfig */,
+				5C1A0D3E7B2F4A6980D1E3F2 /* Widget-Debug.xcconfig */,
+				5C1A0D3E7B2F4A6980D1E3F3 /* Widget-Release.xcconfig */,
 				9740EEB31CF90195004384FC /* Generated.xcconfig */,
 			);
 			name = Flutter;
@@ -561,7 +565,7 @@
 /* Begin XCBuildConfiguration section */
 		1BBDE844368008B515DBE438 /* Profile */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
+			baseConfigurationReference = 5C1A0D3E7B2F4A6980D1E3F3 /* Widget-Release.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = WattByteWidget/WattByteWidget.entitlements;
@@ -880,7 +884,7 @@
 		};
 		BA8207586097EA669DD9FCDA /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 9740EEB21CF90195004384FC /* Debug.xcconfig */;
+			baseConfigurationReference = 5C1A0D3E7B2F4A6980D1E3F2 /* Widget-Debug.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = WattByteWidget/WattByteWidget.entitlements;
@@ -906,7 +910,7 @@
 		};
 		EB1D48B2E249B93EEF650F4D /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
+			baseConfigurationReference = 5C1A0D3E7B2F4A6980D1E3F3 /* Widget-Release.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = WattByteWidget/WattByteWidget.entitlements;
