@@ -3,7 +3,8 @@ name: CI
 # Local equivalents of every step: docs/CI.md. How the pipeline is shaped and why: docs/CI_CD.md.
 #
 # FAST (pull requests): `changes` reads the files the change touches (scripts/ci-changes.mjs) and switches on only the jobs the
-# change can affect. `hygiene` (secrets, history, dependency audit, docs, workflow pins, script tests) runs for every change.
+# change can affect. `hygiene` (secrets, history, dependency audit, docs, workflow pins, script tests) and the Public Configuration
+# Security Gate (`public-config`) run for every change.
 # FULL (schedule, manual run, and a push to main that spans components or touches a shared input): every job, both Node versions,
 # three time zones, the release-guard builds and the macOS build.
 #
@@ -115,6 +116,34 @@ jobs:
       # Production AND development dependencies (the test tooling is part of what runs on a contributor's machine).
       - name: Dependency audit (all dependencies)
         run: pnpm audit
+
+  # ------------------------------------------------------------------ always: nothing private in the tree or in the history
+  # Deliberately NOT behind `changes`: no path filter can switch this gate off, and `CI result` fails when it did not succeed.
+  # It prints the file, the line and the rule of a finding, never the value. Policy and rules: scripts/check-public-config.mjs,
+  # scripts/public-config.allowlist.json, docs/CONFIGURATION.md ("Public configuration").
+  public-config:
+    name: Public Configuration Security Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          # The history is part of what is checked.
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      # Public repository: the checkout and every commit reachable from it.
+      - name: Configuration files, credentials and account-specific values (working tree and history)
+        if: hashFiles('scripts/public-export.mjs') == ''
+        run: node scripts/check-public-config.mjs --history
+      # Private repository (the only one that has the export tooling): build the public export in a temporary directory and run the
+      # same gate on its final tree, i.e. on exactly what would be published. Nothing is pushed. The full-history run needs the private
+      # scrub list and happens when the export is built for publication.
+      - name: Public export gate (private repository only)
+        if: hashFiles('scripts/public-export.mjs') != ''
+        run: node scripts/public-export.mjs "$RUNNER_TEMP/public-export" --no-scrub --tip-only
 
   # ------------------------------------------------- TypeScript: API, AI gateway, contracts, device catalog
   ts:
@@ -629,6 +658,7 @@ jobs:
     needs:
       - changes
       - hygiene
+      - public-config
       - ts
       - web
       - api-production

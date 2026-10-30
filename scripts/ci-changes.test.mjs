@@ -21,6 +21,14 @@ describe('documentation-only changes', () => {
     assert.deepEqual(on(pr(['scripts/check-docs.mjs', 'scripts/is-main.mjs'])), []);
     assert.equal(pr(['scripts/dart-client-postprocess.mjs']).flutter_static, true);
   });
+  it('the public-release tooling and its overlay need nothing beyond hygiene and the Public Configuration Security Gate', () => {
+    const d = pr(['scripts/check-public-config.mjs', 'scripts/public-config.allowlist.json', 'scripts/public-export.mjs', 'infrastructure/public-overlay/docs/README.md', 'infrastructure/public-overlay/apps/web/wrangler.example.jsonc']);
+    assert.equal(d.docs_only, false, 'the web overlay is code');
+    assert.deepEqual(on(d), ['web'], 'only the website overlay switches a job on');
+    assert.deepEqual(on(pr(['scripts/check-public-config.test.mjs', 'infrastructure/public-overlay/docs/README.md', 'infrastructure/public-overlay/apps/web/.gitignore.append'])), ['web']);
+    assert.deepEqual(on(pr(['scripts/check-public-config.mjs', 'infrastructure/public-overlay/docs/README.md'])), []);
+    assert.equal(pr(['infrastructure/docker/docker-compose.yml']).ts_api, true, 'the rest of infrastructure/ still reaches the API');
+  });
   it('one code file next to the docs is not documentation-only', () => {
     const d = pr(['docs/a.md', 'apps/web/src/x.tsx']);
     assert.equal(d.docs_only, false);

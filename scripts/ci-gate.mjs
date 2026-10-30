@@ -4,7 +4,7 @@
 //
 // `needs` is the object GitHub hands to a job: { <job id>: { result, outputs } }. The `changes` job publishes one flag per
 // job (scripts/ci-changes.mjs). The rules:
-//   * `changes` and `hygiene` always run and must succeed;
+//   * `changes`, `hygiene` and `public-config` always run and must succeed;
 //   * a job whose flag is "true" must have succeeded: skipped, cancelled, failed or missing all fail the gate;
 //   * a job whose flag is "false" may be skipped (that is the point of the flag) or succeed, never fail or be cancelled.
 // A skipped job is therefore never read as a pass for a change that needed it.
@@ -13,6 +13,8 @@ import { isMainModule } from './is-main.mjs';
 /** Job id -> the `changes` output that switches it on. `null` = always required. */
 export const JOB_FLAGS = {
   hygiene: null,
+  // The Public Configuration Security Gate: no path filter may switch it off.
+  'public-config': null,
   ts: 'ts',
   web: 'web',
   'api-production': 'api_production',

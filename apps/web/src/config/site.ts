@@ -2,26 +2,13 @@
  * Site-wide facts. Everything that names the product, its URL or its public
  * contact points lives here so no component repeats it.
  */
+import { operator } from './operator';
+
 export const site = {
   name: 'WattByte',
   legalName: 'WattByte',
-  /** The business that operates WattByte. Shown on the legal and contact pages and in the footer. */
-  company: {
-    name: 'Example Operator',
-    owner: 'Example Owner',
-    legalForm: 'Sole proprietorship (jednoosobowa działalność gospodarcza)',
-    nip: '0000000000',
-    vatId: 'PL0000000000',
-    regon: '000000000',
-    address: {
-      street: 'Example Street 1',
-      postalCode: '00-000',
-      city: 'Example City',
-      region: 'Example Region',
-      country: 'Poland',
-      countryCode: 'PL',
-    },
-  },
+  /** The business that operates WattByte. Shown on the legal and contact pages and in the footer. Defined in ./operator.ts. */
+  company: operator.company,
   url: (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://wattbyte.app').replace(/\/$/, ''),
   tagline: 'Understand what your device consumes.',
   homeTitle: "WattByte — Understand Your Device's Energy & Data Usage",

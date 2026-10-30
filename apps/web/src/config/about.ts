@@ -4,6 +4,7 @@
  * from `site.company`. Nothing here states team size, offices, customers or
  * dates that are not on record.
  */
+import { operator } from './operator';
 import { site } from './site';
 
 export const aboutHero = {
@@ -143,11 +144,7 @@ export const aboutOrganization = {
 export const aboutPeople = {
   headline: 'The people building WattByte.',
   copy: 'WattByte is developed independently, by a small team that also owns the decisions: what gets measured, what gets stored and what the app says about it.',
-  founder: {
-    name: 'Example Maintainer',
-    role: 'Building WattByte at ATLASHC',
-    copy: 'Leads WattByte from product to code. The point of the project is a simple one: the numbers a phone already has should be readable by the person holding it.',
-  },
+  founder: operator.founder,
   philosophy: [
     'Decisions are made close to the code, so a rule like "an estimate is always labelled" is a line in the source, not a slide.',
     'There is no growth team and no advertising SDK to feed. The product is the whole business.',

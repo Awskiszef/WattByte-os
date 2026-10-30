@@ -11,7 +11,8 @@ const ALL_OFF = Object.fromEntries(Object.values(JOB_FLAGS).filter(Boolean).map(
 const needs = (flags, results) => ({
   changes: { result: 'success', outputs: { ...ALL_OFF, ...flags } },
   hygiene: { result: 'success' },
-  ...Object.fromEntries(Object.keys(JOB_FLAGS).filter((j) => j !== 'hygiene').map((j) => [j, { result: 'skipped' }])),
+  'public-config': { result: 'success' },
+  ...Object.fromEntries(Object.keys(JOB_FLAGS).filter((j) => j !== 'hygiene' && j !== 'public-config').map((j) => [j, { result: 'skipped' }])),
   ...results,
 });
 
@@ -39,6 +40,12 @@ describe('CI result gate', () => {
   it('hygiene must always succeed', () => {
     assert.equal(gate(needs({}, { hygiene: { result: 'skipped' } })).ok, false);
     assert.equal(gate(needs({}, { hygiene: { result: 'failure' } })).ok, false);
+  });
+  it('the Public Configuration Security Gate must always succeed: skipped, failed or cancelled all fail CI result', () => {
+    for (const result of ['skipped', 'failure', 'cancelled']) assert.equal(gate(needs({}, { 'public-config': { result } })).ok, false, result);
+    const n = needs({}, {});
+    delete n['public-config'];
+    assert.equal(gate(n).ok, false, 'missing');
   });
   it('without a successful scope job nothing is trusted', () => {
     const n = needs({}, {});

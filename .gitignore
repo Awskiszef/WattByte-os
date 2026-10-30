@@ -43,6 +43,49 @@ key.properties
 # Local.xcconfig.example to Local.xcconfig; only the example is tracked.
 apps/mobile/ios/Flutter/Local.xcconfig
 
+# Cloud and infrastructure credentials, local deployment state. Examples (*.example) stay tracked.
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.wrangler/
+.aws/
+.gcloud/
+.azure/
+.terraform/
+.vercel/
+.netlify/
+.serverless/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+google-services.json
+GoogleService-Info.plist
+.firebaserc
+firebase-adminsdk*.json
+*service-account*.json
+*serviceAccount*.json
+client_secret*.json
+credentials.json
+*.ovpn
+.netrc
+.pgpass
+.htpasswd
+.git-credentials
+
+# Database dumps, backups and local databases: real user records must never be committed.
+*.dump
+*.bak
+*.backup
+*.sqlite
+*.sqlite3
+*.db
+*.rdb
+*.sql.gz
+pg_dump*
+/backups/
+
 # ----------------------------------------------- Node / TypeScript (pnpm workspace)
 node_modules/
 .pnpm-store/

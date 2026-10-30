@@ -30,7 +30,10 @@ export const RULES = [
   { re: /^\.github\/(CODEOWNERS|dependabot\.yml|pull_request_template\.md|ISSUE_TEMPLATE\/|rulesets\/|FUNDING\.yml)/, set: ['docs'] },
   { re: /^(\.gitattributes|\.gitignore|\.gitleaks\.toml|\.githooks\/|\.claude\/|\.dockerignore)/, set: ['docs'] },
   // Hygiene runs the unit tests of these scripts on every change, so a change to one needs nothing else.
-  { re: /^scripts\/(secret-scan|check-docs|is-main|github-protect-main)[^/]*$/, set: ['docs'] },
+  { re: /^scripts\/(secret-scan|check-docs|is-main|github-protect-main|check-public-config|public-config|public-export)[^/]*$/, set: ['docs'] },
+  // The public export's overlay (placeholders for private files): the website part is real code, the rest is documentation.
+  { re: /^infrastructure\/public-overlay\/(?!apps\/)/, set: ['docs'] },
+  { re: /^infrastructure\/public-overlay\/apps\/web\//, set: ['web'] },
 
   // The workflows and the scripts that drive them change what CI does: everything must prove itself.
   { re: /^\.github\/workflows\//, set: ['ci_config'] },
@@ -48,7 +51,7 @@ export const RULES = [
   { re: /^packages\/device-specs\//, set: ['devspecs', 'mobile'] },
   { re: /^apps\/api\/(Dockerfile|\.dockerignore)$/, set: ['api', 'docker'] },
   { re: /^apps\/api\//, set: ['api'] },
-  { re: /^infrastructure\//, set: ['api'] },
+  { re: /^infrastructure\/(?!public-overlay\/)/, set: ['api'] },
 
   // The generator, the drift checks and the production smoke test sit between the API and the app.
   { re: /^scripts\/(generate-dart-client|dart-client-postprocess|openapi-generator|check-generated-client|check-openapi-compat|check-device-specs|copy-migrations|smoke-|wait-for-db|test-db|fake-eurostat)[^/]*$/, set: ['api', 'contracts', 'mobile'] },
