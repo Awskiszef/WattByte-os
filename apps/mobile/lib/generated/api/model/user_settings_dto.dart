@@ -226,6 +226,7 @@ enum UserSettingsDtoCountryCodeSourceEnum {
   detected._(r'detected'),
   manual._(r'manual'),
   migratedManual._(r'migratedManual'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -296,10 +297,11 @@ class UserSettingsDtoCountryCodeSourceEnumTypeTransformer {
           return UserSettingsDtoCountryCodeSourceEnum.manual;
         case r'migratedManual':
           return UserSettingsDtoCountryCodeSourceEnum.migratedManual;
+        case r'unknown_default_open_api':
+          return UserSettingsDtoCountryCodeSourceEnum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return UserSettingsDtoCountryCodeSourceEnum.unknownDefaultOpenApi;
       }
     }
     return null;
@@ -313,6 +315,7 @@ enum UserSettingsDtoCurrencyCodeSourceEnum {
   detected._(r'detected'),
   manual._(r'manual'),
   migratedManual._(r'migratedManual'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -384,10 +387,11 @@ class UserSettingsDtoCurrencyCodeSourceEnumTypeTransformer {
           return UserSettingsDtoCurrencyCodeSourceEnum.manual;
         case r'migratedManual':
           return UserSettingsDtoCurrencyCodeSourceEnum.migratedManual;
+        case r'unknown_default_open_api':
+          return UserSettingsDtoCurrencyCodeSourceEnum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return UserSettingsDtoCurrencyCodeSourceEnum.unknownDefaultOpenApi;
       }
     }
     return null;
@@ -400,6 +404,7 @@ class UserSettingsDtoCurrencyCodeSourceEnumTypeTransformer {
 enum UserSettingsDtoElectricityPriceModeEnum {
   automatic._(r'automatic'),
   manual._(r'manual'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -469,10 +474,11 @@ class UserSettingsDtoElectricityPriceModeEnumTypeTransformer {
           return UserSettingsDtoElectricityPriceModeEnum.automatic;
         case r'manual':
           return UserSettingsDtoElectricityPriceModeEnum.manual;
+        case r'unknown_default_open_api':
+          return UserSettingsDtoElectricityPriceModeEnum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return UserSettingsDtoElectricityPriceModeEnum.unknownDefaultOpenApi;
       }
     }
     return null;
@@ -486,6 +492,7 @@ enum UserSettingsDtoElectricityPriceSourceEnum {
   detected._(r'detected'),
   manual._(r'manual'),
   migratedManual._(r'migratedManual'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -557,10 +564,13 @@ class UserSettingsDtoElectricityPriceSourceEnumTypeTransformer {
           return UserSettingsDtoElectricityPriceSourceEnum.manual;
         case r'migratedManual':
           return UserSettingsDtoElectricityPriceSourceEnum.migratedManual;
+        case r'unknown_default_open_api':
+          return UserSettingsDtoElectricityPriceSourceEnum
+              .unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return UserSettingsDtoElectricityPriceSourceEnum
+              .unknownDefaultOpenApi;
       }
     }
     return null;

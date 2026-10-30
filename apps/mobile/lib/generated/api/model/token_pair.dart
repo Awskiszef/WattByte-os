@@ -158,6 +158,7 @@ class TokenPair {
 
 enum TokenPairTokenTypeEnum {
   bearer._(r'Bearer'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -223,10 +224,11 @@ class TokenPairTokenTypeEnumTypeTransformer {
       switch (data) {
         case r'Bearer':
           return TokenPairTokenTypeEnum.bearer;
+        case r'unknown_default_open_api':
+          return TokenPairTokenTypeEnum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return TokenPairTokenTypeEnum.unknownDefaultOpenApi;
       }
     }
     return null;

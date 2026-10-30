@@ -229,6 +229,7 @@ enum CloudExportSettingsCountryCodeSourceEnum {
   detected._(r'detected'),
   manual._(r'manual'),
   migratedManual._(r'migratedManual'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -300,10 +301,11 @@ class CloudExportSettingsCountryCodeSourceEnumTypeTransformer {
           return CloudExportSettingsCountryCodeSourceEnum.manual;
         case r'migratedManual':
           return CloudExportSettingsCountryCodeSourceEnum.migratedManual;
+        case r'unknown_default_open_api':
+          return CloudExportSettingsCountryCodeSourceEnum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return CloudExportSettingsCountryCodeSourceEnum.unknownDefaultOpenApi;
       }
     }
     return null;
@@ -317,6 +319,7 @@ enum CloudExportSettingsCurrencyCodeSourceEnum {
   detected._(r'detected'),
   manual._(r'manual'),
   migratedManual._(r'migratedManual'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -388,10 +391,13 @@ class CloudExportSettingsCurrencyCodeSourceEnumTypeTransformer {
           return CloudExportSettingsCurrencyCodeSourceEnum.manual;
         case r'migratedManual':
           return CloudExportSettingsCurrencyCodeSourceEnum.migratedManual;
+        case r'unknown_default_open_api':
+          return CloudExportSettingsCurrencyCodeSourceEnum
+              .unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return CloudExportSettingsCurrencyCodeSourceEnum
+              .unknownDefaultOpenApi;
       }
     }
     return null;
@@ -404,6 +410,7 @@ class CloudExportSettingsCurrencyCodeSourceEnumTypeTransformer {
 enum CloudExportSettingsElectricityPriceModeEnum {
   automatic._(r'automatic'),
   manual._(r'manual'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -475,10 +482,13 @@ class CloudExportSettingsElectricityPriceModeEnumTypeTransformer {
           return CloudExportSettingsElectricityPriceModeEnum.automatic;
         case r'manual':
           return CloudExportSettingsElectricityPriceModeEnum.manual;
+        case r'unknown_default_open_api':
+          return CloudExportSettingsElectricityPriceModeEnum
+              .unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return CloudExportSettingsElectricityPriceModeEnum
+              .unknownDefaultOpenApi;
       }
     }
     return null;
@@ -492,6 +502,7 @@ enum CloudExportSettingsElectricityPriceSourceEnum {
   detected._(r'detected'),
   manual._(r'manual'),
   migratedManual._(r'migratedManual'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -568,10 +579,13 @@ class CloudExportSettingsElectricityPriceSourceEnumTypeTransformer {
           return CloudExportSettingsElectricityPriceSourceEnum.manual;
         case r'migratedManual':
           return CloudExportSettingsElectricityPriceSourceEnum.migratedManual;
+        case r'unknown_default_open_api':
+          return CloudExportSettingsElectricityPriceSourceEnum
+              .unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return CloudExportSettingsElectricityPriceSourceEnum
+              .unknownDefaultOpenApi;
       }
     }
     return null;

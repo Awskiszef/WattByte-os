@@ -20,6 +20,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { postProcessClient } from './dart-client-postprocess.mjs';
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const option = (name) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
 const spec = option('spec') ?? path.join(root, 'packages', 'contracts', 'openapi', 'openapi.json');
@@ -42,7 +44,7 @@ const GENERATOR_ARGS = [
   'dart',
   '-o',
   'out',
-  '--additional-properties=pubName=wattbyte_api,pubLibrary=wattbyte_api',
+  '--additional-properties=pubName=wattbyte_api,pubLibrary=wattbyte_api,enumUnknownDefaultCase=true',
   '--global-property=apis,models,supportingFiles',
 ];
 
@@ -91,6 +93,9 @@ try {
   if (gen.status !== 0) fail(`openapi-generator failed (exit ${gen.status}):\n${gen.stdout}\n${gen.stderr}`);
   const regenerated = path.join(work, 'out', 'lib');
   if (!existsSync(regenerated)) fail(`the generator wrote no lib/ directory:\n${gen.stdout}\n${gen.stderr}`);
+
+  // Same tolerant enum decoders as scripts/generate-dart-client.mjs.
+  postProcessClient(regenerated);
 
   // The committed client is formatted (so `dart format --set-exit-if-changed` stays green); format the same way.
   const fmt = run('dart', ['format', regenerated], work);

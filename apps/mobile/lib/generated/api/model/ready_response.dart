@@ -161,6 +161,7 @@ class ReadyResponse {
 enum ReadyResponseStatusEnum {
   ok._(r'ok'),
   degraded._(r'degraded'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -228,10 +229,11 @@ class ReadyResponseStatusEnumTypeTransformer {
           return ReadyResponseStatusEnum.ok;
         case r'degraded':
           return ReadyResponseStatusEnum.degraded;
+        case r'unknown_default_open_api':
+          return ReadyResponseStatusEnum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return ReadyResponseStatusEnum.unknownDefaultOpenApi;
       }
     }
     return null;
@@ -244,6 +246,7 @@ class ReadyResponseStatusEnumTypeTransformer {
 enum ReadyResponseDatabaseEnum {
   ok._(r'ok'),
   unavailable._(r'unavailable'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -311,10 +314,11 @@ class ReadyResponseDatabaseEnumTypeTransformer {
           return ReadyResponseDatabaseEnum.ok;
         case r'unavailable':
           return ReadyResponseDatabaseEnum.unavailable;
+        case r'unknown_default_open_api':
+          return ReadyResponseDatabaseEnum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return ReadyResponseDatabaseEnum.unknownDefaultOpenApi;
       }
     }
     return null;
@@ -329,6 +333,7 @@ enum ReadyResponseSchemaEnum {
   behind._(r'behind'),
   ahead._(r'ahead'),
   unchecked._(r'unchecked'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -400,10 +405,11 @@ class ReadyResponseSchemaEnumTypeTransformer {
           return ReadyResponseSchemaEnum.ahead;
         case r'unchecked':
           return ReadyResponseSchemaEnum.unchecked;
+        case r'unknown_default_open_api':
+          return ReadyResponseSchemaEnum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return ReadyResponseSchemaEnum.unknownDefaultOpenApi;
       }
     }
     return null;

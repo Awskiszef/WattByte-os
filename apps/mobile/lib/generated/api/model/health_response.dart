@@ -144,6 +144,7 @@ class HealthResponse {
 
 enum HealthResponseStatusEnum {
   ok._(r'ok'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -209,10 +210,11 @@ class HealthResponseStatusEnumTypeTransformer {
       switch (data) {
         case r'ok':
           return HealthResponseStatusEnum.ok;
+        case r'unknown_default_open_api':
+          return HealthResponseStatusEnum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return HealthResponseStatusEnum.unknownDefaultOpenApi;
       }
     }
     return null;

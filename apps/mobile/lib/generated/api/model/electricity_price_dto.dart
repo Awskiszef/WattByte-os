@@ -225,6 +225,7 @@ enum ElectricityPriceDtoSource_Enum {
   government._(r'government'),
   manual._(r'manual'),
   fallback._(r'fallback'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -297,10 +298,11 @@ class ElectricityPriceDtoSource_EnumTypeTransformer {
           return ElectricityPriceDtoSource_Enum.manual;
         case r'fallback':
           return ElectricityPriceDtoSource_Enum.fallback;
+        case r'unknown_default_open_api':
+          return ElectricityPriceDtoSource_Enum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return ElectricityPriceDtoSource_Enum.unknownDefaultOpenApi;
       }
     }
     return null;

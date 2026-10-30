@@ -172,6 +172,7 @@ enum AIOutputToneEnum {
   friendly._(r'friendly'),
   funny._(r'funny'),
   roast._(r'roast'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -243,10 +244,11 @@ class AIOutputToneEnumTypeTransformer {
           return AIOutputToneEnum.funny;
         case r'roast':
           return AIOutputToneEnum.roast;
+        case r'unknown_default_open_api':
+          return AIOutputToneEnum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return AIOutputToneEnum.unknownDefaultOpenApi;
       }
     }
     return null;
@@ -260,6 +262,7 @@ enum AIOutputSeverityEnum {
   info._(r'info'),
   notice._(r'notice'),
   celebrate._(r'celebrate'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -329,10 +332,11 @@ class AIOutputSeverityEnumTypeTransformer {
           return AIOutputSeverityEnum.notice;
         case r'celebrate':
           return AIOutputSeverityEnum.celebrate;
+        case r'unknown_default_open_api':
+          return AIOutputSeverityEnum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return AIOutputSeverityEnum.unknownDefaultOpenApi;
       }
     }
     return null;

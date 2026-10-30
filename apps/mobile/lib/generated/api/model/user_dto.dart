@@ -172,6 +172,7 @@ class UserDto {
 enum UserDtoPlanEnum {
   free._(r'free'),
   premium._(r'premium'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -239,10 +240,11 @@ class UserDtoPlanEnumTypeTransformer {
           return UserDtoPlanEnum.free;
         case r'premium':
           return UserDtoPlanEnum.premium;
+        case r'unknown_default_open_api':
+          return UserDtoPlanEnum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return UserDtoPlanEnum.unknownDefaultOpenApi;
       }
     }
     return null;

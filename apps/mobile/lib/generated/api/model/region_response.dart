@@ -135,6 +135,7 @@ class RegionResponse {
 enum RegionResponseSource_Enum {
   backendCountry._(r'backendCountry'),
   none._(r'none'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -202,10 +203,11 @@ class RegionResponseSource_EnumTypeTransformer {
           return RegionResponseSource_Enum.backendCountry;
         case r'none':
           return RegionResponseSource_Enum.none;
+        case r'unknown_default_open_api':
+          return RegionResponseSource_Enum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return RegionResponseSource_Enum.unknownDefaultOpenApi;
       }
     }
     return null;

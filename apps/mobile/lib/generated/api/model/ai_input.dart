@@ -296,6 +296,7 @@ enum AIInputPeriodTypeEnum {
   day._(r'day'),
   week._(r'week'),
   month._(r'month'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -365,10 +366,11 @@ class AIInputPeriodTypeEnumTypeTransformer {
           return AIInputPeriodTypeEnum.week;
         case r'month':
           return AIInputPeriodTypeEnum.month;
+        case r'unknown_default_open_api':
+          return AIInputPeriodTypeEnum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return AIInputPeriodTypeEnum.unknownDefaultOpenApi;
       }
     }
     return null;

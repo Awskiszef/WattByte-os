@@ -323,6 +323,7 @@ class DeviceDto {
 enum DeviceDtoPlatformEnum {
   android._(r'android'),
   ios._(r'ios'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -390,10 +391,11 @@ class DeviceDtoPlatformEnumTypeTransformer {
           return DeviceDtoPlatformEnum.android;
         case r'ios':
           return DeviceDtoPlatformEnum.ios;
+        case r'unknown_default_open_api':
+          return DeviceDtoPlatformEnum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return DeviceDtoPlatformEnum.unknownDefaultOpenApi;
       }
     }
     return null;
@@ -409,6 +411,7 @@ enum DeviceDtoDesignCapacitySourceEnum {
   backendDeviceDatabase._(r'backendDeviceDatabase'),
   manual._(r'manual'),
   unknown._(r'unknown'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -483,10 +486,11 @@ class DeviceDtoDesignCapacitySourceEnumTypeTransformer {
           return DeviceDtoDesignCapacitySourceEnum.manual;
         case r'unknown':
           return DeviceDtoDesignCapacitySourceEnum.unknown;
+        case r'unknown_default_open_api':
+          return DeviceDtoDesignCapacitySourceEnum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return DeviceDtoDesignCapacitySourceEnum.unknownDefaultOpenApi;
       }
     }
     return null;
@@ -499,6 +503,7 @@ class DeviceDtoDesignCapacitySourceEnumTypeTransformer {
 enum DeviceDtoFullChargeCapacitySourceEnum {
   androidChargeCounter._(r'androidChargeCounter'),
   unknown._(r'unknown'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -568,10 +573,11 @@ class DeviceDtoFullChargeCapacitySourceEnumTypeTransformer {
           return DeviceDtoFullChargeCapacitySourceEnum.androidChargeCounter;
         case r'unknown':
           return DeviceDtoFullChargeCapacitySourceEnum.unknown;
+        case r'unknown_default_open_api':
+          return DeviceDtoFullChargeCapacitySourceEnum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return DeviceDtoFullChargeCapacitySourceEnum.unknownDefaultOpenApi;
       }
     }
     return null;
@@ -585,6 +591,7 @@ enum DeviceDtoFullChargeCapacityConfidenceEnum {
   low._(r'low'),
   medium._(r'medium'),
   high._(r'high'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -656,10 +663,13 @@ class DeviceDtoFullChargeCapacityConfidenceEnumTypeTransformer {
           return DeviceDtoFullChargeCapacityConfidenceEnum.medium;
         case r'high':
           return DeviceDtoFullChargeCapacityConfidenceEnum.high;
+        case r'unknown_default_open_api':
+          return DeviceDtoFullChargeCapacityConfidenceEnum
+              .unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return DeviceDtoFullChargeCapacityConfidenceEnum
+              .unknownDefaultOpenApi;
       }
     }
     return null;

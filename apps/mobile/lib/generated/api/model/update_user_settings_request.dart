@@ -199,6 +199,7 @@ enum UpdateUserSettingsRequestCountryCodeSourceEnum {
   detected._(r'detected'),
   manual._(r'manual'),
   migratedManual._(r'migratedManual'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -275,10 +276,13 @@ class UpdateUserSettingsRequestCountryCodeSourceEnumTypeTransformer {
           return UpdateUserSettingsRequestCountryCodeSourceEnum.manual;
         case r'migratedManual':
           return UpdateUserSettingsRequestCountryCodeSourceEnum.migratedManual;
+        case r'unknown_default_open_api':
+          return UpdateUserSettingsRequestCountryCodeSourceEnum
+              .unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return UpdateUserSettingsRequestCountryCodeSourceEnum
+              .unknownDefaultOpenApi;
       }
     }
     return null;
@@ -293,6 +297,7 @@ enum UpdateUserSettingsRequestCurrencyCodeSourceEnum {
   detected._(r'detected'),
   manual._(r'manual'),
   migratedManual._(r'migratedManual'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -369,10 +374,13 @@ class UpdateUserSettingsRequestCurrencyCodeSourceEnumTypeTransformer {
           return UpdateUserSettingsRequestCurrencyCodeSourceEnum.manual;
         case r'migratedManual':
           return UpdateUserSettingsRequestCurrencyCodeSourceEnum.migratedManual;
+        case r'unknown_default_open_api':
+          return UpdateUserSettingsRequestCurrencyCodeSourceEnum
+              .unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return UpdateUserSettingsRequestCurrencyCodeSourceEnum
+              .unknownDefaultOpenApi;
       }
     }
     return null;
@@ -386,6 +394,7 @@ class UpdateUserSettingsRequestCurrencyCodeSourceEnumTypeTransformer {
 enum UpdateUserSettingsRequestElectricityPriceModeEnum {
   automatic._(r'automatic'),
   manual._(r'manual'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -460,10 +469,13 @@ class UpdateUserSettingsRequestElectricityPriceModeEnumTypeTransformer {
           return UpdateUserSettingsRequestElectricityPriceModeEnum.automatic;
         case r'manual':
           return UpdateUserSettingsRequestElectricityPriceModeEnum.manual;
+        case r'unknown_default_open_api':
+          return UpdateUserSettingsRequestElectricityPriceModeEnum
+              .unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return UpdateUserSettingsRequestElectricityPriceModeEnum
+              .unknownDefaultOpenApi;
       }
     }
     return null;
@@ -478,6 +490,7 @@ enum UpdateUserSettingsRequestElectricityPriceSourceEnum {
   detected._(r'detected'),
   manual._(r'manual'),
   migratedManual._(r'migratedManual'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -555,10 +568,13 @@ class UpdateUserSettingsRequestElectricityPriceSourceEnumTypeTransformer {
         case r'migratedManual':
           return UpdateUserSettingsRequestElectricityPriceSourceEnum
               .migratedManual;
+        case r'unknown_default_open_api':
+          return UpdateUserSettingsRequestElectricityPriceSourceEnum
+              .unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return UpdateUserSettingsRequestElectricityPriceSourceEnum
+              .unknownDefaultOpenApi;
       }
     }
     return null;

@@ -197,6 +197,7 @@ class CloudExportSubscription {
 enum CloudExportSubscriptionStoreEnum {
   appStore._(r'app_store'),
   play._(r'play'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -265,10 +266,11 @@ class CloudExportSubscriptionStoreEnumTypeTransformer {
           return CloudExportSubscriptionStoreEnum.appStore;
         case r'play':
           return CloudExportSubscriptionStoreEnum.play;
+        case r'unknown_default_open_api':
+          return CloudExportSubscriptionStoreEnum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return CloudExportSubscriptionStoreEnum.unknownDefaultOpenApi;
       }
     }
     return null;
@@ -283,6 +285,7 @@ enum CloudExportSubscriptionStatusEnum {
   grace._(r'grace'),
   expired._(r'expired'),
   revoked._(r'revoked'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -355,10 +358,11 @@ class CloudExportSubscriptionStatusEnumTypeTransformer {
           return CloudExportSubscriptionStatusEnum.expired;
         case r'revoked':
           return CloudExportSubscriptionStatusEnum.revoked;
+        case r'unknown_default_open_api':
+          return CloudExportSubscriptionStatusEnum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return CloudExportSubscriptionStatusEnum.unknownDefaultOpenApi;
       }
     }
     return null;

@@ -9,6 +9,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { postProcessClient } from './dart-client-postprocess.mjs';
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const spec = path.join(root, 'packages', 'contracts', 'openapi', 'openapi.json');
 const mobile = path.join(root, 'apps', 'mobile');
@@ -29,8 +31,10 @@ try {
   const out = path.join(work, 'out');
   run(
     `npx --yes @openapitools/openapi-generator-cli generate -i openapi.json -g dart -o out ` +
-      '--additional-properties=pubName=wattbyte_api,pubLibrary=wattbyte_api --global-property=apis,models,supportingFiles',
+      '--additional-properties=pubName=wattbyte_api,pubLibrary=wattbyte_api,enumUnknownDefaultCase=true --global-property=apis,models,supportingFiles',
   );
+  const rewritten = postProcessClient(path.join(out, 'lib'));
+  console.warn(`enum decoders made tolerant: ${rewritten}`);
   rmSync(target, { recursive: true, force: true });
   cpSync(path.join(out, 'lib'), target, { recursive: true });
   // Generated code is formatted so `dart format --set-exit-if-changed` stays green.

@@ -1014,8 +1014,12 @@ void main() {
           expect(fromJson(wireName), v, reason: '$wireName decodes to itself');
           expect(wire(v), wireName);
         }
-        expect(fromJson('definitely-not-a-value'), isNull,
-            reason: 'unknown values are not mapped onto a real one');
+        // A member a newer server added decodes to the generator's sentinel (scripts/dart-client-postprocess.mjs): never to a
+        // real member and never to a crash (E-03, G-08).
+        final unknown = fromJson('definitely-not-a-value');
+        expect(unknown, isNotNull);
+        expect((unknown as dynamic).toJson(), 'unknown_default_open_api');
+        expect(values.where((v) => v == unknown), hasLength(1));
         expect(fromJson(null), isNull);
       });
     }
@@ -1156,7 +1160,11 @@ void main() {
       final specSets = {for (final v in fromSpec) v.join('|')};
       final clientSets = {
         for (final e in enumCases.values)
-          ([for (final v in e.$1) (v as dynamic).toJson() as String]..sort())
+          ([
+            for (final v in e.$1)
+              if ((v as dynamic).toJson() != 'unknown_default_open_api')
+                (v as dynamic).toJson() as String
+          ]..sort())
               .join('|')
       };
       expect(clientSets.difference(specSets), isEmpty,
@@ -1263,8 +1271,10 @@ void main() {
 
     test('AppConfigDto: an unknown environment is not mapped onto a real one',
         () {
-      expect(api.AppConfigDtoEnvironmentEnum.fromJson('testing'), isNull);
-      expect(api.AppConfigDtoEnvironmentEnum.fromJson('prod'), isNull);
+      for (final unknown in ['testing', 'prod']) {
+        expect(api.AppConfigDtoEnvironmentEnum.fromJson(unknown),
+            api.AppConfigDtoEnvironmentEnum.unknownDefaultOpenApi);
+      }
     });
 
     test('CloudDataDeleteResponse: every counter is an int', () {
@@ -1340,7 +1350,8 @@ void main() {
         expect(
             api.CloudExportSubscriptionStatusEnum.fromJson(status), isNotNull);
       }
-      expect(api.CloudExportSubscriptionStoreEnum.fromJson('appStore'), isNull,
+      expect(api.CloudExportSubscriptionStoreEnum.fromJson('appStore'),
+          api.CloudExportSubscriptionStoreEnum.unknownDefaultOpenApi,
           reason: 'the wire name is app_store');
     });
   });
@@ -1365,8 +1376,12 @@ void main() {
       'batterySpecificationSource',
     ];
 
-    List<String> wireNames(Iterable<Enum> values) =>
-        [for (final v in values) (v as dynamic).toJson() as String];
+    /// The wire names of the members the API publishes (not the generator's unknown-value sentinel).
+    List<String> wireNames(Iterable<Enum> values) => [
+          for (final v in values)
+            if ((v as dynamic).toJson() != 'unknown_default_open_api')
+              (v as dynamic).toJson() as String
+        ];
 
     test('the request, the device and the catalog entry have the new names',
         () {
@@ -1556,6 +1571,42 @@ void main() {
           reason: 'new generated models without a case in this file');
       final stale = covered.where((f) => !generated.contains(f)).toList();
       expect(stale, isEmpty, reason: 'cases for models that no longer exist');
+    });
+  });
+
+  group('a response with a member this client does not know (E-03, G-08)', () {
+    test('a user with a new plan is read, not a TypeError', () {
+      final user = api.UserDto.fromJson({
+        'id': '00000000-0000-4000-8000-000000000001',
+        'email': 'a@b.co',
+        'displayName': null,
+        'plan': 'team', // added by a newer server
+        'createdAt': '2026-10-01T00:00:00.000Z',
+      })!;
+      expect(user.plan, api.UserDtoPlanEnum.unknownDefaultOpenApi);
+      expect(user.plan, isNot(api.UserDtoPlanEnum.premium),
+          reason: 'an unknown plan never grants premium');
+    });
+
+    test(
+        'the whole auth response with a new plan and a new token type still decodes (the rotated refresh token is kept)',
+        () {
+      final r = api.AuthResponse.fromJson({
+        'user': {
+          'id': '00000000-0000-4000-8000-000000000001',
+          'email': 'a@b.co',
+          'displayName': null,
+          'plan': 'enterprise',
+          'createdAt': '2026-10-01T00:00:00.000Z',
+        },
+        'tokens': {
+          'accessToken': 'a',
+          'refreshToken': 'rotated-r',
+          'tokenType': 'DPoP',
+          'expiresIn': 900,
+        },
+      })!;
+      expect(r.tokens.refreshToken, 'rotated-r');
     });
   });
 }

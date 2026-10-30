@@ -146,6 +146,7 @@ enum AIGenerateRequestModeEnum {
   friendly._(r'friendly'),
   funny._(r'funny'),
   roast._(r'roast'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -217,10 +218,11 @@ class AIGenerateRequestModeEnumTypeTransformer {
           return AIGenerateRequestModeEnum.funny;
         case r'roast':
           return AIGenerateRequestModeEnum.roast;
+        case r'unknown_default_open_api':
+          return AIGenerateRequestModeEnum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return AIGenerateRequestModeEnum.unknownDefaultOpenApi;
       }
     }
     return null;
@@ -233,6 +235,7 @@ class AIGenerateRequestModeEnumTypeTransformer {
 enum AIGenerateRequestLocaleEnum {
   en._(r'en'),
   pl._(r'pl'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -300,10 +303,11 @@ class AIGenerateRequestLocaleEnumTypeTransformer {
           return AIGenerateRequestLocaleEnum.en;
         case r'pl':
           return AIGenerateRequestLocaleEnum.pl;
+        case r'unknown_default_open_api':
+          return AIGenerateRequestLocaleEnum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return AIGenerateRequestLocaleEnum.unknownDefaultOpenApi;
       }
     }
     return null;

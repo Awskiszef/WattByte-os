@@ -146,6 +146,7 @@ enum AppConfigDtoEnvironmentEnum {
   development._(r'development'),
   staging._(r'staging'),
   production._(r'production'),
+  unknownDefaultOpenApi._(r'unknown_default_open_api'),
   ;
 
   /// Instantiate a new enum with the provided value.
@@ -215,10 +216,11 @@ class AppConfigDtoEnvironmentEnumTypeTransformer {
           return AppConfigDtoEnvironmentEnum.staging;
         case r'production':
           return AppConfigDtoEnvironmentEnum.production;
+        case r'unknown_default_open_api':
+          return AppConfigDtoEnvironmentEnum.unknownDefaultOpenApi;
         default:
-          if (!allowNull) {
-            throw ArgumentError('Unknown enum value to decode: $data');
-          }
+          // A member this client does not know (added by a newer server).
+          return AppConfigDtoEnvironmentEnum.unknownDefaultOpenApi;
       }
     }
     return null;
