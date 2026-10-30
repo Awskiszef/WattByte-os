@@ -9,6 +9,9 @@
 // can be compared:
 //
 //   SWEEP Settings: 40 configs, 17 failing, 23 overflow findings
+import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -255,6 +258,59 @@ SemanticsNode semanticsNode(WidgetTester tester, Pattern label) {
 int semanticsCount(WidgetTester tester, Pattern label) =>
     _nodesWithLabel(tester, label).length;
 
+/// The guideline samples the pixels of every text it finds: a row cut by the top or bottom edge of the list is sampled half
+/// empty and "fails" for a reason that has nothing to do with the design. Where a row falls at the end of the list depends on the
+/// platform's text metrics (a wrapped Polish label sat on the edge on Linux and not on macOS), so from the end of the list the
+/// scroll position moves up, in small steps, to the nearest position where no text is cut. Every row is still judged whole.
+Future<void> _scrollUpUntilNoTextIsCut(
+    WidgetTester tester, ScrollPosition position) async {
+  final viewport = tester.getRect(find.byType(Scrollable).first);
+  bool anyCut() {
+    for (final element in find.byType(RichText).evaluate()) {
+      final box = element.renderObject;
+      if (box is! RenderBox || !box.hasSize || !box.attached) continue;
+      final rect = box.localToGlobal(Offset.zero) & box.size;
+      final visible = rect.intersect(viewport);
+      final touches = visible.width > 0 && visible.height > 0;
+      if (touches && visible.height < rect.height - 0.5) return true;
+    }
+    return false;
+  }
+
+  final end = position.maxScrollExtent;
+  for (var back = 0.0;
+      back <= 240 && end - back >= position.minScrollExtent;
+      back += 4) {
+    position.jumpTo(end - back);
+    await tester.pump();
+    if (!anyCut()) return;
+  }
+  position.jumpTo(end); // nothing cleaner within reach: judge the end as it is
+  await tester.pump();
+}
+
+/// Saves what the test sees to `build/test-failures/<name>.png` (CI uploads that folder when a job fails), so a failure that
+/// only happens on one platform can be looked at instead of guessed. Returns the path, or null if nothing could be written.
+Future<String?> _saveFailureScreenshot(WidgetTester tester, String name) async {
+  try {
+    final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byType(RepaintBoundary).first);
+    final bytes = await tester.runAsync(() async {
+      final image = await boundary.toImage(pixelRatio: 1.0);
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      return data?.buffer.asUint8List();
+    });
+    if (bytes == null) return null;
+    final dir = Directory('build/test-failures')..createSync(recursive: true);
+    final file = File(
+        '${dir.path}/${name.replaceAll(RegExp(r'[^A-Za-z0-9_.-]+'), '_')}.png');
+    file.writeAsBytesSync(bytes);
+    return file.path;
+  } catch (_) {
+    return null;
+  }
+}
+
 /// WCAG text contrast (4.5:1, 3:1 for large text) of what is on screen, light
 /// and dark, English and Polish, at the design text size: with the list at its
 /// top and at its end (a row cut by the screen edge would be sampled half
@@ -279,8 +335,10 @@ Future<void> expectReadableContrast(
               labeled: false,
               contrast: true);
         } on TestFailure catch (e) {
+          final shot = await _saveFailureScreenshot(
+              tester, '$screen-${b.name}-${locale.languageCode}-$where');
           failures.add('${b.name} ${locale.languageCode} ($where)\n'
-              '${e.message}');
+              '${e.message}${shot == null ? '' : '\nscreenshot: $shot'}');
         }
       }
 
@@ -297,6 +355,7 @@ Future<void> expectReadableContrast(
       if (position.maxScrollExtent > position.minScrollExtent) {
         position.jumpTo(position.maxScrollExtent);
         await tester.pump();
+        await _scrollUpUntilNoTextIsCut(tester, position);
         await check('end');
         position.jumpTo(position.minScrollExtent);
         await tester.pump();

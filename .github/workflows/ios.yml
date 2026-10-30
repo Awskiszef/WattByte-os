@@ -1,0 +1,78 @@
+name: iOS
+
+# macOS minutes cost ten times a Linux minute, so the iOS build does not run on every pull request. It runs
+#   - on a push to main that touches the app, the plugin or the lockfiles of the Flutter side,
+#   - on a pull request that touches the iOS project or the plugin's Swift code,
+#   - by hand (workflow_dispatch) whenever a change needs it.
+# It is NOT part of the `CI result` check on purpose: a path-filtered workflow that does not run would otherwise
+# leave a required check pending for ever. Run it by hand before merging anything native (docs/CI_CD.md).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/mobile/**'
+      - '.github/workflows/ios.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/mobile/ios/**'
+      - 'apps/mobile/packages/wattbyte_system/ios/**'
+      - 'apps/mobile/pubspec.yaml'
+      - 'apps/mobile/pubspec.lock'
+      - '.github/workflows/ios.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: '3.41.6'
+
+jobs:
+  ios:
+    name: iOS build (simulator and device SDK, unsigned)
+    # `macos-latest` is macOS 26 on arm64 (Xcode 26 SDK). The app's background plugin needs the iOS 26 SDK
+    # (BGContinuedProcessingTask), so older Intel images (macos-15-intel) cannot build it and are not used.
+    runs-on: macos-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      # The toolchain actually in use, for the log; the build needs the iOS 26 SDK.
+      - name: Runner details
+        run: |
+          echo "machine: $(uname -m)"
+          sw_vers
+          xcodebuild -version
+          flutter --version
+          xcodebuild -showsdks | grep -E "iphoneos2[6-9]|iphonesimulator2[6-9]" || { echo "::error::this runner has no iOS 26 SDK"; exit 1; }
+      - run: flutter pub get
+      - run: flutter gen-l10n
+      # ios/Flutter/WattByte.xcconfig picks the simulator architecture from the machine that builds.
+      - run: flutter build ios --simulator --debug
+      # The widget extension must link system libraries only: no Flutter, no plugin framework (audit H-07).
+      - name: The widget extension links no plugin framework
+        run: bash tool/check_widget_links.sh
+      # The plugin's pure Swift logic (NET_RT_IFLIST2 parser, backup exclusion) runs on the macOS runner itself: no simulator needed.
+      - name: Swift unit checks of the plugin
+        working-directory: apps/mobile/packages/wattbyte_system/ios
+        run: |
+          swiftc -o "$RUNNER_TEMP/check_ifc" Classes/InterfaceCounterParser.swift Tests/InterfaceCounters/main.swift
+          "$RUNNER_TEMP/check_ifc"
+          swiftc -o "$RUNNER_TEMP/check_backup" Classes/BackupExclusion.swift Tests/BackupExclusion/main.swift
+          "$RUNNER_TEMP/check_backup"
+      - run: flutter build ios --debug --no-codesign

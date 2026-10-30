@@ -50,6 +50,11 @@ jobs:
       # A key committed once and deleted later is still in the history that gets cloned.
       - name: Scan the Git history for credentials (masked output)
         run: node scripts/secret-scan-history.mjs
+      # A second, independent scanner (Gitleaks 8.30.1, image pinned by digest) over the same history, with .gitleaks.toml.
+      - name: Gitleaks over the whole history (redacted output)
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            detect --source /repo --config /repo/.gitleaks.toml --log-opts=--all --redact --no-banner
       # Every action pinned to a commit SHA; the release workflow gated by `guard`, its secrets confined to the signing jobs.
       - name: Check the workflows (pinned actions, release gate)
         run: node scripts/check-workflow-pins.mjs
@@ -98,6 +103,9 @@ jobs:
       # The reference image must build from the repository as it is committed.
       - name: Build the API image
         run: docker build -f apps/api/Dockerfile -t wattbyte-api:ci .
+      # The image itself: migrate inside it, healthy, /ready with schema ok, a non-root user, a clean stop.
+      - name: Smoke test of the API image
+        run: node scripts/smoke-image.mjs "$PG_URL_BASE/wattbyte" --image wattbyte-api:ci
 
   # ------------------------------------------------- TypeScript: API, AI gateway, contracts
   node:
@@ -309,6 +317,15 @@ jobs:
         env:
           TZ: ${{ matrix.tz }}
         run: flutter test
+      # Tests that fail on one platform only (text contrast) save what they saw; look at it instead of guessing.
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: test-failures-${{ matrix.tz == 'UTC' && 'utc' || matrix.tz == 'Europe/Warsaw' && 'warsaw' || 'new-york' }}
+          path: apps/mobile/build/test-failures
+          if-no-files-found: ignore
+          retention-days: 7
 
   e2e:
     name: End to end (Dart client -> API -> PostgreSQL)
@@ -372,7 +389,14 @@ jobs:
           NODE_ENV: development
           AI_MOCK: '1'
           AI_FREE_DAILY_LIMIT: '4'
-          AUTH_RATE_LIMIT_PER_MIN: '1000'
+          # One client address makes every request of the suite: the per-IP limits would turn it into 429s.
+          AUTH_RATE_LIMIT_PER_MIN: '100000'
+          RATE_LIMIT_PER_MIN: '100000'
+          REFRESH_RATE_LIMIT_PER_MIN: '100000'
+          AI_RATE_LIMIT_PER_MIN: '100000'
+          CLOUD_WRITE_RATE_LIMIT_PER_MIN: '10000'
+          # The suite checks that a used refresh token is rejected; the retry window (default 60 s) would answer it.
+          REFRESH_REUSE_GRACE_SEC: '0'
           PORT: ${{ env.E2E_PORT }}
           HOST: 127.0.0.1
         run: |
@@ -421,6 +445,14 @@ jobs:
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
+      # An APK, an AAB and three release builds exceed the ~14 GB a hosted runner has free ("No space left on device" on the first
+      # run). Remove preinstalled toolchains this job never uses; the Android SDK and the JDK stay.
+      - name: Free disk space
+        working-directory: .
+        run: |
+          df -h / | tail -1
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /opt/hostedtoolcache/CodeQL /usr/local/lib/node_modules /usr/local/.ghcup || true
+          df -h / | tail -1
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
@@ -457,60 +489,6 @@ jobs:
       - run: gradle test
         working-directory: apps/mobile/packages/wattbyte_system/android/jvm-tests
 
-  # -------------------------------------------------------------------------- iOS
-  ios:
-    name: iOS build (${{ matrix.label }})
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 60
-    strategy:
-      # An Intel failure must not hide an Apple Silicon result, or the other way round.
-      fail-fast: false
-      matrix:
-        include:
-          # Apple Silicon: `macos-latest` is macOS 26 on arm64 as of the runner-images README read on 2026-10-13.
-          - runner: macos-latest
-            label: macos-latest, Apple Silicon
-          # Intel (x86_64): GitHub still offers `macos-15-intel` (and `macos-26-intel`) on that date; Intel images
-          # are on a published retirement path (see docs/CI.md). Remove this entry when the label disappears;
-          # nothing in the project assumes either CPU.
-          - runner: macos-15-intel
-            label: macos-15-intel, Intel
-    defaults:
-      run:
-        working-directory: apps/mobile
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-          cache: true
-      # The toolchain actually in use, for the log (no step branches on it).
-      - name: Runner details
-        run: |
-          echo "machine: $(uname -m)"
-          sw_vers
-          xcodebuild -version
-          flutter --version
-      - run: flutter pub get
-      - run: flutter gen-l10n
-      # ios/Flutter/WattByte.xcconfig picks the simulator architecture from the machine that builds.
-      - run: flutter build ios --simulator --debug
-      # The widget extension must link system libraries only: no Flutter, no plugin framework (audit H-07).
-      - name: The widget extension links no plugin framework
-        run: bash tool/check_widget_links.sh
-      # The plugin's pure Swift logic (NET_RT_IFLIST2 parser, backup exclusion) runs on the macOS runner itself: no simulator needed.
-      - name: Swift unit checks of the plugin
-        working-directory: apps/mobile/packages/wattbyte_system/ios
-        run: |
-          swiftc -o "$RUNNER_TEMP/check_ifc" Classes/InterfaceCounterParser.swift Tests/InterfaceCounters/main.swift
-          "$RUNNER_TEMP/check_ifc"
-          swiftc -o "$RUNNER_TEMP/check_backup" Classes/BackupExclusion.swift Tests/BackupExclusion/main.swift
-          "$RUNNER_TEMP/check_backup"
-      - run: flutter build ios --debug --no-codesign
-
   # ----------------------------------------------------------- single status for branch protection
   ci-ok:
     name: CI result
@@ -527,7 +505,6 @@ jobs:
       - e2e
       - android
       - kotlin
-      - ios
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

@@ -85,12 +85,16 @@ void main() {
     final s = await repo.signInWithEmail(email: email, password: password);
     final next = await repo.refresh(s.refreshToken);
     expect(next.refreshToken, isNot(s.refreshToken));
-    // Within the server's grace window a replay is rejected without ending the new session.
+    // The e2e API runs with REFRESH_REUSE_GRACE_SEC=0 (docs/DEVELOPMENT.md): a replay of a rotated token is theft, not a retry.
+    // It is rejected AND ends that sign-in: the new session's access token stops working too (session_revoked).
     await expectLater(
         repo.refresh(s.refreshToken),
         throwsA(isA<AuthException>()
             .having((e) => e.error, 'error', AuthError.sessionExpired)));
-    expect((await repo.me(next.accessToken)).email, email);
+    await expectLater(
+        repo.me(next.accessToken),
+        throwsA(isA<AuthException>()
+            .having((e) => e.error, 'error', AuthError.sessionExpired)));
   }, skip: skip);
 
   test(

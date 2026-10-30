@@ -26,6 +26,7 @@
     "secret-scan": "node scripts/secret-scan.mjs",
     "secret-scan:history": "node scripts/secret-scan-history.mjs",
     "smoke:prod": "node scripts/smoke-production.mjs",
+    "smoke:image": "node scripts/smoke-image.mjs",
     "workflows:check": "node scripts/check-workflow-pins.mjs",
     "docs:check": "node scripts/check-docs.mjs",
     "test:scripts": "node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs scripts/is-main.test.mjs scripts/check-openapi-compat.test.mjs scripts/openapi-generator.test.mjs scripts/check-workflow-pins.test.mjs scripts/smoke-production.test.mjs scripts/check-docs.test.mjs scripts/secret-scan-history.test.mjs",

@@ -186,9 +186,9 @@ describe.skipIf(!DATABASE_URL)('retention (PostgreSQL)', () => {
     await expect(runRetention(pool, { batchSize: 0 })).rejects.toThrow(/batchSize/);
   });
 
-  it('runs as a command: `node --import tsx src/scripts/retention.ts --dry-run` prints one JSON result', async () => {
+  it('runs as a command: `node --conditions=development --import tsx src/scripts/retention.ts --dry-run` prints one JSON result', async () => {
     const env = { ...process.env, DATABASE_URL, AI_HISTORY_RETENTION_DAYS: '90' };
-    const { stdout } = await run(process.execPath, ['--import', 'tsx', 'src/scripts/retention.ts', '--dry-run'], { cwd: apiRoot, env });
+    const { stdout } = await run(process.execPath, ['--conditions=development', '--import', 'tsx', 'src/scripts/retention.ts', '--dry-run'], { cwd: apiRoot, env });
     const result = JSON.parse(stdout.trim()) as { dryRun: boolean; rows: Record<string, number>; cutoffs: Record<string, string> };
     expect(result.dryRun).toBe(true);
     expect(Object.keys(result.rows).sort()).toEqual(['aiGenerations', 'aiQuotaUsage', 'loginThrottle', 'sessions']);
@@ -198,7 +198,7 @@ describe.skipIf(!DATABASE_URL)('retention (PostgreSQL)', () => {
   it('the command fails with a clear message when DATABASE_URL is missing', async () => {
     const env = { ...process.env };
     delete env.DATABASE_URL;
-    await expect(run(process.execPath, ['--import', 'tsx', 'src/scripts/retention.ts'], { cwd: apiRoot, env })).rejects.toMatchObject({
+    await expect(run(process.execPath, ['--conditions=development', '--import', 'tsx', 'src/scripts/retention.ts'], { cwd: apiRoot, env })).rejects.toMatchObject({
       code: 1,
       stderr: expect.stringContaining('DATABASE_URL'),
     });

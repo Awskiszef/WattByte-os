@@ -1,0 +1,24 @@
+#!/bin/sh
+# Client-side guard (NOT a substitute for branch protection): refuse a direct push to main, a force push and a branch deletion
+# of main. Enable once per clone:  git config core.hooksPath .githooks
+# Deliberate override for the rare case that is really meant (a first push, a repository repair): ALLOW_MAIN_PUSH=1 git push ...
+zero=0000000000000000000000000000000000000000
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main)
+      [ "${ALLOW_MAIN_PUSH:-}" = "1" ] && continue
+      if [ "$local_sha" = "$zero" ]; then
+        echo "pre-push: refusing to delete main." >&2
+        exit 1
+      fi
+      echo "pre-push: refusing a direct push to main. Push a branch (feature/*, fix/*, security/*, docs/*, refactor/*, release/*) and open a pull request." >&2
+      echo "          (override on purpose: ALLOW_MAIN_PUSH=1 git push ...)" >&2
+      exit 1
+      ;;
+  esac
+  if [ "$remote_sha" != "$zero" ] && [ "$local_sha" != "$zero" ] && ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+    echo "pre-push: $remote_ref would not be a fast-forward (a force push). Refused: rebase or merge instead." >&2
+    exit 1
+  fi
+done
+exit 0

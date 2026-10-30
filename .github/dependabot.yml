@@ -1,5 +1,10 @@
-# Keeps the GitHub Actions pinned to commit SHAs (with a version comment), the pnpm workspace and the Flutter app's pub packages current.
-# Updates arrive as pull requests that run the normal CI; nothing is merged automatically.
+# Dependabot: weekly, one logical group per ecosystem, no automatic major upgrades, nothing merges by itself.
+#
+# * Security updates are separate from version updates: GitHub opens them when an advisory affects a dependency (enable
+#   "Dependabot security updates" in the repository settings); the groups below apply to routine version updates only.
+# * A major version needs a planned migration and its own branch (docs/CI_CD.md), so majors are ignored here.
+#   Revisit an `ignore` entry deliberately, not by accident.
+# * Every update is a pull request and has to pass the CI workflow before anyone merges it.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -8,20 +13,36 @@ updates:
       interval: weekly
     commit-message:
       prefix: ci
+    groups:
+      actions:
+        patterns: ['*']
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: npm
     directories:
       - /
       - /apps/api
       - /apps/ai
+      - /apps/web
       - /packages/contracts
       - /packages/device-specs
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    commit-message:
+      prefix: build
     groups:
       typescript-tooling:
-        patterns: [typescript, typescript-eslint, eslint, vitest, "@types/*"]
+        patterns: [typescript, typescript-eslint, eslint, vitest, '@types/*']
+      minor-and-patch:
+        patterns: ['*']
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: docker
     directory: /apps/api
@@ -29,9 +50,21 @@ updates:
       interval: weekly
     commit-message:
       prefix: ci
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: pub
     directory: /apps/mobile
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    commit-message:
+      prefix: build
+    groups:
+      flutter-minor-and-patch:
+        patterns: ['*']
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']

@@ -36,6 +36,7 @@ implemented things "planned".
 | Page | What it answers |
 |---|---|
 | [OPERATIONS.md](OPERATIONS.md) | Running the API: image, deploy order, rollback, retention schedule, backups and restore, monitoring |
+| [CI_CD.md](CI_CD.md) | The GitHub side: workflows, repository settings that are active, what the plan does not allow, environments |
 | [CI.md](CI.md) | The pipeline, the local command for each job, the release workflow and its secrets |
 | [RELEASE.md](RELEASE.md) | Store checklist, signing, what needs an Apple or Google account |
 | [REPOSITORY.md](REPOSITORY.md) | What is ignored, what would be committed, the first commit |

@@ -84,8 +84,8 @@ flutter run --dart-define=LOCAL_ONLY_DEV=true                        # no backen
 
 A plain `flutter run` stops at the "Invalid build configuration" screen on purpose.
 
-End to end (generated Dart client -> API -> PostgreSQL), with the API running on `:18080` (`AI_MOCK=1 AI_FREE_DAILY_LIMIT=4
-AUTH_RATE_LIMIT_PER_MIN=1000`): `cd apps/mobile && WATTBYTE_E2E_API_URL=http://127.0.0.1:18080 flutter test test/e2e`, and
+End to end (generated Dart client -> API -> PostgreSQL), with the API running on `:18080` (`AI_MOCK=1 AI_FREE_DAILY_LIMIT=4 REFRESH_REUSE_GRACE_SEC=0` and the
+per-IP limits raised: `AUTH_RATE_LIMIT_PER_MIN`, `RATE_LIMIT_PER_MIN`, `REFRESH_RATE_LIMIT_PER_MIN`, `AI_RATE_LIMIT_PER_MIN` = 100000, `CLOUD_WRITE_RATE_LIMIT_PER_MIN=10000`): `cd apps/mobile && WATTBYTE_E2E_API_URL=http://127.0.0.1:18080 flutter test test/e2e`, and
 `TZ=Europe/Warsaw flutter test test/periods_test.dart` for calendar logic across DST.
 
 ### Windows notes

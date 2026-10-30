@@ -15,8 +15,9 @@ Before the first `release.yml` run, a repository admin has to confirm, once:
 * the environment `release` exists, with **required reviewers** and **deployment branches limited to the default branch**;
 * the signing secrets (`ANDROID_KEYSTORE_*`, `ANDROID_KEY_*`, `IOS_TEAM_ID`, `ASC_*`) exist **only as environment secrets of
   `release`**, not as repository or organisation secrets (those can be read by workflows on any branch);
-* branch protection on the default branch requires the `CI` workflow and a review, so the `guard` job's "commit has a green
-  CI run" means something; changes under `.github/workflows/` get the same review as code;
+* branch protection on the default branch requires the `CI` workflow, so the `guard` job's "commit has a green CI run" means
+  something. **Not possible on the current Free plan for a private repository** (`docs/CI_CD.md`); after upgrading run
+  `bash scripts/github-protect-main.sh`. Changes under `.github/workflows/` get the same review as code;
 * secret scanning and push protection are on (the repository secret scan reads the working tree, not history).
 
 ## Identifiers and versions

@@ -1,0 +1,8 @@
+# Review owners. GitHub enforces "require review from code owners" only with branch protection / rulesets
+# (not available on the Free plan for a private repository, see docs/CI_CD.md); the file documents the intent and starts
+# working the day protection is switched on.
+*                       @Awskiszef
+/.github/               @Awskiszef
+/scripts/               @Awskiszef
+/apps/api/src/modules/auth/   @Awskiszef
+/apps/mobile/android/app/build.gradle.kts @Awskiszef

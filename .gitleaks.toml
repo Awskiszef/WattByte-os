@@ -1,0 +1,19 @@
+# Gitleaks configuration (second secret scanner next to scripts/secret-scan*.mjs; CI job `secret-scan`).
+# Default rules stay on. The only exception: synthetic secrets in TEST files. They are placeholders for HTTP/JWT fixtures
+# (a JWT signing secret for an in-memory test server, a refresh-token string the secure-storage test writes and reads back)
+# and are valid for no real service. Everything outside the test directories is still scanned with every rule.
+title = "WattByte"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Synthetic fixtures in test directories (not credentials of any service)"
+targetRules = ["generic-api-key"]
+paths = [
+  '''^apps/api/tests/''',
+  '''^apps/ai/tests/''',
+  '''^apps/mobile/test/''',
+  '''^apps/web/tests/''',
+  '''^packages/[^/]+/tests/''',
+]

@@ -73,6 +73,11 @@ cd apps/mobile && flutter analyze && flutter test
 What each CI job runs and its local equivalent: [docs/CI.md](docs/CI.md). OpenAPI and the generated Dart client:
 `pnpm openapi`, `pnpm dart-client` ([docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)).
 
+## Contributing
+
+The repository is private; `main` changes only through pull requests with a green CI result: [CONTRIBUTING.md](CONTRIBUTING.md). The pipelines and
+what GitHub enforces on this plan: [docs/CI_CD.md](docs/CI_CD.md).
+
 ## Documentation
 
 [docs/README.md](docs/README.md) is the index: start here, reference, operations, privacy and security, verification reports,
