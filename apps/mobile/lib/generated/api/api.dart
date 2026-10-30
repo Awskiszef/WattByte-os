@@ -47,6 +47,7 @@ part 'model/app_config_dto.dart';
 part 'model/app_config_dto_ai.dart';
 part 'model/app_config_dto_ai_daily_limits.dart';
 part 'model/app_config_dto_features.dart';
+part 'model/app_config_dto_minimum_app_version.dart';
 part 'model/auth_response.dart';
 part 'model/change_password_request.dart';
 part 'model/cloud_data_delete_response.dart';

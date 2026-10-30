@@ -222,6 +222,8 @@ class ApiClient {
           return AppConfigDtoAiDailyLimits.fromJson(value);
         case 'AppConfigDtoFeatures':
           return AppConfigDtoFeatures.fromJson(value);
+        case 'AppConfigDtoMinimumAppVersion':
+          return AppConfigDtoMinimumAppVersion.fromJson(value);
         case 'AuthResponse':
           return AuthResponse.fromJson(value);
         case 'ChangePasswordRequest':

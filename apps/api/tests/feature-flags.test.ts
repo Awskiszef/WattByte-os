@@ -138,3 +138,23 @@ describe('FEATURE_* flags (every combination)', () => {
     });
   });
 });
+
+describe('GET /api/v1/config minimumAppVersion (F-11)', () => {
+  it('is published when set, per platform, and omitted when no minimum is configured', async () => {
+    await withApp({ MIN_APP_VERSION_ANDROID: '1.4.0', MIN_APP_VERSION_IOS: '1.3.2' }, async (ctx) => {
+      const res = await ctx.app.inject({ url: '/api/v1/config' });
+      expect(res.json().minimumAppVersion).toEqual({ android: '1.4.0', ios: '1.3.2' });
+      expect(() => AppConfigDto.parse(res.json())).not.toThrow();
+    });
+    await withApp({ MIN_APP_VERSION_IOS: '2.0.0' }, async (ctx) => {
+      expect((await ctx.app.inject({ url: '/api/v1/config' })).json().minimumAppVersion).toEqual({ ios: '2.0.0' });
+    });
+    await withApp({}, async (ctx) => {
+      expect((await ctx.app.inject({ url: '/api/v1/config' })).json()).not.toHaveProperty('minimumAppVersion');
+    });
+  });
+
+  it('rejects a minimum that is not MAJOR.MINOR.PATCH at start-up', async () => {
+    await expect(buildTestApp({ env: { MIN_APP_VERSION_IOS: 'latest' } })).rejects.toThrow();
+  });
+});

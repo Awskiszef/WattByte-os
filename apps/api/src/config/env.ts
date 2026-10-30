@@ -116,6 +116,9 @@ const EnvSchema = z
     AI_PREMIUM_DAILY_LIMIT: z.coerce.number().int().nonnegative().default(50),
     AI_MOCK: Flag('0'),
     /** Server-side feature switches; a disabled feature answers 503 `feature_disabled`. */
+    /** Oldest app version served per platform (`1.4.0`); older apps are told to update. Unset = no minimum. */
+    MIN_APP_VERSION_ANDROID: z.string().regex(/^\d{1,4}\.\d{1,4}\.\d{1,4}$/).optional(),
+    MIN_APP_VERSION_IOS: z.string().regex(/^\d{1,4}\.\d{1,4}\.\d{1,4}$/).optional(),
     FEATURE_AI: Flag('1'),
     FEATURE_SUBSCRIPTIONS: Flag('0'),
     FEATURE_CLOUD_SYNC: Flag('1'),

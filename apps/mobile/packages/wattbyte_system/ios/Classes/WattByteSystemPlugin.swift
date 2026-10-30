@@ -36,6 +36,12 @@ public class WattByteSystemPlugin: NSObject, FlutterPlugin {
       result(DeviceInfo.read())
     case "drainSamples":
       result([])
+    case "appVersion":
+      let info = Bundle.main.infoDictionary
+      result([
+        "version": info?["CFBundleShortVersionString"] as? String ?? "",
+        "build": info?["CFBundleVersion"] as? String ?? "",
+      ])
     case "openExternalUrl":
       guard let text = (call.arguments as? [String: Any])?["url"] as? String,
             let url = URL(string: text), url.scheme == "https", url.host != nil else {

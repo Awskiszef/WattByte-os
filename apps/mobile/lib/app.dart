@@ -10,6 +10,7 @@ import 'providers.dart';
 import 'settings/settings.dart';
 import 'setup/setup_controller.dart';
 import 'ui/onboarding/settings_load_failed_screen.dart';
+import 'ui/onboarding/update_required_screen.dart';
 import 'ui/onboarding/setup_screen.dart';
 import 'ui/onboarding/welcome_screen.dart';
 import 'ui/shell.dart';
@@ -71,6 +72,11 @@ class StartGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // The server no longer serves this version: say so before anything else (F-11).
+    if (ref.watch(updateRequiredProvider) &&
+        !ref.watch(updateNoticeDismissedProvider)) {
+      return const UpdateRequiredScreen();
+    }
     final destination = startDestination(
       localOnlyDev: ref.watch(appConfigProvider).isLocalOnlyDev,
       auth: ref.watch(authControllerProvider),

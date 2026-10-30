@@ -23,10 +23,18 @@ export const AiDailyLimitsDto = z.object({
  * Public runtime configuration, `GET /api/v1/config`. Contains no secret and
  * nothing account-specific, so it is served without authentication.
  */
+/** `MAJOR.MINOR.PATCH`: the oldest app version the server still serves. */
+export const AppVersion = z.string().regex(/^\d{1,4}\.\d{1,4}\.\d{1,4}$/);
+
 export const AppConfigDto = z.object({
   environment: AppEnvironment,
   features: FeatureFlagsDto,
   ai: z.object({ dailyLimits: AiDailyLimitsDto }),
+  /**
+   * The oldest app version per platform the server still works with; an older app shows "update required" instead of
+   * failing on requests the server no longer understands. Absent (or a platform missing) = no minimum.
+   */
+  minimumAppVersion: z.object({ android: AppVersion.optional(), ios: AppVersion.optional() }).optional(),
 });
 
 export type AppEnvironment = z.infer<typeof AppEnvironment>;

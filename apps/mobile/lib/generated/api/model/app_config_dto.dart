@@ -16,6 +16,7 @@ class AppConfigDto {
     required this.environment,
     required this.features,
     required this.ai,
+    this.minimumAppVersion,
   });
 
   AppConfigDtoEnvironmentEnum environment;
@@ -24,28 +25,45 @@ class AppConfigDto {
 
   AppConfigDtoAi ai;
 
+  ///
+  /// Please note: This property should have been non-nullable! Since the specification file
+  /// does not include a default value (using the "default:" property), however, the generated
+  /// source code must fall back to having a nullable type.
+  /// Consider adding a "default:" property in the specification file to hide this note.
+  ///
+  AppConfigDtoMinimumAppVersion? minimumAppVersion;
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is AppConfigDto &&
           other.environment == environment &&
           other.features == features &&
-          other.ai == ai;
+          other.ai == ai &&
+          other.minimumAppVersion == minimumAppVersion;
 
   @override
   int get hashCode =>
       // ignore: unnecessary_parenthesis
-      (environment.hashCode) + (features.hashCode) + (ai.hashCode);
+      (environment.hashCode) +
+      (features.hashCode) +
+      (ai.hashCode) +
+      (minimumAppVersion == null ? 0 : minimumAppVersion!.hashCode);
 
   @override
   String toString() =>
-      'AppConfigDto[environment=$environment, features=$features, ai=$ai]';
+      'AppConfigDto[environment=$environment, features=$features, ai=$ai, minimumAppVersion=$minimumAppVersion]';
 
   Map<String, dynamic> toJson() {
     final json = <String, dynamic>{};
     json[r'environment'] = this.environment;
     json[r'features'] = this.features;
     json[r'ai'] = this.ai;
+    if (this.minimumAppVersion != null) {
+      json[r'minimumAppVersion'] = this.minimumAppVersion;
+    } else {
+      json[r'minimumAppVersion'] = null;
+    }
     return json;
   }
 
@@ -80,6 +98,8 @@ class AppConfigDto {
             AppConfigDtoEnvironmentEnum.fromJson(json[r'environment'])!,
         features: AppConfigDtoFeatures.fromJson(json[r'features'])!,
         ai: AppConfigDtoAi.fromJson(json[r'ai'])!,
+        minimumAppVersion:
+            AppConfigDtoMinimumAppVersion.fromJson(json[r'minimumAppVersion']),
       );
     }
     return null;

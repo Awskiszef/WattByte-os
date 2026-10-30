@@ -1,6 +1,7 @@
 import 'package:http/http.dart' as http;
 
 import '../generated/api/api.dart';
+import '../config/app_build.dart';
 import 'api_config.dart';
 import 'retry_after_client.dart';
 
@@ -11,11 +12,15 @@ import 'retry_after_client.dart';
 /// `ApiFailure.retryAfter` and connections are reused instead of one new socket
 /// pool per request.
 class ApiFactory {
-  ApiFactory(this.config, {http.Client? httpClient, DateTime Function()? clock})
+  ApiFactory(this.config,
+      {http.Client? httpClient, DateTime Function()? clock, this.appBuild})
       : _http = httpClient,
         _clock = clock;
 
   final ApiConfig config;
+
+  /// Sent as `X-WattByte-App` so the server can tell which builds are still in use (F-11). Null: no header.
+  final AppBuildInfo? appBuild;
   final http.Client? _http;
   final DateTime Function()? _clock;
 
@@ -25,6 +30,8 @@ class ApiFactory {
   ApiClient _make(Authentication? auth) {
     final c = ApiClient(basePath: config.baseUrl, authentication: auth);
     c.client = _client;
+    final header = appBuild?.header;
+    if (header != null) c.addDefaultHeader('X-WattByte-App', header);
     return c;
   }
 

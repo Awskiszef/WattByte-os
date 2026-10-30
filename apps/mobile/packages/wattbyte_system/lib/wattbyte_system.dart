@@ -332,6 +332,20 @@ class WattByteSystem {
     await _ch.invokeMethod<void>('ackSamples', {'token': token});
   }
 
+  /// The installed app's version (`1.4.0`) and build number, or null on a native side without the call.
+  Future<({String version, String build})?> appVersion() async {
+    try {
+      final m = await _ch.invokeMapMethod<String, Object?>('appVersion');
+      if (m == null) return null;
+      return (
+        version: (m['version'] as String?) ?? '',
+        build: (m['build'] as String?) ?? ''
+      );
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
   /// Opens a public web page (the privacy policy) in the system browser. Only `https` addresses are opened; anything else
   /// returns false without asking the native side. False also when no app could open it.
   Future<bool> openExternalUrl(Uri url) async {

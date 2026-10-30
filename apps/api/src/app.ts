@@ -247,7 +247,12 @@ export async function buildApp(deps: AppDeps): Promise<App> {
       await v1.register(electricityRoutes, { service: prices, repos, tokens });
       await v1.register(regionRoutes, { countryHeader: env.COUNTRY_HEADER, viaTrustedProxy: makeViaTrustedProxy(env) });
       await v1.register(aiRoutes, { service: ai, tokens, features, rateLimitMax: deps.aiRateLimitMax ?? env.AI_RATE_LIMIT_PER_MIN });
-      await v1.register(configRoutes, { environment: env.APP_ENV, features, aiDailyLimits });
+      await v1.register(configRoutes, {
+        environment: env.APP_ENV,
+        features,
+        aiDailyLimits,
+        minimumAppVersion: { android: env.MIN_APP_VERSION_ANDROID, ios: env.MIN_APP_VERSION_IOS },
+      });
     },
     { prefix: '/api/v1' },
   );

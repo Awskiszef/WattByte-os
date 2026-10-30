@@ -205,6 +205,7 @@ const appConfigJson = <String, Object?>{
   'ai': {
     'dailyLimits': {'free': 3, 'premium': 50},
   },
+  'minimumAppVersion': null,
 };
 
 const deletedCountsJson = <String, Object?>{
@@ -550,6 +551,14 @@ final responseCases = <ResponseCase>[
   }),
   const ResponseCase(
       'app_config_dto', api.AppConfigDto.fromJson, appConfigJson),
+  const ResponseCase('app_config_dto', api.AppConfigDto.fromJson, {
+    'environment': 'production',
+    'features': {'ai': true, 'subscriptions': false, 'cloudSync': true},
+    'ai': {
+      'dailyLimits': {'free': 3, 'premium': 50},
+    },
+    'minimumAppVersion': {'android': '1.4.0', 'ios': null},
+  }),
   for (final env in ['development', 'staging', 'production'])
     ResponseCase('app_config_dto', api.AppConfigDto.fromJson, {
       ...appConfigJson,
@@ -559,6 +568,11 @@ final responseCases = <ResponseCase>[
         'dailyLimits': {'free': 0, 'premium': 1000},
       },
     }),
+  const ResponseCase('app_config_dto_minimum_app_version',
+      api.AppConfigDtoMinimumAppVersion.fromJson, {
+    'android': '1.4.0',
+    'ios': null,
+  }),
   const ResponseCase(
       'app_config_dto_features', api.AppConfigDtoFeatures.fromJson, {
     'ai': true,

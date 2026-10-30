@@ -9,9 +9,11 @@ export interface ConfigRoutesOptions {
   features: FeatureFlags;
   /** Daily AI generations per plan, read from the environment: the app never hardcodes them. */
   aiDailyLimits: { free: number; premium: number };
+  /** Oldest app version served, per platform (MIN_APP_VERSION_*); omitted from the answer when none is set. */
+  minimumAppVersion?: { android?: string; ios?: string };
 }
 
-export const configRoutes: FastifyPluginAsyncZod<ConfigRoutesOptions> = async (app, { environment, features, aiDailyLimits }) => {
+export const configRoutes: FastifyPluginAsyncZod<ConfigRoutesOptions> = async (app, { environment, features, aiDailyLimits, minimumAppVersion }) => {
   app.get(
     '/config',
     {
@@ -24,6 +26,11 @@ export const configRoutes: FastifyPluginAsyncZod<ConfigRoutesOptions> = async (a
         response: { 200: AppConfigDto },
       },
     },
-    async () => ({ environment, features, ai: { dailyLimits: aiDailyLimits } }),
+    async () => ({
+      environment,
+      features,
+      ai: { dailyLimits: aiDailyLimits },
+      ...(minimumAppVersion && (minimumAppVersion.android || minimumAppVersion.ios) ? { minimumAppVersion } : {}),
+    }),
   );
 };

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wattbyte/api/api_config.dart';
 import 'package:wattbyte/api/api_factory.dart';
+import 'package:wattbyte/config/app_config.dart';
 import 'package:wattbyte/config/config_providers.dart';
 import 'package:wattbyte/features/auth/presentation/auth_controller.dart';
 import 'package:wattbyte/providers.dart';
@@ -33,6 +34,8 @@ void main() {
     const config = ApiConfig('http://api.test');
     final c = ProviderContainer(overrides: [
       prefsProvider.overrideWithValue(prefs),
+      appConfigProvider.overrideWithValue(AppConfig.fromDefines(
+          buildMode: BuildMode.debug, apiBaseUrl: 'http://api.test')),
       apiConfigProvider.overrideWithValue(config),
       apiFactoryProvider
           .overrideWithValue(ApiFactory(config, httpClient: backend.client)),

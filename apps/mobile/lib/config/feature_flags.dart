@@ -133,6 +133,7 @@ class ServerFeatureConfig {
     required this.aiDailyLimits,
     required this.fetchedAt,
     this.environment,
+    this.minimumAppVersion = const {},
   });
 
   /// Bumped when the cache layout changes; an unknown version is discarded.
@@ -147,6 +148,9 @@ class ServerFeatureConfig {
 
   /// The deployment the server says it is (informational; unknown names are `null`).
   final AppEnvironment? environment;
+
+  /// The oldest app version the server still serves, by platform (`android`, `ios`); empty = no minimum (F-11).
+  final Map<String, String> minimumAppVersion;
 
   /// Reads the body of `GET /api/v1/config` (or the generated client's
   /// `AppConfigDto.toJson()`). Throws [FormatException] when it is malformed.
@@ -172,7 +176,20 @@ class ServerFeatureConfig {
       ),
       fetchedAt: fetchedAt,
       environment: env is String ? AppEnvironment.tryParse(env) : null,
+      minimumAppVersion: _minimumVersions(root['minimumAppVersion']),
     );
+  }
+
+  /// Only well-formed `MAJOR.MINOR.PATCH` strings count; anything else is ignored rather than rejecting the document.
+  static Map<String, String> _minimumVersions(Object? v) {
+    if (v is! Map) return const {};
+    return {
+      for (final platform in const ['android', 'ios'])
+        if (v[platform] is String &&
+            RegExp(r'^\d{1,4}\.\d{1,4}\.\d{1,4}$')
+                .hasMatch(v[platform] as String))
+          platform: v[platform] as String,
+    };
   }
 
   /// [fromServerJson], but `null` instead of an exception.
@@ -194,6 +211,8 @@ class ServerFeatureConfig {
         'version': cacheVersion,
         'fetchedAt': fetchedAt.toUtc().toIso8601String(),
         if (environment != null) 'environment': environment!.wireName,
+        if (minimumAppVersion.isNotEmpty)
+          'minimumAppVersion': minimumAppVersion,
         'features': {
           'ai': features.ai,
           'subscriptions': features.subscriptions,
@@ -235,11 +254,20 @@ class ServerFeatureConfig {
       other.features == features &&
       other.aiDailyLimits == aiDailyLimits &&
       other.fetchedAt == fetchedAt &&
-      other.environment == environment;
+      other.environment == environment &&
+      _sameMap(other.minimumAppVersion, minimumAppVersion);
+
+  static bool _sameMap(Map<String, String> a, Map<String, String> b) =>
+      a.length == b.length && a.entries.every((e) => b[e.key] == e.value);
 
   @override
-  int get hashCode =>
-      Object.hash(features, aiDailyLimits, fetchedAt, environment);
+  int get hashCode => Object.hash(
+      features,
+      aiDailyLimits,
+      fetchedAt,
+      environment,
+      Object.hashAll(
+          minimumAppVersion.entries.map((e) => '${e.key}${e.value}')));
 
   @override
   String toString() =>

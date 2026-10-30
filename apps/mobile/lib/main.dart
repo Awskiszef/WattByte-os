@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/widgets.dart';
@@ -7,6 +8,7 @@ import 'package:wattbyte_system/wattbyte_system.dart';
 
 import 'app.dart';
 import 'background/background_tasks.dart';
+import 'config/app_build.dart';
 import 'config/app_config.dart';
 import 'config/config_error_app.dart';
 import 'config/startup.dart';
@@ -62,10 +64,21 @@ Future<void> main() async {
         // Background refresh is best-effort; the app works without it, but the failure is logged.
         reportError(e, st, 'background registration');
       }
+      final native = await WattByteSystem()
+          .appVersion()
+          .catchError((Object e, StackTrace st) {
+        reportError(e, st, 'app version');
+        return null;
+      });
       return ProviderScope(
         overrides: [
           prefsProvider.overrideWithValue(prefs),
           dbProvider.overrideWithValue(db),
+          if (native != null)
+            appBuildProvider.overrideWithValue(AppBuildInfo(
+                platform: Platform.isIOS ? 'ios' : 'android',
+                version: native.version,
+                build: native.build)),
         ],
         child: const WattByteApp(),
       );

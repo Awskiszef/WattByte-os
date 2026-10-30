@@ -6,6 +6,7 @@ import '../../../api/api_config.dart';
 import '../../../api/api_factory.dart';
 import '../../../api/session_manager.dart';
 import '../../../cloud_providers.dart' show accountDeletedHookProvider;
+import '../../../config/app_build.dart' show appBuildProvider;
 import '../../../config/config_providers.dart' show appConfigProvider;
 import '../../../core/error_log.dart';
 import '../data/api_auth_repository.dart';
@@ -19,7 +20,8 @@ final apiConfigProvider =
     Provider<ApiConfig>((ref) => ref.watch(appConfigProvider).api);
 
 final apiFactoryProvider = Provider<ApiFactory>((ref) {
-  final factory = ApiFactory(ref.watch(apiConfigProvider));
+  final factory = ApiFactory(ref.watch(apiConfigProvider),
+      appBuild: ref.watch(appBuildProvider));
   ref.onDispose(factory.close);
   return factory;
 });

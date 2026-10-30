@@ -49,6 +49,7 @@ class WattByteSystemPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             "appGroupId" -> result.success(null) // iOS only
             "deviceInfo" -> result.success(deviceInfo())
             "batterySnapshot" -> result.success(BatteryReader.snapshot(context).toMap("app"))
+            "appVersion" -> result.success(appVersion())
             "openExternalUrl" -> result.success(openExternalUrl(call.argument<String>("url")))
             "excludeFromBackup" -> result.success(null) // Android: the manifest already excludes the whole app
             "peekSamples" -> result.success(SampleStore.peek(context))
@@ -99,6 +100,13 @@ class WattByteSystemPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
      * entry in the device catalog, the system locale's country picks the default
      * currency. Nothing here identifies the device (no serial, IMEI, MAC or ad id).
      */
+    /** The installed app's version name and build (version code). */
+    private fun appVersion(): Map<String, String> {
+        val info = context.packageManager.getPackageInfo(context.packageName, 0)
+        val build = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode.toString() else @Suppress("DEPRECATION") info.versionCode.toString()
+        return mapOf("version" to (info.versionName ?: ""), "build" to build)
+    }
+
     /** Opens an https address in the browser; false for anything else or when nothing can open it. */
     private fun openExternalUrl(url: String?): Boolean {
         val uri = try { android.net.Uri.parse(url ?: return false) } catch (e: Exception) { return false }

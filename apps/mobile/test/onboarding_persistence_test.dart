@@ -122,8 +122,16 @@ void main() {
 
     // Nothing about the phone, the region, the price or the battery was
     // looked up or asked before an account exists...
-    expect(h.backend.requests, isEmpty,
+    // (The public feature configuration, GET /api/v1/config, is fetched without a session and says nothing about the
+    // phone: kill switches must reach an app that is not signed in too.)
+    final lookedUp =
+        h.backend.requests.where((r) => r.path != '/api/v1/config');
+    expect(lookedUp, isEmpty,
         reason: 'no electricity-price, region or device request yet');
+    for (final r in h.backend.requests) {
+      expect(r.headers.keys.map((k) => k.toLowerCase()),
+          isNot(contains('authorization')));
+    }
     expect(h.system.callsTo('deviceInfo'), isEmpty);
     expect(h.system.callsTo('batterySnapshot'), isEmpty);
     expect(h.notifier.permissionRequests, 0,

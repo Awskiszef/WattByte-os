@@ -10,6 +10,7 @@ import '../features/auth/presentation/auth_controller.dart'
     show apiConfigProvider, apiFactoryProvider;
 import '../generated/api/api.dart' as generated;
 import '../providers.dart' show clockProvider, prefsProvider;
+import 'app_build.dart';
 import 'app_config.dart';
 import 'feature_flags.dart';
 
@@ -34,7 +35,8 @@ typedef ServerConfigFetcher = Future<ServerFeatureConfig?> Function();
 /// timeout rules as every other call. A build without an API address has nothing to ask.
 final serverConfigFetcherProvider = Provider<ServerConfigFetcher?>((ref) {
   final api = ref.watch(apiConfigProvider);
-  if (!api.isConfigured) return null;
+  // A build whose configuration is not valid makes no request at all (see `AppConfig.isValid`).
+  if (!api.isConfigured || !ref.watch(appConfigProvider).isValid) return null;
   final apis = ref.watch(apiFactoryProvider);
   final clock = ref.watch(clockProvider);
   return () async {
@@ -166,3 +168,12 @@ final featureFlagsProvider = Provider<FeatureFlags>((ref) => mergeFeatureFlags(
 /// Plan limits are never hardcoded in the app.
 final aiDailyLimitsProvider = Provider<AiDailyLimits?>(
     (ref) => ref.watch(serverConfigProvider)?.aiDailyLimits);
+
+/// The server says this build is too old to be served (its `minimumAppVersion` for this platform is above the installed
+/// version). Never true without a known build or a published minimum (F-11).
+final updateRequiredProvider = Provider<bool>((ref) {
+  final build = ref.watch(appBuildProvider);
+  final minimum =
+      ref.watch(serverConfigProvider)?.minimumAppVersion[build.platform];
+  return build.isOlderThan(minimum);
+});

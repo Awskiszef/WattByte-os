@@ -1620,6 +1620,20 @@
               "dailyLimits"
             ],
             "additionalProperties": false
+          },
+          "minimumAppVersion": {
+            "type": "object",
+            "properties": {
+              "android": {
+                "type": "string",
+                "pattern": "^\\d{1,4}\\.\\d{1,4}\\.\\d{1,4}$"
+              },
+              "ios": {
+                "type": "string",
+                "pattern": "^\\d{1,4}\\.\\d{1,4}\\.\\d{1,4}$"
+              }
+            },
+            "additionalProperties": false
           }
         },
         "required": [
