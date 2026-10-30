@@ -55,8 +55,14 @@ class AiPeriodStats {
     final elapsed = monthStart.daysUntil(today) + 1;
     final range = DateRange(monthStart.midnight, today.plusDays(1).midnight);
     final prevStart = LocalDate(today.year, today.month - 1, 1);
-    final prevRange =
-        DateRange(prevStart.midnight, prevStart.plusDays(elapsed).midnight);
+    // The same number of days, but never past the end of the previous month: on 31 March the comparison is all of
+    // February, not February plus the first days of March (day 0 of this month is the last day of the previous one).
+    final prevLength = DateTime(today.year, today.month, 0).day;
+    final prevRange = DateRange(
+        prevStart.midnight,
+        prevStart
+            .plusDays(elapsed < prevLength ? elapsed : prevLength)
+            .midnight);
 
     final data = DailyData.sum(daysIn(days, range));
     final prev = DailyData.sum(daysIn(days, prevRange));
