@@ -29,7 +29,8 @@ export const RULES = [
   { re: /^apps\/[^/]+\/docs\//, set: ['docs'] },
   { re: /^\.github\/(CODEOWNERS|dependabot\.yml|pull_request_template\.md|ISSUE_TEMPLATE\/|rulesets\/|FUNDING\.yml)/, set: ['docs'] },
   { re: /^(\.gitattributes|\.gitignore|\.gitleaks\.toml|\.githooks\/|\.claude\/|\.dockerignore)/, set: ['docs'] },
-  { re: /^scripts\/secret-scan[^/]*$/, set: ['docs'] },
+  // Hygiene runs the unit tests of these scripts on every change, so a change to one needs nothing else.
+  { re: /^scripts\/(secret-scan|check-docs|is-main|github-protect-main)[^/]*$/, set: ['docs'] },
 
   // The workflows and the scripts that drive them change what CI does: everything must prove itself.
   { re: /^\.github\/workflows\//, set: ['ci_config'] },
@@ -50,7 +51,7 @@ export const RULES = [
   { re: /^infrastructure\//, set: ['api'] },
 
   // The generator, the drift checks and the production smoke test sit between the API and the app.
-  { re: /^scripts\/(generate-dart-client|openapi-generator|check-generated-client|check-openapi-compat|check-device-specs|copy-migrations|smoke-|wait-for-db|test-db|fake-eurostat)[^/]*$/, set: ['api', 'contracts', 'mobile'] },
+  { re: /^scripts\/(generate-dart-client|dart-client-postprocess|openapi-generator|check-generated-client|check-openapi-compat|check-device-specs|copy-migrations|smoke-|wait-for-db|test-db|fake-eurostat)[^/]*$/, set: ['api', 'contracts', 'mobile'] },
 
   // Mobile. The more specific native rules come first so that an iOS file does not also count as an Android one.
   { re: /^apps\/mobile\/lib\/generated\//, set: ['mobile', 'generated_client'] },

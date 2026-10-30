@@ -17,6 +17,10 @@ describe('documentation-only changes', () => {
   it('a markdown file inside an app does not switch the app on', () => {
     assert.deepEqual(on(pr(['apps/mobile/README.md'])), []);
   });
+  it('scripts that hygiene unit-tests need nothing more; the Dart client generator reaches the app', () => {
+    assert.deepEqual(on(pr(['scripts/check-docs.mjs', 'scripts/is-main.mjs'])), []);
+    assert.equal(pr(['scripts/dart-client-postprocess.mjs']).flutter_static, true);
+  });
   it('one code file next to the docs is not documentation-only', () => {
     const d = pr(['docs/a.md', 'apps/web/src/x.tsx']);
     assert.equal(d.docs_only, false);
