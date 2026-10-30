@@ -38,6 +38,9 @@ implemented things "planned".
 | [OPERATIONS.md](OPERATIONS.md) | Running the API: image, deploy order, rollback, retention schedule, backups and restore, monitoring |
 | [CI_CD.md](CI_CD.md) | The GitHub side: workflows, repository settings that are active, what the plan does not allow, environments |
 | [CI.md](CI.md) | The pipeline, the local command for each job, the release workflow and its secrets |
+| [CI_OPTIMIZATION_BASELINE.md](CI_OPTIMIZATION_BASELINE.md) | What the CI cost before it was scoped: runs, jobs, minutes (measured) |
+| [CI_OPTIMIZATION_REPORT.md](CI_OPTIMIZATION_REPORT.md) | Before and after, what is estimated, what could have been lost |
+| [ZOD4_MIGRATION.md](ZOD4_MIGRATION.md) | Plan and risks of the zod 3 to 4 migration (removes the last audit exception) |
 | [RELEASE.md](RELEASE.md) | Store checklist, signing, what needs an Apple or Google account |
 | [REPOSITORY.md](REPOSITORY.md) | What is ignored, what would be committed, the first commit |
 | [DEVICE_TEST_PLAN.md](DEVICE_TEST_PLAN.md) | What to check on real phones |
@@ -48,6 +51,8 @@ implemented things "planned".
 |---|---|
 | [privacy.md](privacy.md) | What the app and the API collect, where it goes, retention (technical description, not legal advice) |
 | [security.md](security.md) | Authentication, sessions, limits, retention, threat notes |
+| [security/PUBLIC_RELEASE_AUDIT.md](security/PUBLIC_RELEASE_AUDIT.md) | What was classified, found and scanned before a public release |
+| [security/PUBLIC_RELEASE_REPORT.md](security/PUBLIC_RELEASE_REPORT.md) | Outcome: what is done, what blocks publication, what only the owner can do |
 
 ## Verification, audit and history
 

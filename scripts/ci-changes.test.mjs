@@ -121,6 +121,15 @@ describe('FULL pipeline', () => {
       assert.equal(d.android_full, true);
     }
   });
+  it('a single-component push to main still runs Node 24 and all time zones for what it touched (post-merge coverage)', () => {
+    const app = decide(['apps/mobile/lib/ui/home.dart'], { event: 'push' });
+    assert.equal(app.full, false);
+    assert.equal(JSON.parse(app.tz_matrix).length, 3);
+    assert.equal(app.ios, false);
+    const ts = decide(['apps/api/src/a.ts'], { event: 'push' });
+    assert.deepEqual(JSON.parse(ts.node_matrix), ['22', '24']);
+    assert.deepEqual(JSON.parse(decide(['apps/web/src/a.tsx'], { event: 'push' }).tz_matrix), ['Europe/Warsaw']);
+  });
   it('a push to main that spans components is FULL, a single-component push is not', () => {
     assert.equal(decide(['apps/api/src/a.ts', 'apps/mobile/lib/a.dart'], { event: 'push' }).full, true);
     assert.equal(decide(['apps/web/src/a.tsx'], { event: 'push' }).full, false);

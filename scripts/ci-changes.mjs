@@ -113,8 +113,12 @@ export function decide(files, ctx) {
   const web = all(facts.has('web') || facts.has('root_ts'));
   const mobile = all(facts.has('mobile'));
   const iosPaths = facts.has('ios') || facts.has('ci_config') || scheduled;
-  const nodeMatrix = everything || facts.has('root_ts') ? ['22', '24'] : ['22'];
-  const tzExtra = full || Boolean(ctx.tzTouched);
+  // A pull request is scoped to be quick. What it leaves out is caught right after the merge: a push to main runs Node 24
+  // for TypeScript changes and all three time zones for app changes, so a regression that only shows there lands on main at
+  // most one run before it is reported (instead of waiting for the weekly FULL run).
+  const post = event === 'push';
+  const nodeMatrix = everything || facts.has('root_ts') || post ? ['22', '24'] : ['22'];
+  const tzExtra = full || Boolean(ctx.tzTouched) || (post && mobile);
   const tzMatrix = tzExtra ? ['UTC', 'Europe/Warsaw', 'America/New_York'] : ['Europe/Warsaw'];
 
   return {
