@@ -156,6 +156,12 @@ The matrix uses `macos-latest` (Apple Silicon) and `macos-15-intel` (Intel). Hon
   Eurostat outage fails the job although the code is fine.
 - `contracts` downloads the openapi-generator through `npx` (Maven Central); `audit` needs the npm registry.
   `pnpm audit --prod` can start failing on a new advisory without any change in the repository.
+- The secret scan reads every file Git tracks (also one that `.gitignore` says to ignore but that was added with `git add -f`),
+  every untracked file `.gitignore` does not hide, UTF-16 files, long lines (in overlapping windows) and the printable strings
+  of files that contain a NUL (provider keys, private-key blocks, JWTs and URL passwords only). A file over 32 MB cannot be read
+  and is a finding (`file-not-scanned`) until it is allowlisted by name. Besides provider keys it flags literal values assigned
+  to secret-like names (typed declarations included), SQL role passwords, `Bearer` tokens and, in configuration files, long
+  random-looking strings. It is a pattern scan: a secret under an unusual name, or short and word-like, is not found.
 - The secret scan looks at the working tree, not at Git history. Turn on GitHub secret scanning and push
   protection for the repository once it exists.
 - The release configuration guard checks the defines a build is given, not the ones a workflow forgets to give:

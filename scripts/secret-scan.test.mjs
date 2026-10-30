@@ -10,7 +10,7 @@ import path from 'node:path';
 import { after, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { globToRegExp, isIgnored, listFiles, loadAllowlist, mask, parseGitignore, scan, scanText, sensitiveKind } from './secret-scan.mjs';
+import { decodeFile, entropy, globToRegExp, isIgnored, listFiles, loadAllowlist, mask, parseGitignore, scan, scanText, sensitiveKind, trackedFiles } from './secret-scan.mjs';
 
 const cli = path.join(path.dirname(fileURLToPath(import.meta.url)), 'secret-scan.mjs');
 const body = (n) => 'aB3dE5gH7jK9mN1pQ3sT5vX7zA9cE1fG3hJ5kL7nP9rT2uW4yB6dF8hK0mR'.slice(0, n);
@@ -263,8 +263,9 @@ describe('gitignore emulation and file selection', () => {
       'src/leak.ts': `export const k = "${key}";\n`,
     });
     const res = scan({ root, allowFile: path.join(root, 'none.json') });
-    assert.deepEqual(res.findings.map((f) => f.file), ['src/leak.ts']);
-    assert.deepEqual(listFiles(root).files.sort(), ['.gitignore', 'bin/blob.dat', 'pnpm-lock.yaml', 'src/leak.ts', 'src/ok.ts']);
+    // bin/blob.dat holds a NUL, so it is read as binary: its printable strings are still searched for provider keys (E-12).
+    assert.deepEqual(res.findings.map((f) => f.file), ['bin/blob.dat', 'src/leak.ts']);
+    assert.deepEqual(listFiles(root, { tracked: null }).files.sort(), ['.gitignore', 'bin/blob.dat', 'pnpm-lock.yaml', 'src/leak.ts', 'src/ok.ts']);
   });
 });
 
@@ -386,5 +387,172 @@ describe('command line', () => {
 
   it('exits 2 on an unknown argument', () => {
     assert.equal(spawnSync(node, [cli, '--nope'], { encoding: 'utf8' }).status, 2);
+  });
+});
+
+// ---- audit E-01, E-02, E-11, E-12 ------------------------------------------------------------------------------
+
+const gitAvailable = spawnSync('git', ['--version'], { encoding: 'utf8' }).status === 0;
+const git = (root, ...args) => {
+  const r = spawnSync('git', ['-C', root, '-c', 'user.email=t@example.test', '-c', 'user.name=t', ...args], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+};
+
+describe('a tracked file is scanned even when .gitignore says to ignore it (E-01)', { skip: !gitAvailable && 'git is not installed' }, () => {
+  it('opens a force-added ignored file and a tracked file in an ignored directory', () => {
+    const key = join('sk-', 'proj-', body(40));
+    const root = tree({
+      '.gitignore': '.env.production\nvendor/\n',
+      '.env.production': `OPENAI_API_KEY=${key}\n`,
+      'vendor/lib/config.ts': `export const k = "${key}";\n`,
+      'src/ok.ts': 'export const ok = 1;\n',
+    });
+    git(root, 'init', '-q');
+    git(root, 'add', '-f', '.gitignore', '.env.production', 'vendor/lib/config.ts', 'src/ok.ts');
+    assert.deepEqual([...trackedFiles(root)].sort(), ['.env.production', '.gitignore', 'src/ok.ts', 'vendor/lib/config.ts']);
+    const res = scan({ root, allowFile: path.join(root, 'none.json') });
+    const byFile = Object.fromEntries(res.findings.map((f) => [f.file, f.rule]));
+    assert.equal(byFile['.env.production'], 'sensitive-file', 'a tracked .env file is reported by name');
+    assert.equal(byFile['vendor/lib/config.ts'], 'openai-key', 'a tracked file inside an ignored directory is opened');
+    assert.ok(res.notices.some((n) => n.startsWith('.env.production is tracked although')));
+  });
+
+  it('still leaves an untracked ignored file closed', () => {
+    const root = tree({ '.gitignore': '.env\n', '.env': `JWT_SECRET=${body(40)}\n`, 'a.ts': 'export {};\n' });
+    git(root, 'init', '-q');
+    git(root, 'add', '.gitignore', 'a.ts');
+    const res = scan({ root, allowFile: path.join(root, 'none.json') });
+    assert.deepEqual(res.findings, []);
+    assert.ok(res.notices.some((n) => n.includes('ignored sensitive file present')));
+  });
+
+  it('outside a repository the gitignore emulation alone decides', () => {
+    const root = tree({ '.gitignore': 'x.ts\n', 'x.ts': 'a', 'y.ts': 'b' });
+    assert.equal(trackedFiles(root), null);
+    assert.deepEqual(listFiles(root).files.sort(), ['.gitignore', 'y.ts']);
+  });
+});
+
+describe('realistic generated passwords are reported (E-02)', () => {
+  it('does not mistake brackets, quotes-free symbols or ; , # inside a value for code', () => {
+    const pw = 'aB3$(dE5)gH7[jK9]mN1{pQ3}';
+    assert.deepEqual(rulesOf('src/a.ts', `const password = "${pw}";`), ['secret-assignment']);
+    assert.deepEqual(rulesOf('app/.env.production', `DB_PASSWORD=${body(10)}#${body(8)};${body(6)},${body(5)}7`), ['secret-assignment']);
+    assert.deepEqual(rulesOf('src/a.ts', join('const password = "aB3', '`dE5`gH7<jK9>mN1";')), ['secret-assignment']);
+  });
+
+  it('still treats real code and interpolation as references', () => {
+    for (const [rel, text] of [
+      ['src/a.ts', 'const password = "${process.env.DB_PASSWORD}";'],
+      ['src/a.ts', 'const token = "getToken(account)";'],
+      ['src/a.ts', 'const token = "cache[user][session]";'],
+      ['src/a.dart', "accessToken: 'mock-access-$_counter',"],
+      ['src/a.dart', "final secret = 'prefix-${config.name}-suffix';"],
+      ['docs/a.md', 'JWT_SECRET=<openssl rand -base64 48>'],
+    ]) {
+      assert.deepEqual(rulesOf(rel, text), [], `${rel}: ${text}`);
+    }
+  });
+});
+
+describe('recall (E-11)', () => {
+  it('catches typed declarations and the other secret names', () => {
+    for (const text of [
+      `const password: string = "${body(20)}7";`,
+      `val dbPass: String = "${body(20)}7"`,
+      `let apiToken: String = "${body(20)}7"`,
+      `const PEPPER = "${body(20)}7";`,
+      `final signingKey = '${body(20)}7';`,
+      `DB_PASS = "${body(20)}7"`,
+      `hmacKey: "${body(20)}7"`,
+    ]) assert.deepEqual(rulesOf('src/a.ts', text), ['secret-assignment'], text);
+  });
+
+  it('reads extension-less and unlisted config files like config', () => {
+    assert.deepEqual(rulesOf('infra/Procfile', `web: DB_PASSWORD=${body(20)}7 node main.js`), ['secret-assignment']);
+    assert.deepEqual(rulesOf('.npmrc', `//registry.example.test/:_authToken=${body(30)}7`), ['secret-assignment']);
+    assert.deepEqual(rulesOf('infra/main.tf', `password = ${body(20)}7`), ['secret-assignment']);
+    assert.deepEqual(rulesOf('config/app.yml.local', `jwt_secret: ${body(30)}7`), ['secret-assignment']);
+  });
+
+  it('catches SQL role passwords and bearer headers', () => {
+    assert.deepEqual(rulesOf('db/init.sql', `CREATE ROLE app LOGIN PASSWORD '${body(20)}7';`), ['sql-password']);
+    assert.deepEqual(rulesOf('db/init.sql', `ALTER USER app WITH ENCRYPTED PASSWORD '${body(20)}7';`), ['sql-password']);
+    assert.deepEqual(rulesOf('db/init.sql', "CREATE ROLE app PASSWORD 'change-me';"), []);
+    assert.deepEqual(rulesOf('db/init.sql', "ALTER ROLE app PASSWORD :'pw';"), []);
+    assert.deepEqual(rulesOf('scripts/call.sh', `curl -H "Authorization: Bearer ${body(32)}1"`), ['bearer-token']);
+    assert.deepEqual(rulesOf('scripts/call.sh', 'curl -H "Authorization: Bearer $TOKEN"'), []);
+    assert.deepEqual(rulesOf('src/a.ts', 'headers.set("Authorization", `Bearer ${token}`);'), []);
+  });
+
+  it('knows more provider key formats', () => {
+    const cases = {
+      'sendgrid-key': join('SG', '.', body(22), '.', body(43)),
+      'npm-token': join('npm', '_', body(36)),
+      'huggingface-token': join('hf', '_', body(36)),
+      'groq-key': join('gsk', '_', body(48)),
+      'resend-key': join('re', '_', body(8), '_', body(24)),
+      'twilio-key': join('SK', 'a1b2c3d4e5f60718293a4b5c6d7e8f90'),
+      'digitalocean-token': join('dop', '_v1_', 'a1b2c3d4e5f60718293a4b5c6d7e8f90'.repeat(2)),
+      'mailgun-key': join('key', '-', 'a1b2c3d4e5f60718293a4b5c6d7e8f90'),
+    };
+    for (const [rule, value] of Object.entries(cases)) assert.deepEqual(rulesOf('src/a.ts', `fetch(u, { x: "${value}" });`), [rule], rule);
+  });
+
+  it('flags a long random string in a config file under any name, once, and not a hash or a word list', () => {
+    const random = 'Zx9fQ2mLp7Vc4TnB8wYd1KsRh6GjUe3A';
+    assert.ok(entropy(random) > 4.5);
+    assert.deepEqual(rulesOf('deploy/app.yml', `    webhook: ${random}`), ['high-entropy-string']);
+    assert.deepEqual(rulesOf('apps/api/.env.production', `X=${random}`), ['high-entropy-string']);
+    assert.deepEqual(rulesOf('apps/api/.env.production', `SESSION_SECRET=${random}`), ['secret-assignment'], 'one finding per secret');
+    for (const text of [
+      '    image: ghcr.io/a/b@sha256:' + '0123456789abcdef'.repeat(4),
+      '    uses: actions/checkout@' + '0123456789abcdef0123456789abcdef01234567',
+      '    description: the-quick-brown-fox-jumps-over-the-lazy-dog-again',
+      '    path: ' + 'abcdefghijklmnopqrstuvwxyzabcdefghij',
+    ]) assert.deepEqual(rulesOf('deploy/app.yml', text), [], text);
+    assert.deepEqual(rulesOf('src/a.ts', `const x = "${random}";`), [], 'not applied to source code');
+  });
+});
+
+describe('files that used to be skipped silently (E-12)', () => {
+  const key = join('sk-', 'proj-', body(40));
+
+  it('decodes UTF-16 with and without a BOM', () => {
+    const line = `export const k = "${key}";\n`;
+    const le = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(line, 'utf16le')]);
+    const be = Buffer.from(Buffer.from(line, 'utf16le')).swap16();
+    const beBom = Buffer.concat([Buffer.from([0xfe, 0xff]), be]);
+    const bare = Buffer.from(line, 'utf16le');
+    for (const buf of [le, beBom, bare, be]) {
+      const { text, binary } = decodeFile(buf);
+      assert.equal(binary, false);
+      assert.deepEqual(rulesOf('src/u.ts', text), ['openai-key']);
+    }
+  });
+
+  it('reads a file with a stray NUL as binary and still searches its printable strings', () => {
+    const buf = Buffer.concat([Buffer.from([0, 1, 2, 3]), Buffer.from(`\0\0token=${key}\0\0`), Buffer.from([0xff, 0, 7])]);
+    const { text, binary } = decodeFile(buf);
+    assert.equal(binary, true);
+    assert.deepEqual(scanText('bin/x.dat', text, { binary }).map((r) => r.finding.rule), ['openai-key']);
+    assert.deepEqual(scanText('bin/x.dat', `password="${body(20)}7"`, { binary: true }), [], 'assignments are not guessed at in binary data');
+  });
+
+  it('scans a long line in windows instead of skipping it', () => {
+    const filler = 'x'.repeat(30000);
+    assert.deepEqual(rulesOf('dist/app.js', `${filler};var k="${key}";${filler}`), ['openai-key']);
+    // a key that straddles a window boundary is still found once
+    const edge = 'y'.repeat(19700);
+    assert.deepEqual(rulesOf('dist/app.js', `${edge}"${key}"${'z'.repeat(5000)}`), ['openai-key']);
+  });
+
+  it('reports a file over the size limit instead of passing it', () => {
+    const root = tree({ 'big/data.txt': 'a' });
+    // the limit is 32 MB; a sparse file of that size is cheap to create
+    const abs = path.join(root, 'big', 'data.txt');
+    writeFileSync(abs, Buffer.alloc(33 * 1024 * 1024, 0x61));
+    const res = scan({ root, allowFile: path.join(root, 'none.json') });
+    assert.deepEqual(res.findings.map((f) => [f.file, f.rule]), [['big/data.txt', 'file-not-scanned']]);
   });
 });
