@@ -82,10 +82,20 @@ rules that never bend: [CONTRIBUTING.md](CONTRIBUTING.md). The pipelines and wha
 
 Report vulnerabilities privately, never as a public issue: [SECURITY.md](SECURITY.md).
 
-## License
+## Copyright & License
 
-WattByte is licensed under the [Apache License, Version 2.0](LICENSE) ([NOTICE](NOTICE)). The name and logo are not covered by
-the license (section 6). Third-party material and its licenses are listed in `NOTICE`.
+Copyright © 2026 ATLASHC Paweł Dolatowski.
+
+WattByte is licensed under the Apache License, Version 2.0.
+See [LICENSE](LICENSE) and [NOTICE](NOTICE) for details.
+
+The WattByte name and trademarks are not licensed under
+Apache License 2.0.
+
+Copyright and trademark are separate matters. The license covers the source code of this repository; it does not grant a
+trademark licence (section 6), so the name "WattByte", the WattByte logo and the launcher icons derived from it may not be used to
+identify a fork or a different product. Third-party material (fonts, dependencies, data) keeps its own licence and copyright;
+`NOTICE` lists it.
 
 ## Documentation
 
