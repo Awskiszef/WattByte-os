@@ -50,7 +50,7 @@ without `TEST_DATABASE_URL` (a pipeline must not go green by skipping them).
 
 `pnpm ci:local` is **not** all of CI. It covers: secret scan, workflow pin/gate check, script tests, lint, typecheck, OpenAPI drift
 (`pnpm openapi:check`), the unit tests (the PostgreSQL suites only if `TEST_DATABASE_URL` is exported, so prefer `pnpm test:db`),
-build and the device catalog check. It does **not** run: `pnpm audit --prod`, `pnpm dart-client:check` (needs Java and network
+build and the device catalog check. It does **not** run: `pnpm audit`, `pnpm dart-client:check` (needs Java and network
 once), the compiled-output smoke test (`pnpm smoke:prod`), any Flutter, Kotlin, Android, iOS or end-to-end job. The table in
 `docs/CI.md` lists the local command for each CI job.
 

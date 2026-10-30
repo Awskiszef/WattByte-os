@@ -1,16 +1,25 @@
-# Dependabot: weekly, one logical group per ecosystem, no automatic major upgrades, nothing merges by itself.
+# Dependabot: weekly, ONE grouped pull request per ecosystem, no automatic major upgrades, nothing merges by itself.
 #
-# * Security updates are separate from version updates: GitHub opens them when an advisory affects a dependency (enable
-#   "Dependabot security updates" in the repository settings); the groups below apply to routine version updates only.
-# * A major version needs a planned migration and its own branch (docs/CI_CD.md), so majors are ignored here.
-#   Revisit an `ignore` entry deliberately, not by accident.
-# * Every update is a pull request and has to pass the CI workflow before anyone merges it.
+# * Version updates are grouped (one pull request per ecosystem per week): every extra pull request is a full CI run and,
+#   in a pnpm workspace, a conflict on pnpm-lock.yaml with its siblings.
+# * Security updates are NOT held back: they are raised as soon as an advisory affects a dependency, are grouped separately
+#   (`applies-to: security-updates`) and skip the cooldown. Enable "Dependabot security updates" in the repository settings.
+# * A major version needs a planned migration and its own branch (docs/CI_CD.md, for example docs/ZOD4_MIGRATION.md), so majors
+#   are not opened here. An advisory that is only fixed by a major is handled the same way, on purpose and in writing.
+# * `cooldown` waits a few days after a release before proposing it, which filters out releases that are yanked or fixed within
+#   hours (a supply-chain precaution), at no cost in CI minutes.
+# * Every update is a pull request and has to pass the CI workflow ("CI result") before anyone merges it.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Europe/Warsaw
+    cooldown:
+      default-days: 3
     commit-message:
       prefix: ci
     groups:
@@ -22,6 +31,7 @@ updates:
         update-types: ['version-update:semver-major']
 
   - package-ecosystem: npm
+    # One pnpm workspace, one lockfile: all directories are updated in the same grouped pull request.
     directories:
       - /
       - /apps/api
@@ -31,15 +41,22 @@ updates:
       - /packages/device-specs
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+      day: monday
+      time: '06:00'
+      timezone: Europe/Warsaw
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 3
     commit-message:
       prefix: build
     groups:
-      typescript-tooling:
-        patterns: [typescript, typescript-eslint, eslint, vitest, '@types/*']
       minor-and-patch:
+        applies-to: version-updates
         patterns: ['*']
         update-types: [minor, patch]
+      security:
+        applies-to: security-updates
+        patterns: ['*']
     ignore:
       - dependency-name: '*'
         update-types: ['version-update:semver-major']
@@ -48,6 +65,11 @@ updates:
     directory: /apps/api
     schedule:
       interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Europe/Warsaw
+    cooldown:
+      default-days: 3
     commit-message:
       prefix: ci
     ignore:
@@ -58,13 +80,30 @@ updates:
     directory: /apps/mobile
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+      day: monday
+      time: '06:00'
+      timezone: Europe/Warsaw
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 3
     commit-message:
       prefix: build
     groups:
       flutter-minor-and-patch:
+        applies-to: version-updates
         patterns: ['*']
         update-types: [minor, patch]
+      flutter-security:
+        applies-to: security-updates
+        patterns: ['*']
     ignore:
       - dependency-name: '*'
         update-types: ['version-update:semver-major']
+      # 0.x versions: every minor can break the native bridge (home screen widgets on Android and iOS). Upgrade by hand with a
+      # device test (docs/DEVICE_TEST_PLAN.md); patch releases still arrive.
+      - dependency-name: home_widget
+        update-types: ['version-update:semver-minor']
+      # 2.4.5 and later need Dart ^3.12, newer than the Flutter the CI uses (FLUTTER_VERSION 3.41.6): the grouped update failed
+      # at `pub get`. Remove this entry when FLUTTER_VERSION is raised.
+      - dependency-name: sqflite_common_ffi
+        versions: ['>=2.4.5']

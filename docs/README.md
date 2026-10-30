@@ -2,7 +2,7 @@
 
 Where things are. Everything here is English unless the table says otherwise; user-visible app strings are in the ARB files
 (`apps/mobile/lib/l10n`, English and Polish).
-`scripts/check-docs.mjs` (CI job `secret-scan`, `pnpm docs:check`) fails when a file in this folder is missing from this index,
+`scripts/check-docs.mjs` (CI job `hygiene`, `pnpm docs:check`) fails when a file in this folder is missing from this index,
 when a relative link in the README or in any page here points nowhere, or when the architecture page goes back to calling
 implemented things "planned".
 

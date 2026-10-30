@@ -26,14 +26,14 @@ actionlint        # when installed: brew install actionlint
 
 | File | Trigger | Purpose |
 |---|---|---|
-| `.github/workflows/ci.yml` | push to `main`, every pull request, manual | everything below |
+| `.github/workflows/ci.yml` | push to `main`, every pull request, weekly schedule, manual | FAST for pull requests (only what the change can affect), FULL for the schedule, manual runs and risky pushes; scope rules in `docs/CI_CD.md` |
 | `.github/workflows/release.yml` | manual only (`workflow_dispatch`) | signed Android AAB and signed iOS archive; refuses to run without signing secrets, and refuses a configuration that is not a valid release configuration (below) |
 | `.github/dependabot.yml` | weekly | pull requests for GitHub Actions, the pnpm workspace and the Flutter app's pub packages |
 
 Cross-cutting rules in `ci.yml`: `permissions: contents: read` (nothing writes to the repository), a
 `concurrency` group per branch / pull request with `cancel-in-progress: true`, `timeout-minutes` on every job,
 `persist-credentials: false` on every checkout, every action pinned to a full commit SHA (checked by `scripts/check-workflow-pins.mjs`), and a final
-`CI result` job that fails unless every other job succeeded (skipped and cancelled count as failures). Make
+`CI result` job (`scripts/ci-gate.mjs`) that fails unless every job the change needs has succeeded (a skipped job passes only when the change does not need it; cancelled and failed never pass). Make
 **`CI result`** the single required status check in branch protection.
 
 ## Jobs and the local commands that mirror them
@@ -43,9 +43,10 @@ Run from the repository root unless a `cd` says otherwise. Prerequisites and the
 
 | CI job | Step | Local command |
 |---|---|---|
-| `secret-scan` | script unit tests | `node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs` (`pnpm test:scripts`) |
+| `changes` | which jobs does this change need | `node scripts/ci-changes.mjs --base origin/main --event pull_request` (needs `git`; prints the flags) |
+| `hygiene` (always) | script unit tests | `node --test scripts/*.test.mjs` (`pnpm test:scripts`) |
 | | scan the tree | `node scripts/secret-scan.mjs` (`pnpm secret-scan`) |
-| `node` (Node 22 and 24) | PostgreSQL service with a healthcheck | `WB_PG_PORT=55432 docker compose -f infrastructure/docker/docker-compose.yml up -d --wait` (`pnpm db:up`) |
+| `ts` (Node 22; 22 and 24 for shared inputs and FULL) | PostgreSQL service with a healthcheck | `WB_PG_PORT=55432 docker compose -f infrastructure/docker/docker-compose.yml up -d --wait` (`pnpm db:up`) |
 | | wait until a real query works | `node scripts/wait-for-db.mjs "$TEST_DATABASE_URL" --timeout 60` (`pnpm db:wait`) |
 | | lint, typecheck | `pnpm lint` · `pnpm typecheck` |
 | | AI gateway tests | `pnpm --filter @wattbyte/ai test` |
@@ -53,26 +54,27 @@ Run from the repository root unless a `cd` says otherwise. Prerequisites and the
 | | build | `pnpm build` |
 | | API tests with the PostgreSQL suites, database created for you | `pnpm db:up && pnpm test:db` |
 | | the TypeScript part of CI in one command (secret scan, workflow check, script tests, lint, typecheck, OpenAPI drift, tests, build, device catalog; **not** audit, Dart client check, smoke test, Flutter, Kotlin, iOS, e2e) | `TEST_DATABASE_URL=… pnpm ci:local` |
-| `audit` | production dependencies | `pnpm audit --prod` |
+| `hygiene` | dependencies, production and development | `pnpm audit` |
+| `web` | lint, typecheck, tests, Next.js build | `pnpm --filter @wattbyte/web lint && pnpm --filter @wattbyte/web typecheck && pnpm --filter @wattbyte/web test && pnpm --filter @wattbyte/web build` |
 | `contracts` | OpenAPI is generated from the routes and the committed copy is current | `pnpm openapi && git diff --exit-code -- packages/contracts/openapi/openapi.json`. Before the first commit there is no Git: `cp packages/contracts/openapi/openapi.json /tmp/openapi.before && pnpm openapi && diff /tmp/openapi.before packages/contracts/openapi/openapi.json` |
 | | device catalog drift | `pnpm device-specs:check` (`pnpm device-specs:sync` repairs it) |
 | | committed Dart client = generator output for `openapi.json` | `pnpm dart-client:check` (needs Java 17; the generator is the jar pinned with its SHA-256 in `scripts/openapi-generator.pin.json`, downloaded once into `~/.cache/wattbyte/openapi-generator` or `$WATTBYTE_OPENAPI_GENERATOR_DIR`; to upgrade, change version and hash together, keep `openapitools.json` equal, run `pnpm dart-client`) |
 | | the Dart client compiles | `cd apps/mobile && flutter pub get && dart analyze lib/generated/api` (exit code 3 on any compile error, proven on a deliberately broken copy) |
-| `flutter-static` | format, analyze | `cd apps/mobile && flutter pub get && flutter gen-l10n && dart format --output=none --set-exit-if-changed lib test packages tool && flutter analyze` |
-| `mobile-config-guard` | the configuration matrix: 26 checks, a build without a valid backend configuration is rejected | `cd apps/mobile && flutter pub get && flutter gen-l10n && bash tool/check_release_guard.sh` |
+| `flutter-static` | format, analyze (one job with the release guard below) | `cd apps/mobile && flutter pub get && flutter gen-l10n && dart format --output=none --set-exit-if-changed lib test packages tool && flutter analyze` |
+| `flutter-static` | the configuration matrix: 26 checks, a build without a valid backend configuration is rejected | `cd apps/mobile && flutter pub get && flutter gen-l10n && bash tool/check_release_guard.sh` |
 | | the real `API_BASE_URL` define reaches `AppConfig.fromEnvironment` | `cd apps/mobile && flutter test test/config/define_wiring_test.dart --dart-define=API_BASE_URL=https://api.ci-guard.test` |
 | | the real `LOCAL_ONLY_DEV=true` define reaches it (debug) | `cd apps/mobile && flutter test test/config/define_wiring_test.dart --dart-define=LOCAL_ONLY_DEV=true` |
-| `flutter-test` (3 zones) | whole suite in each zone | `cd apps/mobile && for tz in UTC Europe/Warsaw America/New_York; do TZ=$tz flutter test; done` |
+| `flutter-test` (Europe/Warsaw; three zones for date/time changes and FULL) | whole suite in each zone | `cd apps/mobile && for tz in UTC Europe/Warsaw America/New_York; do TZ=$tz flutter test; done` |
 | `e2e` | generated client + app code against a real API on PostgreSQL | start the API (`docs/DEVELOPMENT.md`, "Mobile"), then `cd apps/mobile && WATTBYTE_E2E_API_URL=http://127.0.0.1:18080 flutter test test/e2e` |
-| `android` | debug APK and AAB | `cd apps/mobile && flutter build apk --debug && flutter build appbundle --debug` |
+| `android` | debug APK; the AAB and the release guard below only when Android native files changed and in FULL | `cd apps/mobile && flutter build apk --debug && flutter build appbundle --debug` |
 | | release guard: invalid configurations must not compile, a valid one builds without the development banner | `cd apps/mobile && bash tool/check_release_guard.sh --builds` (the matrix, then three real release builds with Gradle; duration on a runner not measured) |
 | `kotlin` | plugin JVM tests | `cd apps/mobile/packages/wattbyte_system/android/jvm-tests && gradle test` |
 | `ios` | simulator debug, the widget extension links system libraries only (`otool -L`), the plugin's Swift checks, then device-SDK debug without signing | `cd apps/mobile && flutter build ios --simulator --debug && bash tool/check_widget_links.sh && flutter build ios --debug --no-codesign`; Swift: `cd apps/mobile/packages/wattbyte_system/ios && swiftc -o /tmp/ic Classes/InterfaceCounterParser.swift Tests/InterfaceCounters/main.swift && /tmp/ic` (and `BackupExclusion` likewise) |
 
 ### Time-zone matrix
 
-`flutter-test` runs the **whole** suite with `TZ=UTC`, `TZ=Europe/Warsaw` and `TZ=America/New_York`
-(`fail-fast: false`). The calendar code (`LocalDate`, periods, daily aggregates, the 5-minute current-day sync
+`flutter-test` runs the **whole** suite with `TZ=Europe/Warsaw` for an ordinary pull request, and with `TZ=UTC`, `TZ=Europe/Warsaw` and
+`TZ=America/New_York` (`fail-fast: false`) when the diff touches date or time code and in every FULL run (the weekly schedule, manual runs, risky pushes). The calendar code (`LocalDate`, periods, daily aggregates, the 5-minute current-day sync
 throttle) must hold in a zone without daylight saving, in one with it and in one whose transition dates
 differ. Before this change only `periods_test` (and `energy_validation_test` in Warsaw) ran outside UTC; the whole
 unit-test set was checked locally in all three zones (114 tests in each, all passing). The `e2e`-tagged tests skip
@@ -89,12 +91,12 @@ four parts, all in `apps/mobile`:
 
 | Where | What it runs | What a failure means |
 |---|---|---|
-| job `mobile-config-guard` (`ci.yml`), step "Release without API_BASE_URL, or with LOCAL_ONLY_DEV=true, is rejected" | `bash tool/check_release_guard.sh` | one of 26 combinations got the wrong verdict: 18 must be rejected and 8 must be accepted. Rejected: release without `API_BASE_URL` (with `LOCAL_ONLY_DEV` unset, `false` and `true`), profile without it, `LOCAL_ONLY_DEV=true` with an address (release, profile), `http` or the `.invalid` placeholder for release (with and without `APP_ENV=production`: a release check without `APP_ENV` is a production check), a `dart.vm.*` define (also the spoofed "profile as debug" local-only build), the unedited `config/production.example.json`, the debug-only `config/local-only-dev.example.json` in a release check, debug without the flag, debug with the flag and `APP_ENV=production`, a malformed address in debug with the flag. Accepted: release or profile with an https address (release also with `APP_ENV=production` or `LOCAL_ONLY_DEV=false`), debug with `LOCAL_ONLY_DEV=true` (by hand and from `config/local-only-dev.example.json`), debug against `http://127.0.0.1:8080`, `config/development.example.json`. "Rejected" means exit code 1 plus the `INVALID BUILD CONFIGURATION` header, so a crashing checker (any other exit code) fails the job instead of looking like a rejection. Needs `dart` and `flutter pub get` only: seconds, no Gradle |
-| job `mobile-config-guard`, steps "API_BASE_URL reaches the app configuration" and "LOCAL_ONLY_DEV reaches the app configuration (debug)" | `flutter test test/config/define_wiring_test.dart` twice, with `--dart-define=API_BASE_URL=https://api.ci-guard.test` and then with `--dart-define=LOCAL_ONLY_DEV=true` | the real compile-time defines no longer arrive in `AppConfig.fromEnvironment` (a renamed define, a changed `String.fromEnvironment` key). A plain `flutter test` has no defines, so each of the two tests skips itself there and nothing else can see this link |
+| job `flutter-static` (`ci.yml`), step "Release without API_BASE_URL, or with LOCAL_ONLY_DEV=true, is rejected" | `bash tool/check_release_guard.sh` | one of 26 combinations got the wrong verdict: 18 must be rejected and 8 must be accepted. Rejected: release without `API_BASE_URL` (with `LOCAL_ONLY_DEV` unset, `false` and `true`), profile without it, `LOCAL_ONLY_DEV=true` with an address (release, profile), `http` or the `.invalid` placeholder for release (with and without `APP_ENV=production`: a release check without `APP_ENV` is a production check), a `dart.vm.*` define (also the spoofed "profile as debug" local-only build), the unedited `config/production.example.json`, the debug-only `config/local-only-dev.example.json` in a release check, debug without the flag, debug with the flag and `APP_ENV=production`, a malformed address in debug with the flag. Accepted: release or profile with an https address (release also with `APP_ENV=production` or `LOCAL_ONLY_DEV=false`), debug with `LOCAL_ONLY_DEV=true` (by hand and from `config/local-only-dev.example.json`), debug against `http://127.0.0.1:8080`, `config/development.example.json`. "Rejected" means exit code 1 plus the `INVALID BUILD CONFIGURATION` header, so a crashing checker (any other exit code) fails the job instead of looking like a rejection. Needs `dart` and `flutter pub get` only: seconds, no Gradle |
+| job `flutter-static`, steps "API_BASE_URL reaches the app configuration" and "LOCAL_ONLY_DEV reaches the app configuration (debug)" | `flutter test test/config/define_wiring_test.dart` twice, with `--dart-define=API_BASE_URL=https://api.ci-guard.test` and then with `--dart-define=LOCAL_ONLY_DEV=true` | the real compile-time defines no longer arrive in `AppConfig.fromEnvironment` (a renamed define, a changed `String.fromEnvironment` key). A plain `flutter test` has no defines, so each of the two tests skips itself there and nothing else can see this link |
 | job `android`, step "Release guard - invalid configurations must not compile, a valid one builds without the dev banner" | `bash tool/check_release_guard.sh --builds` | after the matrix, **three** real `flutter build apk --release -v` runs, none of which needs a signing key. (1) Without `API_BASE_URL` the output must contain `[WB-CONFIG-001]`; (2) with an address and `LOCAL_ONLY_DEV=true` it must contain `[WB-CONFIG-002]`: a build that **succeeds** fails the step, so does one that fails for any other reason (the marker proves which guard fired). (3) With a valid, made-up https address (`--target-platform android-arm64`) the build must **succeed** (the positive control: a guard that refused everything would pass (1) and (2)); the script then takes `lib/arm64-v8a/libapp.so` out of the APK, requires a control string of the release binary (the "Invalid build configuration" title) to be found so that "no hit" means something, requires the development banner text `LOCAL ONLY DEVELOPMENT MODE` to be absent, and deletes the APK. `WATTBYTE_ALLOW_UNSIGNED_RELEASE=1` keeps a missing signing key from being the reason a build stops; builds (1) and (2) produce no artifact because the Dart compile is what fails, build (3) makes an unsigned arm64 APK with a made-up address that is not kept |
 | `release.yml`, step "Check the release build configuration" (both jobs) | `dart run tool/check_backend_config.dart --build-mode=release --dart-define="API_BASE_URL=$API_BASE_URL"` | the `api_base_url` input is not a valid release address (no `APP_ENV` is passed, so it is checked as production: https, no `.invalid` host); the run stops after `flutter pub get` and **before** `flutter analyze`, `flutter test` and any key is touched |
 
-`CI result` lists `mobile-config-guard` in its `needs:`, so the single required status check covers it. The checker is
+`CI result` lists `flutter-static` in its `needs:`, so the single required status check covers it. The checker is
 `tool/check_backend_config.dart` (logic in `lib/config/backend_config_cli.dart`): it takes the options of
 `flutter build` (`--build-mode`, `--dart-define`, `--dart-define-from-file`), exits 0 / 1 / 64 (valid / invalid /
 unusable arguments), rejects any define named `dart.vm.*` (such a define overrides the build mode the app detects
@@ -153,7 +155,7 @@ The matrix uses `macos-latest` (Apple Silicon) and `macos-15-intel` (Intel). Hon
 - `e2e` also asks the API for a household electricity price, which calls Eurostat over the public internet; a
   Eurostat outage fails the job although the code is fine.
 - `contracts` downloads the pinned openapi-generator jar from Maven Central and verifies its SHA-256 (the npm CLI is not used); `audit` needs the npm registry.
-  `pnpm audit --prod` can start failing on a new advisory without any change in the repository.
+  `pnpm audit` can start failing on a new advisory without any change in the repository.
 - The secret scan reads every file Git tracks (also one that `.gitignore` says to ignore but that was added with `git add -f`),
   every untracked file `.gitignore` does not hide, UTF-16 files, long lines (in overlapping windows) and the printable strings
   of files that contain a NUL (provider keys, private-key blocks, JWTs and URL passwords only). A file over 32 MB cannot be read
@@ -189,7 +191,7 @@ is not passed, so a build made here has no privacy-policy URL compiled in. For a
 **Gate (`guard` job, audit E-10).** Every other job `needs` it. It fails unless the run is on the repository's default
 branch **and** the exact commit has a successful `CI` workflow run (read with the run's own `GITHUB_TOKEN`, `actions:
 read`). A dispatch from a feature branch, or of a commit that CI has not passed, builds nothing and reads no secret.
-`scripts/check-workflow-pins.mjs` (in the CI `secret-scan` job) fails the build if a job is added to `release.yml` that does
+`scripts/check-workflow-pins.mjs` (in the CI `hygiene` job) fails the build if a job is added to `release.yml` that does
 not depend on `guard`, if a job other than `android-sign` / `ios-archive` reads `secrets.*`, or if any `uses:` is not
 pinned to a commit SHA (audit E-09; Dependabot's `github-actions` entry opens the update pull requests).
 

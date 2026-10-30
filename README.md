@@ -16,7 +16,7 @@ wattbyte/
 ├── infrastructure/docker/   local PostgreSQL (wattbyte + wattbyte_test)
 ├── scripts/           Dart client generation (pinned generator), secret scan, workflow checks, DB helpers, production smoke test
 ├── docs/              start at docs/README.md
-└── .github/workflows/ ci.yml (CI), ios.yml (macOS checks), release.yml (manual, gated, signed builds)
+└── .github/workflows/ ci.yml (scope-aware CI incl. macOS), release.yml (manual, gated, signed builds)
 ```
 
 Boundaries (see `docs/architecture.md`):
