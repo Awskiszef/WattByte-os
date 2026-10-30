@@ -17,7 +17,7 @@ NOT IMPLEMENTED, BLOCKED ...). The verification section lists what was really ru
 
 | Define | Values | Default | Meaning |
 |---|---|---|---|
-| `APP_ENV` | `development`, `staging`, `production` | unset: `development` in a **debug** build, `production` in a **profile or release** build | rule set the other values are validated against. An explicit value is honoured in every build mode; a typo (`prod`) is reported and treated as `production`, the strictest set (see "Which rules apply") |
+| `APP_ENV` | `development`, `staging`, `production` | unset: `development` in a **debug** build, `production` in a **profile or release** build | rule set the other values are validated against. An explicit `staging` or `production` is honoured in every build mode; `development` is **refused in a profile or release build** (a build that ships is never a development build, F-14); a typo (`prod`) is reported and treated as `production`, the strictest set (see "Which rules apply") |
 | `API_BASE_URL` | absolute URL | empty | the API. **Required**, unless the build is a debug build with `LOCAL_ONLY_DEV=true`; empty is otherwise an invalid configuration, not a "local build" (see "Backend mode and the release guard") |
 | `LOCAL_ONLY_DEV` | `true`, `false` | unset (= `false`) | the explicit development mode without a backend and without an account. Valid only in a **debug** build, in the `development` environment, without `API_BASE_URL`; any other spelling is an error; `true` in a profile or release build does not compile, and `true` with `APP_ENV=staging` or `production` (or a typo) is an error even in a debug build |
 | `PRIVACY_POLICY_URL` | public `https` URL | empty | the privacy-policy page (see below) |
@@ -150,8 +150,8 @@ Two inputs are resolved before the verdict is computed. Both are pure functions 
   build is `development` (a plain `flutter run`; `http` is accepted) and a
   **profile or release** build is `production` (https only, no `.invalid`
   placeholder host): a build that ships never accepts cleartext because a define was
-  forgotten. An explicit `APP_ENV` is honoured in every mode, and a typo means
-  `production`. The release workflow passes `API_BASE_URL` only, so its check and
+  forgotten. An explicit `APP_ENV` is honoured, except that `development` is an
+  error in a profile or release build (F-14), and a typo means `production`. The release workflow passes `API_BASE_URL` only, so its check and
   the app it builds both apply the production rules to that address.
 * **The build mode** (`effectiveBuildMode`). The app learns its mode from the
   `dart.vm.product` / `dart.vm.profile` constants (`kBuildMode`). A command line can
@@ -289,7 +289,7 @@ place.
 | debug + a valid `API_BASE_URL` + `LOCAL_ONLY_DEV=true` is rejected | `validateBackendConfig` | the two settings contradict each other: which backend does the developer mean? |
 | `LOCAL_ONLY_DEV` spellings other than `true` / `false` (`TRUE`, `1`, `yes`) are rejected, and the compile-time layer accepts only unset or exactly `false` in profile and release | `validateBackendConfig`, `BuildConfigurationGuard` | a safety switch is never guessed, and a typo must not read as "off" |
 | `LOCAL_ONLY_DEV=true` needs the `development` environment (an error with `APP_ENV=staging`, `production` or a typo, even in a debug build) | `validateBackendConfig` | a configuration that names a real environment must not also say "no backend" |
-| profile and release builds without `APP_ENV` are validated as `production` (https only, no `.invalid` host) | `effectiveEnvironment` | a forgotten define must not switch cleartext on in a build that ships. Consequence: a profile build against an `http` LAN address needs an explicit `APP_ENV=development` |
+| profile and release builds without `APP_ENV` are validated as `production` (https only, no `.invalid` host) | `effectiveEnvironment` | a forgotten define must not switch cleartext on in a build that ships. Consequence: a profile or release build always needs a public `https` host; a profile build against an `http` LAN address is not possible any more (use a debug build, or a staging host) |
 | the command-line check rejects any define named `dart.vm.*` | `lib/config/backend_config_cli.dart` | such a define overrides the build mode the app detects itself by; no real build sets one by hand |
 
 ### Limits
@@ -313,13 +313,20 @@ place.
   the start-up check. Conversely, **debug + `LOCAL_ONLY_DEV=true` with a
   whitespace-only `API_BASE_URL` counts as "no address"** and is valid local-only
   development.
-* An explicit `APP_ENV=development` is honoured in a profile or release build too
-  (explicit is explicit): `http` and the `config/development.example.json` address
-  then pass the checks. The native layers still refuse cleartext in release (above),
-  but set `APP_ENV=staging` or `production` for every distributed build.
-* **An IP-literal or single-label host passes the https rule** for staging and
-  production (`ApiConfig` rules are unchanged: https only, a valid host, no `.invalid`
-  placeholder; `.test`, `.local` or `.example` names and IP literals are not refused).
+* **F-14.** In a profile or release build `APP_ENV=development` is an error
+  (`APP_ENV=development is not allowed in <mode> builds`), and `API_BASE_URL` must be
+  a public host: `localhost`, an IP address, a single-label name and the reserved
+  top-level names (`.invalid`, `.example`, `.test`, `.localhost`, `.local`, `.internal`, `.lan`, `.home`, `.corp`, `.intranet`) and
+  `example.com` / `.net` / `.org` are
+  refused (`API_BASE_URL must be a public host in <mode> builds`). Both are checked
+  by the app at start-up, by `tool/check_backend_config.dart` and by
+  `tool/check_release_guard.sh` (26 combinations). The rule looks at the shape of the
+  name only: a public-looking name that does not resolve is not detected. The compile
+  time guard cannot parse a URL and still checks only that an address exists.
+* In a **debug** build an IP-literal or single-label host still passes the https rule
+  of `APP_ENV=staging|production` (https only, a valid host, no `.invalid` placeholder),
+  because a developer may point a debug build at a staging box by address. In a
+  profile or release build the F-14 rule above refuses it.
 * The development banner is **not read out by VoiceOver or TalkBack**: a route's
   `BlockSemantics` hides it. It is a visual developer aid, not part of the app a
   user can reach.

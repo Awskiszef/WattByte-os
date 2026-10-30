@@ -3,6 +3,8 @@
 #   docker compose -f infrastructure/docker/docker-compose.yml up -d --wait   # or: pnpm db:up
 #   pnpm db:migrate
 #
+# Two databases: `wattbyte` (development) and `wattbyte_test` (the test suites; `pnpm test:db`).
+#
 # `--wait` returns only once the healthcheck below reports "healthy", so the next
 # command (migrations, tests) never races a database that is still starting.
 #
@@ -23,6 +25,8 @@ services:
       - "127.0.0.1:${WB_PG_PORT:-5432}:5432"
     volumes:
       - wattbyte-pg:/var/lib/postgresql/data
+      # Creates wattbyte_test (the PostgreSQL integration suites) when the volume is first initialised.
+      - ./initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       # pg_isready with the real user and database: it only succeeds once the server
       # accepts connections for them (not just once the postmaster process exists).

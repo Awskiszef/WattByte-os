@@ -5,7 +5,7 @@
   "type": "module",
   "packageManager": "pnpm@11.9.0",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.9"
   },
   "scripts": {
     "lint": "pnpm -r lint",
@@ -18,14 +18,17 @@
     "db:up": "docker compose -f infrastructure/docker/docker-compose.yml up -d --wait",
     "openapi:compat": "node scripts/check-openapi-compat.mjs",
     "db:wait": "node scripts/wait-for-db.mjs",
+    "test:db": "node scripts/test-db.mjs",
+    "openapi:check": "pnpm --filter @wattbyte/api openapi -- --check",
     "db:migrate": "pnpm --filter @wattbyte/api migrate",
     "device-specs:check": "node scripts/check-device-specs.mjs",
     "device-specs:sync": "node scripts/check-device-specs.mjs --sync",
     "secret-scan": "node scripts/secret-scan.mjs",
     "smoke:prod": "node scripts/smoke-production.mjs",
     "workflows:check": "node scripts/check-workflow-pins.mjs",
-    "test:scripts": "node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs scripts/is-main.test.mjs scripts/check-openapi-compat.test.mjs scripts/openapi-generator.test.mjs scripts/check-workflow-pins.test.mjs scripts/smoke-production.test.mjs",
-    "ci:local": "node scripts/secret-scan.mjs && node scripts/check-workflow-pins.mjs && node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs scripts/is-main.test.mjs scripts/check-openapi-compat.test.mjs scripts/openapi-generator.test.mjs scripts/check-workflow-pins.test.mjs scripts/smoke-production.test.mjs && pnpm -r lint && pnpm -r typecheck && pnpm -r test && pnpm -r build && node scripts/check-device-specs.mjs"
+    "docs:check": "node scripts/check-docs.mjs",
+    "test:scripts": "node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs scripts/is-main.test.mjs scripts/check-openapi-compat.test.mjs scripts/openapi-generator.test.mjs scripts/check-workflow-pins.test.mjs scripts/smoke-production.test.mjs scripts/check-docs.test.mjs",
+    "ci:local": "node scripts/secret-scan.mjs && node scripts/check-workflow-pins.mjs && node scripts/check-docs.mjs && pnpm test:scripts && pnpm -r lint && pnpm -r typecheck && pnpm openapi:check && pnpm -r test && pnpm -r build && node scripts/check-device-specs.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

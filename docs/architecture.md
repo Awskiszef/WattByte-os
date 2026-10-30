@@ -14,7 +14,7 @@
 │ Flutter WattByte     │  Riverpod · sqflite · calculations · analytics · sync queue
 │ (apps/mobile)        │  Offline-first: every screen works without a backend.
 └──────────┬───────────┘
-           │ HTTPS (planned: generated Dart client, bearer JWT)
+           │ HTTPS (generated Dart client, bearer JWT, refresh rotation)
            ▼
 ┌──────────────────────┐
 │ WattByte API         │  apps/api: Fastify 5 + Zod + OpenAPI
@@ -33,7 +33,7 @@
 | Collection | `lib/collection` | Raw readings → `DailyData`, `BatterySample`, `ChargingSession` (SQLite) |
 | Calculations | `lib/calc` | Pure; Wh = mAh×V/1000, wall = Wh/efficiency, cost = kWh×price |
 | Analytics | `lib/analytics` | Stats, records, insights, notification rules (pure, tested) |
-| Sync | `lib/sync` | `DailyAggregate` per day, queued idempotently; nothing is uploaded yet |
+| Sync | `lib/sync` | `DailyAggregate` per day, queued idempotently, uploaded to `POST /api/v1/usage/sync` for a signed-in account while cloud sync is on (`docs/SYNC_OWNERSHIP.md`, `docs/CLOUD_DATA.md`) |
 | Settings | `lib/settings` | SharedPreferences; tokens live only in `features/auth` secure storage |
 | Setup | `lib/setup` | Region, device/battery and electricity-price detection with sources; routing rule for launch (`docs/AUTO_SETUP.md`) |
 | UI | `lib/ui`, `lib/features/*/presentation` | Reacts to `SystemCapabilities`; estimates carry `~` and a badge |
@@ -42,8 +42,11 @@
 
 ```
 Native system data → Collector → SQLite → calculations → DashboardModel
-                                              └→ SyncQueue (per-day aggregates) → [future] POST /usage/sync
+                                              └→ SyncQueue (per-day aggregates) → POST /api/v1/usage/sync
 ```
+
+What leaves the phone, to whom and how it is erased: `docs/CLOUD_DATA.md` and `docs/privacy.md`. Who owns which setting
+once an account exists: `docs/SYNC_OWNERSHIP.md`, `docs/SETTING_SOURCES.md`.
 
 Sync properties (`lib/sync`): offline-first (queue in SQLite), idempotent (one
 row per day, replaced only when the aggregate changes), retryable (state
@@ -52,7 +55,7 @@ is keyed by `(user, device, date)` so a repeated request is harmless.
 
 ## Backend modules
 
-`apps/api/src/modules/{auth,users,devices,usage,electricity,region,ai,health}`; persistence behind
+`apps/api/src/modules/{auth,users,devices,usage,cloud,electricity,region,ai,config,health}`; persistence behind
 `database/repositories.ts` with `postgres.ts` (production) and `memory.ts`
 (tests, OpenAPI export). Errors are uniform `{ error: { code, message } }`.
 

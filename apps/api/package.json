@@ -5,14 +5,14 @@
   "description": "WattByte REST API: auth, devices, aggregate sync, AI gateway access.",
   "type": "module",
   "scripts": {
-    "dev": "NODE_ENV=${NODE_ENV:-development} node --conditions=development --import tsx --watch src/main.ts",
+    "dev": "NODE_ENV=${NODE_ENV:-development} node --env-file-if-exists=.env --conditions=development --import tsx --watch src/main.ts",
     "start": "UV_THREADPOOL_SIZE=${UV_THREADPOOL_SIZE:-8} node dist/main.js",
     "build": "tsc -p tsconfig.build.json && node ../../scripts/copy-migrations.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src tests",
     "test": "vitest run",
-    "migrate": "node --import tsx src/database/migrate.ts",
-    "retention": "node --import tsx src/scripts/retention.ts",
+    "migrate": "node --env-file-if-exists=.env --import tsx src/database/migrate.ts",
+    "retention": "node --env-file-if-exists=.env --import tsx src/scripts/retention.ts",
     "migrate:prod": "node dist/database/migrate.js",
     "retention:prod": "node dist/scripts/retention.js",
     "openapi": "node --conditions=development --import tsx src/scripts/export-openapi.ts"

@@ -32,29 +32,27 @@ actionlint        # when installed: brew install actionlint
 
 Cross-cutting rules in `ci.yml`: `permissions: contents: read` (nothing writes to the repository), a
 `concurrency` group per branch / pull request with `cancel-in-progress: true`, `timeout-minutes` on every job,
-`persist-credentials: false` on every checkout, all third-party actions pinned to a major tag, and a final
+`persist-credentials: false` on every checkout, every action pinned to a full commit SHA (checked by `scripts/check-workflow-pins.mjs`), and a final
 `CI result` job that fails unless every other job succeeded (skipped and cancelled count as failures). Make
 **`CI result`** the single required status check in branch protection.
 
 ## Jobs and the local commands that mirror them
 
-Run from the repository root unless a `cd` says otherwise. On the development Mac the toolchain is not on the
-default `PATH`: use `npx pnpm …` for `pnpm`, `~/.docker/bin/docker` for Docker and
-`~/.gradle/wrapper/dists/gradle-9.3.1-bin/*/gradle-9.3.1/bin/gradle … --offline` for Gradle.
-`WB_PG_PORT=55432` is used here because another PostgreSQL owns port 5432; create your own database
-(`CREATE DATABASE wb_mine`) instead of sharing `wattbyte_test` when several people test at once.
+Run from the repository root unless a `cd` says otherwise. Prerequisites and the quirks of the original development Mac
+(`npx pnpm`, Docker and Gradle paths, `WB_PG_PORT=55432`): `docs/DEVELOPMENT.md`.
 
 | CI job | Step | Local command |
 |---|---|---|
 | `secret-scan` | script unit tests | `node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs` (`pnpm test:scripts`) |
 | | scan the tree | `node scripts/secret-scan.mjs` (`pnpm secret-scan`) |
-| `node` | PostgreSQL service with a healthcheck | `WB_PG_PORT=55432 docker compose -f infrastructure/docker/docker-compose.yml up -d --wait` (`pnpm db:up`) |
+| `node` (Node 22 and 24) | PostgreSQL service with a healthcheck | `WB_PG_PORT=55432 docker compose -f infrastructure/docker/docker-compose.yml up -d --wait` (`pnpm db:up`) |
 | | wait until a real query works | `node scripts/wait-for-db.mjs "$TEST_DATABASE_URL" --timeout 60` (`pnpm db:wait`) |
 | | lint, typecheck | `pnpm lint` · `pnpm typecheck` |
 | | AI gateway tests | `pnpm --filter @wattbyte/ai test` |
 | | API + contracts + device-catalog tests, **including the PostgreSQL integration suites** | `TEST_DATABASE_URL=postgres://wattbyte:wattbyte@localhost:55432/wb_mine pnpm --filter '!@wattbyte/ai' test` |
 | | build | `pnpm build` |
-| | all of the above plus the secret scan in one command | `TEST_DATABASE_URL=… pnpm ci:local` |
+| | API tests with the PostgreSQL suites, database created for you | `pnpm db:up && pnpm test:db` |
+| | the TypeScript part of CI in one command (secret scan, workflow check, script tests, lint, typecheck, OpenAPI drift, tests, build, device catalog; **not** audit, Dart client check, smoke test, Flutter, Kotlin, iOS, e2e) | `TEST_DATABASE_URL=… pnpm ci:local` |
 | `audit` | production dependencies | `pnpm audit --prod` |
 | `contracts` | OpenAPI is generated from the routes and the committed copy is current | `pnpm openapi && git diff --exit-code -- packages/contracts/openapi/openapi.json`. Before the first commit there is no Git: `cp packages/contracts/openapi/openapi.json /tmp/openapi.before && pnpm openapi && diff /tmp/openapi.before packages/contracts/openapi/openapi.json` |
 | | device catalog drift | `pnpm device-specs:check` (`pnpm device-specs:sync` repairs it) |
@@ -65,7 +63,7 @@ default `PATH`: use `npx pnpm …` for `pnpm`, `~/.docker/bin/docker` for Docker
 | | the real `API_BASE_URL` define reaches `AppConfig.fromEnvironment` | `cd apps/mobile && flutter test test/config/define_wiring_test.dart --dart-define=API_BASE_URL=https://api.ci-guard.test` |
 | | the real `LOCAL_ONLY_DEV=true` define reaches it (debug) | `cd apps/mobile && flutter test test/config/define_wiring_test.dart --dart-define=LOCAL_ONLY_DEV=true` |
 | `flutter-test` (3 zones) | whole suite in each zone | `cd apps/mobile && for tz in UTC Europe/Warsaw America/New_York; do TZ=$tz flutter test; done` |
-| `e2e` | generated client + app code against a real API on PostgreSQL | start the API (README, "End to end"), then `cd apps/mobile && WATTBYTE_E2E_API_URL=http://127.0.0.1:18080 flutter test test/e2e` |
+| `e2e` | generated client + app code against a real API on PostgreSQL | start the API (`docs/DEVELOPMENT.md`, "Mobile"), then `cd apps/mobile && WATTBYTE_E2E_API_URL=http://127.0.0.1:18080 flutter test test/e2e` |
 | `android` | debug APK and AAB | `cd apps/mobile && flutter build apk --debug && flutter build appbundle --debug` |
 | | release guard: invalid configurations must not compile, a valid one builds without the development banner | `cd apps/mobile && bash tool/check_release_guard.sh --builds` (the matrix, then three real release builds with Gradle; duration on a runner not measured) |
 | `kotlin` | plugin JVM tests | `cd apps/mobile/packages/wattbyte_system/android/jvm-tests && gradle test` |

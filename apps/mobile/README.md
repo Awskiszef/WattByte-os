@@ -50,173 +50,31 @@ test/                       testy czystej logiki
 ```
 
 Przepływ: `RefreshService.run()` → `Collector` (system → SQLite) → `DashboardModel` →
-widgety (`home_widget`) → `SyncQueue` (agregaty dzienne, nic nie jest wysyłane) →
+widgety (`home_widget`) → `SyncQueue` (agregaty dzienne; po zalogowaniu i przy włączonej synchronizacji trafiają do `POST /api/v1/usage/sync`, zob. `docs/CLOUD_DATA.md` i `docs/SYNC_OWNERSHIP.md`) →
 reguły powiadomień. Ten sam kod działa w UI (wznowienie, pull‑to‑refresh, timer
 60 s) i w tle (`workmanager`).
 
 ## Konfiguracja backendu (`--dart-define`)
 
-Każdy build WattByte potrzebuje backendu: adres API jest wkompilowany przez `--dart-define=API_BASE_URL=...`, a
-normalny przepływ to zawsze
+Każdy build WattByte potrzebuje backendu: adres API jest wkompilowany przez `--dart-define=API_BASE_URL=...`. Build bez
+adresu nie jest „aplikacją lokalną”, tylko **błędną konfiguracją**; jedyny tryb bez backendu to jawny `LOCAL_ONLY_DEV=true`
+i istnieje wyłącznie w buildach debug. Profile i release nie przyjmują `APP_ENV=development` ani adresu spoza publicznej
+sieci (localhost, IP, nazwy jednoczłonowe, zarezerwowane domeny).
 
-```
-Launch → Welcome → Register / Login → Automatic Setup → Permissions → Dashboard
-```
-
-Build **bez** adresu API nie jest „aplikacją lokalną”, tylko **błędną konfiguracją**: nie przechodzi do
-konfiguracji urządzenia z pominięciem konta. Jedyny sposób na uruchomienie bez backendu to jawny tryb
-deweloperski `LOCAL_ONLY_DEV=true` i istnieje on **wyłącznie w buildzie debug**. Zwykłe `flutter run` bez
-definów kończy się ekranem błędu konfiguracji. Całą decyzję podejmuje jedna czysta funkcja
-`validateBackendConfig` (`lib/config/backend_config.dart`), używana przez `AppConfig`; żaden ekran nie sprawdza
-`API_BASE_URL` samodzielnie. Pełny opis: [`../../README.md`](../../README.md) (sekcja „Configuration (mobile)”)
-i [`../../docs/CONFIGURATION_MOBILE.md`](../../docs/CONFIGURATION_MOBILE.md).
-
-| Define | Kiedy wymagany | Znaczenie |
-|---|---|---|
-| `API_BASE_URL` | zawsze, poza debug + `LOCAL_ONLY_DEV=true` | adres API (absolutny `http(s)`); w zestawach reguł `staging` i `production` (zob. `APP_ENV`) tylko `https` i bez hostów `.invalid` |
-| `LOCAL_ONLY_DEV` | nigdy (domyślnie `false`) | `true` uruchamia build debug bez backendu i bez konta; inny zapis niż `true` / `false` jest błędem; `true` w buildzie profile lub release jest błędem, błędem jest też `true` razem z `APP_ENV=staging` lub `production` (albo literówką), nawet w buildzie debug |
-| `APP_ENV` | opcjonalny | `development`, `staging`, `production`: zestaw reguł dla adresu (https, brak hostów `.invalid`). Brak definu oznacza `development` w buildzie **debug** i `production` w buildzie **profile lub release** (najostrzejszy zestaw: build, który trafia do ludzi, nie przyjmuje nieszyfrowanego HTTP tylko dlatego, że zapomniano o definie). Jawna wartość obowiązuje w każdym trybie; literówka (`prod`) liczy się jako `production` |
-| `PRIVACY_POLICY_URL` | buildy sklepowe | publiczna strona https z polityką prywatności |
-
-| Tryb buildu | `API_BASE_URL` | `LOCAL_ONLY_DEV` | Wynik |
-|---|---|---|---|
-| debug | poprawny | brak / `false` | **online**: pełny przepływ Flutter → API → konto |
-| debug | brak | `true` | **local-only (development)**: bez konta, pasek `LOCAL ONLY DEVELOPMENT MODE` (tylko gdy `APP_ENV` brak lub `development`; przy `staging`, `production` albo literówce: błąd) |
-| debug | brak | brak / `false` | **błąd**: ekran „Invalid build configuration” |
-| debug | poprawny | `true` | **błąd**: ustawienia sobie przeczą |
-| profile, release | poprawny | brak / `false` | **online** (walidowany jako `production`, chyba że `APP_ENV` mówi inaczej) |
-| profile, release | brak | dowolna | **błąd**: build się nie kompiluje, `[WB-CONFIG-001]` |
-| profile, release | dowolny | `true` | **błąd**: build się nie kompiluje, `[WB-CONFIG-002]` (gdy brakuje też adresu, strażnik wskazuje najpierw `[WB-CONFIG-001]`) |
-| dowolny | podany, ale nie do użycia (zły format, host `.invalid`, `http` w regułach staging / production, dane logowania w adresie) | dowolna | **błąd**: ekran błędu przy starcie; zły adres nigdy nie oznacza „braku backendu” |
-
-Buildy profile i release są chronione trzykrotnie.
-
-1. **Kompilator Darta** odmawia kompilacji, gdy `API_BASE_URL` jest puste (`[WB-CONFIG-001]`) albo `LOCAL_ONLY_DEV` ma
-   wartość inną niż brak lub dokładnie `false` (`[WB-CONFIG-002]`: w buildzie profile lub release `LOCAL_ONLY_DEV=true`
-   to tryb wyłącznie debug, a zapis w rodzaju `TRUE` czy ` false` też się nie kompiluje: fail-closed, bo walidator
-   uruchomieniowy obcina białe znaki, a stała czasu kompilacji nie potrafi). Stała kompilacji nie umie sparsować adresu
-   URL, więc ta warstwa obejmuje tylko te dwa błędy.
-2. **Kontrola przy starcie**: `main()` uruchamia pełną kontrolę, zanim otworzy pamięć, sesję lub przepływ konta.
-   Waliduje dla trybu buildu, w którym binarka naprawdę działa: aplikacja poznaje swój tryb ze stałych
-   `dart.vm.product` / `dart.vm.profile`, które można nadpisać z wiersza poleceń, więc binarka, która twierdzi, że jest
-   „debug”, ale działa bez asercji (asercje działają tylko w buildach debug JIT i w `flutter test`, czyli to build
-   profile lub release AOT), jest walidowana jako release.
-3. **`tool/check_backend_config.dart`** (CI i workflow release) zanim build powstanie; odrzuca każdy define o nazwie
-   `dart.vm.*`.
-
-Sam strażnik czasu kompilacji nie widzi nadpisania `dart.vm.*`; kontrola przy starcie je widzi. Buildy debug są
-sprawdzane tylko przy starcie, bo `flutter test` i `flutter analyze` kompilują się bez definów. Build, który mimo błędu
-się skompiluje, pokazuje kontrolowany ekran „Invalid build configuration” (po angielsku, dla deweloperów; nigdy nie
-drukuje adresu ani danych logowania) i się zatrzymuje. Dwie podpowiedzi na nim (komendy `flutter run`) pojawiają się
-tylko wtedy, gdy w czasie działania `kBuildMode == BuildMode.debug`; komunikaty błędów samego walidatora, które
-wspominają `LOCAL_ONLY_DEV`, są w każdej binarce.
-
-### Development online
-
-Zwykła praca. Najpierw uruchom API (zob. `../../README.md`, sekcja Backend), potem:
+**Pełny opis (tabela definów, tryby buildu, trzy warstwy ochrony, środowiska, kontrola przed buildem) jest w jednym
+miejscu: [`docs/CONFIGURATION_MOBILE.md`](../../docs/CONFIGURATION_MOBILE.md)** (po angielsku). Tu tylko polecenia na co dzień:
 
 ```bash
-flutter run --dart-define=API_BASE_URL=http://127.0.0.1:8080       # symulator iOS
+flutter run --dart-define=API_BASE_URL=http://127.0.0.1:8080       # symulator iOS (API z `pnpm --filter @wattbyte/api dev`)
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080        # emulator Androida → API na komputerze
-flutter run --dart-define=API_BASE_URL=http://<adres-lan>:8080     # prawdziwy telefon w tej samej sieci Wi‑Fi
+flutter run --dart-define=LOCAL_ONLY_DEV=true                      # bez backendu i bez konta, tylko debug, czerwony pasek
 flutter run --dart-define-from-file=config/development.json        # kopia config/development.example.json
+dart run tool/check_backend_config.dart --build-mode=release --dart-define-from-file=config/production.json   # kontrola przed buildem
+bash tool/check_release_guard.sh                                   # cała macierz kontroli (26 przypadków)
 ```
 
-- Definy: `API_BASE_URL` (zwykły `http` jest dozwolony, bo w buildzie debug brak `APP_ENV` oznacza `development`;
-  ten sam adres w buildzie profile lub release byłby walidowany jako `production` i odrzucony). Nie ustawiaj
-  `LOCAL_ONLY_DEV`.
-- Start: Launch → Welcome → Register / Login → Automatic Setup → Permissions → Dashboard. Konto jest wymagane
-  także w buildzie debug. Bez paska.
-- Zła konfiguracja (brak adresu, zły adres, `LOCAL_ONLY_DEV=true` razem z adresem): ekran „Invalid build
-  configuration” z listą złamanych reguł i dwiema komendami naprawiającymi. Nic się nie ładuje.
-
-W emulatorze Androida `localhost` to sam emulator; `10.0.2.2` to jego alias dla komputera, na którym działa.
-
-### Development local-only
-
-Praca nad aplikacją bez żadnego backendu. **Tylko build debug.**
-
-```bash
-flutter run --dart-define=LOCAL_ONLY_DEV=true
-flutter run --dart-define-from-file=config/local-only-dev.json     # kopia config/local-only-dev.example.json
-```
-
-- Definy: tylko `LOCAL_ONLY_DEV=true` (`APP_ENV`, jeśli podane, musi być `development`). **Nie** dodawaj
-  `API_BASE_URL` (takie połączenie jest odrzucane).
-- Start: bez Welcome i bez Register / Login: Automatic Setup → Permissions → Dashboard. Nie ma konta ani funkcji
-  chmurowych, bo nie ma backendu. Nad każdym ekranem jest czerwony pasek **`LOCAL ONLY DEVELOPMENT MODE`**, ten sam
-  tekst trafia do logu debug przy starcie. Pasek istnieje tylko w tym trybie i nie pojawia się w normalnym buildzie:
-  jest budowany tylko przy `kBuildMode == BuildMode.debug` i walidacji jako local-only, a sam napis to stała pusta
-  poza buildami debug, więc w binarkach profile i release go nie ma (`tool/check_release_guard.sh --builds` przeszukuje
-  prawdziwą binarkę release). Pasek to wizualna pomoc dla dewelopera: VoiceOver i TalkBack go nie odczytują.
-- Zła konfiguracja: `LOCAL_ONLY_DEV=false` albo brak definu bez adresu w buildzie debug daje ekran błędu, tak samo
-  `LOCAL_ONLY_DEV=true` z `APP_ENV=staging` lub `production` (albo literówką); `--profile` i `--release` z
-  `LOCAL_ONLY_DEV=true` się nie kompilują (`[WB-CONFIG-001]` bez adresu, `[WB-CONFIG-002]` z adresem).
-
-### Staging
-
-Build release przeciw API stagingowemu; adresy są w pliku ignorowanym przez Git, nie w kodzie.
-
-```bash
-cp config/staging.example.json config/staging.json        # wpisz prawdziwe hosty https
-flutter build appbundle --dart-define-from-file=config/staging.json
-flutter build ipa       --dart-define-from-file=config/staging.json
-```
-
-- Definy: `APP_ENV=staging`, `API_BASE_URL=https://…` (tylko https), opcjonalnie `PRIVACY_POLICY_URL`. Nigdy
-  `LOCAL_ONLY_DEV`.
-- Start: przepływ online jak wyżej, bez paska.
-- Zła konfiguracja: brak `API_BASE_URL` → błąd kompilacji `[WB-CONFIG-001]`; `LOCAL_ONLY_DEV=true` → błąd kompilacji
-  `[WB-CONFIG-002]`; adres `http` albo niezmieniony placeholder `.invalid` z pliku przykładowego kompiluje się, ale
-  aplikacja zatrzymuje się na ekranie błędu.
-
-### Production
-
-```bash
-cp config/production.example.json config/production.json    # prawdziwe hosty https i publiczny adres polityki prywatności
-flutter build appbundle --release --dart-define-from-file=config/production.json --build-number=<n>
-flutter build ipa       --release --dart-define-from-file=config/production.json
-```
-
-Podpisane buildy sklepowe robi ręczny workflow `release.yml` (`../../docs/CI.md`, `../../docs/RELEASE.md`); przed
-analizą, testami i podpisem uruchamia on kontrolę konfiguracji (`tool/check_backend_config.dart`). Workflow przekazuje
-tylko `API_BASE_URL` (wymaga `https://`). Bez `APP_ENV` build release jest walidowany jako `production`, więc kontrola
-i aplikacja stosują reguły produkcyjne (tylko https, bez hostów `.invalid`) także do buildu z workflow.
-`PRIVACY_POLICY_URL` nie jest przekazywane, więc build z workflow nie ma wkompilowanego adresu polityki prywatności;
-build z nim to lokalny build z `config/production.json` (zob. `../../docs/CI.md`).
-
-- Definy: `APP_ENV=production`, `API_BASE_URL=https://…`, `PRIVACY_POLICY_URL=https://…`. Nigdy `LOCAL_ONLY_DEV`.
-- Start: Launch → Welcome → Register / Login → Automatic Setup → Permissions → Dashboard. Build produkcyjny nigdy
-  nie pomija konta.
-- Zła konfiguracja: jak w stagingu; build release bez poprawnej konfiguracji backendu jest odrzucany przez
-  kompilator albo przy starcie i nigdy nie zachowuje się jak local-only.
-
-### Kontrola konfiguracji przed buildem
-
-```bash
-dart run tool/check_backend_config.dart --build-mode=release --dart-define=API_BASE_URL=https://<host API>
-bash tool/check_release_guard.sh            # cała macierz (sekundy): 26 kontroli, 18 musi być odrzuconych, 8 przyjętych
-bash tool/check_release_guard.sh --builds   # plus trzy prawdziwe buildy release (Gradle): dwa muszą się nie skompilować, jeden musi się zbudować
-```
-
-`tool/check_backend_config.dart` stosuje dokładnie te reguły, co aplikacja przy starcie (kontrola profile lub release
-bez `APP_ENV` jest kontrolą `production`; kody wyjścia: 0 poprawna, 1 błędna, 64 złe argumenty; wartości definów nigdy
-nie są drukowane) i odrzuca każdy define o nazwie `dart.vm.*` (nadpisałby tryb buildu, po którym aplikacja sama się
-rozpoznaje). Z `--builds` skrypt robi trzy prawdziwe, niepodpisane buildy release aplikacji na Androida
-(`WATTBYTE_ALLOW_UNSIGNED_RELEASE=1`, klucz niepotrzebny): bez `API_BASE_URL` build musi się zakończyć błędem
-`[WB-CONFIG-001]`, z adresem i `LOCAL_ONLY_DEV=true` błędem `[WB-CONFIG-002]`, a z poprawnym, zmyślonym adresem (arm64)
-musi się zbudować, przy czym napisu paska deweloperskiego nie wolno znaleźć w `libapp.so`, a napis kontrolny binarki
-release musi tam być; APK jest potem usuwany. CI uruchamia macierz i dwa testy okablowania (prawdziwe `--dart-define`
-docierają do `AppConfig`) w jobie `mobile-config-guard`, trzy buildy w jobie `android`: status CONFIGURED, NOT REMOTELY
-VERIFIED (`../../docs/CI.md`).
-
-`API_BASE_URL` **nie jest sekretem** (define trafia do binarki i można go z niej odczytać), ale nie jest też
-wpisany w kodzie: ustawia się go per środowisko przez `--dart-define`, `--dart-define-from-file=config/<env>.json`
-(pliki `config/*.json` są ignorowane przez Git, śledzone są tylko `*.example.json`) albo, w CI, przez wejście
-`api_base_url` workflow `release.yml`. `flutter test` i `flutter analyze` nie potrzebują definów (dwa testy w
-`test/config/define_wiring_test.dart` pomijają się bez nich, a CI uruchamia ten plik dwa razy z prawdziwymi
-definami). Build debug bez definów się kompiluje, ale uruchomiona aplikacja zatrzymuje się na ekranie błędu, więc
-zielony `flutter build ... --debug` nie znaczy, że aplikacja wystartuje.
+W emulatorze Androida `localhost` to sam emulator; `10.0.2.2` to alias komputera. Samo `flutter run` bez definów kończy
+się ekranem „Invalid build configuration”.
 
 ## Uruchomienie
 
@@ -229,7 +87,7 @@ flutter test
 flutter run --dart-define=API_BASE_URL=http://127.0.0.1:8080   # albo --dart-define=LOCAL_ONLY_DEV=true; samo `flutter run` kończy się błędem konfiguracji
 ```
 
-Warianty `--dart-define` (online, local-only, staging, production): sekcja „Konfiguracja backendu” powyżej.
+Warianty `--dart-define` (online, local-only, staging, production): [`docs/CONFIGURATION_MOBILE.md`](../../docs/CONFIGURATION_MOBILE.md).
 
 ### Android
 
@@ -255,21 +113,17 @@ Warianty `--dart-define` (online, local-only, staging, production): sekcja „Ko
 
 ### iOS
 
-Po otwarciu `ios/Runner.xcworkspace` w Xcode:
+Projekt zawiera już cele Runner i WattByteWidget (bundle id `pl.wattbyte.app`, widget `pl.wattbyte.app.WattByteWidget`,
+App Group `group.pl.wattbyte.app`, tło: fetch + processing w `Info.plist`); skrypt `tool/ios_setup_project.rb` odtwarza
+konfigurację. Wybierz zespół podpisujący w `ios/Flutter/Local.xcconfig` (kopia `Local.xcconfig.example`) albo w Xcode.
+Co jest gotowe i co wymaga konta Apple: [`docs/RELEASE.md`](../../docs/RELEASE.md), sekcja iOS.
 
-1. Runner → Signing & Capabilities → **App Groups** → `group.pl.wattbyte`
-   (`ios/Runner/Runner.entitlements`) oraz **Background Modes**: fetch, processing (`Info.plist`).
-2. File → New → Target → **Widget Extension** `WattByteWidget` (bez App Intents);
-   zastąp wygenerowany plik `ios/WattByteWidget/WattByteWidget.swift`, dodaj
-   `WattByteWidget.entitlements` i tę samą App Group.
-
-Ograniczenia iOS wynikają z platformy: brak danych per aplikacja, brak liczników
-mAh, brak zdarzeń ładowania w tle, liczniki `getifaddrs` są 32‑bitowe i od restartu.
-UI komunikuje to wprost (notki „Szacowane”).
+Ograniczenia iOS wynikają z platformy: brak danych per aplikacja, brak liczników mAh, brak zdarzeń ładowania w tle.
+Liczniki sieciowe są 64‑bitowe (`sysctl NET_RT_IFLIST2`) i liczone od restartu urządzenia. UI komunikuje to wprost
+(notki „Szacowane”).
 
 ## Świadomie pominięte
 
 - Miesięczny raport (JSON/CSV zawierają wszystkie dane).
 - Własna ikona aplikacji i launch screen.
-- 64‑bitowe liczniki iOS (`sysctl NET_RT_IFLIST2`).
 - Automatyczne pobieranie taryf (prywatność).

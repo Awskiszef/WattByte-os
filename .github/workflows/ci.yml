@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 env:
-  # Toolchains the project is verified with (README "Toolchain verified with"). Bump deliberately.
+  # Toolchains the project is verified with (docs/DEVELOPMENT.md "Prerequisites"). Bump deliberately.
   FLUTTER_VERSION: '3.41.6'
   NODE_VERSION: '22'
   JAVA_VERSION: '17'
@@ -42,12 +42,15 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
       - name: Unit tests of the repository scripts
-        run: node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs scripts/is-main.test.mjs scripts/openapi-generator.test.mjs scripts/check-workflow-pins.test.mjs scripts/smoke-production.test.mjs
+        run: node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs scripts/is-main.test.mjs scripts/openapi-generator.test.mjs scripts/check-workflow-pins.test.mjs scripts/smoke-production.test.mjs scripts/check-docs.test.mjs
       - name: Scan the tree for credentials (masked output)
         run: node scripts/secret-scan.mjs
       # Every action pinned to a commit SHA; the release workflow gated by `guard`, its secrets confined to the signing jobs.
       - name: Check the workflows (pinned actions, release gate)
         run: node scripts/check-workflow-pins.mjs
+      # Docs index complete, relative links resolve, architecture page not in the future tense.
+      - name: Check the documentation
+        run: node scripts/check-docs.mjs
 
   # ------------------------------------------------- the COMPILED API, started the way a deployment starts it
   api-production:
@@ -93,9 +96,14 @@ jobs:
 
   # ------------------------------------------------- TypeScript: API, AI gateway, contracts
   node:
-    name: TypeScript (lint, typecheck, test, build) + PostgreSQL
+    name: TypeScript (lint, typecheck, test, build) + PostgreSQL (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    # Node 22 is the floor (package.json engines, .nvmrc); 24 is the current LTS. Both must stay green.
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24']
     services:
       postgres:
         image: postgres:16-alpine
@@ -124,7 +132,7 @@ jobs:
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: ${{ matrix.node }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # Installed apps keep calling the next server: the /api/v1 contract may only grow (docs/API_COMPATIBILITY.md).

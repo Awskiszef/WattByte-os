@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -28,8 +28,19 @@ async function main(): Promise<void> {
 
   const here = path.dirname(fileURLToPath(import.meta.url));
   const out = path.resolve(here, '../../../../packages/contracts/openapi/openapi.json');
+  const text = JSON.stringify(spec, null, 2) + '\n';
+  if (process.argv.includes('--check')) {
+    // `pnpm openapi:check`: the committed document must equal what the routes generate; nothing is written.
+    const committed = await readFile(out, 'utf8').catch(() => '');
+    if (committed !== text) {
+      console.error(`${out} is out of date: run "pnpm openapi" and commit the result`);
+      process.exit(1);
+    }
+    console.warn(`openapi.json is up to date (${Object.keys(spec.paths ?? {}).length} paths)`);
+    return;
+  }
   await mkdir(path.dirname(out), { recursive: true });
-  await writeFile(out, JSON.stringify(spec, null, 2) + '\n');
+  await writeFile(out, text);
   console.warn(`wrote ${out} (${Object.keys(spec.paths ?? {}).length} paths)`);
 }
 

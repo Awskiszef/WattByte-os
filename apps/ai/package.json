@@ -21,7 +21,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src tests scripts",
     "test": "vitest run",
-    "smoke:ai": "tsc -p tsconfig.smoke.json && node dist-smoke/scripts/smoke.js"
+    "smoke:ai": "tsc -p tsconfig.smoke.json && node --env-file-if-exists=../api/.env dist-smoke/scripts/smoke.js"
   },
   "dependencies": {
     "openai": "^7.32.0",
