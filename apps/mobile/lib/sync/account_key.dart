@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import 'sha256.dart';
 
 /// The one-way key under which everything account-specific is stored on this phone:

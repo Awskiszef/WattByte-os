@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Proves the widget-test harness (test/support/app_harness.dart) itself:
 // that it pumps the real app, that every knob reaches the app, and - just as
 // important - that its checks FAIL when they should. A harness that cannot

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // iOS data usage as the Collector books it from the 64-bit per-interface counters (audit G-09, H-03), through the real
 // Collector, a scripted native side (FakeSystem) and a real in-memory SQLite database.
 import 'package:flutter_test/flutter_test.dart';

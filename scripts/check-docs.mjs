@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Documentation checks (audit E-18, E-19):
 //
 //   node scripts/check-docs.mjs

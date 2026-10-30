@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import Link from 'next/link';
 import { JsonLd } from './json-ld';
 import { absoluteUrl } from '@/lib/seo';

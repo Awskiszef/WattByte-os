@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Post-processing shared by scripts/generate-dart-client.mjs and scripts/check-generated-client.mjs (the two must produce
 // the same bytes).
 //

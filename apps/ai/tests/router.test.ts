@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_ROUTING, MockProvider, ProviderRouter, AI_PROVIDER_IDS, AI_TASKS, type AIProviderId } from '../src/index.js';

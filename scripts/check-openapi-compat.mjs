@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Backward-compatibility gate for /api/v1 (audit E-14): the apps already installed keep calling the NEXT server, so the
 // published contract may only grow. Compares a baseline OpenAPI document (the one released / on the base branch) with the
 // current one and lists every change an installed client could not survive.

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Insights and its AI card at every text size, phone, theme and language;
 // what a screen reader says; touch targets; contrast.
 import 'dart:async';

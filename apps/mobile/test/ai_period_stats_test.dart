@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // The AI request compares this month so far with the same number of days of the previous month (audit G-14): when the previous
 // month is shorter than the days elapsed, the window ends with that month, it never reaches into the current one.
 import 'package:flutter_test/flutter_test.dart';

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // The server can tell an installed app that it is too old (audit F-11): the build says which version it is, the server
 // publishes the oldest version it serves, and an older app says so instead of failing on requests.
 import 'package:flutter_test/flutter_test.dart';

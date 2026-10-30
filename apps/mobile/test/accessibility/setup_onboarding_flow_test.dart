@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // The whole first run on a fresh install, through the real app, with every
 // native and network edge faked:
 //

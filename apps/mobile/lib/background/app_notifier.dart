@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../analytics/notification_rules.dart';

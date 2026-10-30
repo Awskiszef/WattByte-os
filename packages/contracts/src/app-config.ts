@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { z } from 'zod';
 
 /** Deployment the API runs in (`APP_ENV`); lets a client label a non-production backend. */

@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright 2026 ATLASHC Paweł Dolatowski
+# SPDX-License-Identifier: Apache-2.0
+
 # Applies the repository settings the project relies on, then READS EACH ONE BACK and exits non-zero if GitHub does not report it.
 #
 #   bash scripts/github-configure-repo.sh [owner/repo]        (default: the origin repository; needs admin rights)

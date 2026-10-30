@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import type { BudgetGuard, BudgetStatus, SpendLedger, SpendReservation } from './budget.js';
 import { allowsFallback, categorize, isRetryable, type AIErrorCategory, type FallbackPolicy } from './errors.js';
 import { buildPrompt } from './prompts/index.js';

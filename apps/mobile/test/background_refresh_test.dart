@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // The code that runs while the app is closed, driven end to end with fakes for the platform edge (audit G-15, H-04): the real
 // RefreshService, Collector, SQLite file, settings store and notification rules, the system channel, widgets and notifier
 // replaced. Before this, nothing called runBackgroundRefresh.

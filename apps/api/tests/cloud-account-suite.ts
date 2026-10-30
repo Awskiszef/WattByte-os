@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * `DELETE /me` end to end: what is gone, what is untouched, and that the dead account's tokens
  * open nothing. Shared by the in-memory run (cloud-delete-account.test.ts) and the PostgreSQL run

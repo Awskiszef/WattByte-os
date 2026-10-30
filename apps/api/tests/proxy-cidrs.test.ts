@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { loadEnv, proxyCidrProblems } from '../src/config/env.js';

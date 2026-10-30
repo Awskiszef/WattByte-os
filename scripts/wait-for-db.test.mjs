@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // node --test scripts/wait-for-db.test.mjs
 // Pure-logic tests: no database is contacted (the fake driver below stands in for `pg`).
 import assert from 'node:assert/strict';

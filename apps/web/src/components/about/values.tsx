@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { Reveal } from '@/components/ui/reveal';
 import { Section } from '@/components/ui/section';
 import { aboutValues } from '@/config/about';

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * The battery-capacity behaviour of `POST /devices`, `GET /devices` and `GET /me/export`, written once and run
  * against every repository implementation (battery-capacity.test.ts on memory, db/battery-capacity.integration.test.ts

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // The cloud-sync queue and schedule keep working through gaps, outages and a bad day (audit F-05, F-06, F-12, F-17, F-18).
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wattbyte/calc/energy.dart';

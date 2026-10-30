@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { Compass, Eye, SlidersHorizontal } from 'lucide-react';
 import { Reveal } from '@/components/ui/reveal';
 import { Section } from '@/components/ui/section';

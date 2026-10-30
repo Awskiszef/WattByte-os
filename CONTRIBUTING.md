@@ -52,6 +52,19 @@ A new configuration file (a manifest, a build setting) is added to `scripts/publ
 reviewed. The output never prints a matched value. Your commits carry your name and e-mail address: use your GitHub `noreply`
 address if you do not want yours to be public.
 
+## Source file headers
+
+Original, hand-written source files (TypeScript, JavaScript, Dart, Kotlin, Swift, shell) start with:
+
+```
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+```
+
+(`#` instead of `//` in shell scripts, after the shebang line.) Do not add it to generated code (`apps/mobile/lib/generated`, `*.d.ts`),
+to JSON, SQL migrations or `flutter create` scaffolding, and never replace another author's copyright notice or label third-party
+code as ours.
+
 ## Dependencies
 
 Dependabot opens grouped weekly pull requests for minor and patch updates and security updates; majors are not opened

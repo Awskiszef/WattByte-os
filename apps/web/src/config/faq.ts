@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 export type FaqItem = { id: string; question: string; answer: string };
 
 export const faq: readonly FaqItem[] = [

@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright 2026 ATLASHC Paweł Dolatowski
+# SPDX-License-Identifier: Apache-2.0
+
 # Release guard: proves that a WattByte build without a valid backend configuration is refused.
 #
 #   tool/check_release_guard.sh            the configuration matrix (seconds, no Gradle)

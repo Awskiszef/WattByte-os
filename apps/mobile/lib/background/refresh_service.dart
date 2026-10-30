@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import '../analytics/dashboard_model.dart';
 import '../analytics/notification_rules.dart';
 import '../calc/energy.dart';

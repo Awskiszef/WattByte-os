@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Retry timing for one provider inside one request. Which failures are worth retrying is decided in
  * `errors.ts` (`isRetryable`); this file only answers "how long to wait".

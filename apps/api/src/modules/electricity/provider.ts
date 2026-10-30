@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import type { ElectricityPriceSource } from '../../database/repositories.js';
 
 /** A household price straight from a source, before caching. */

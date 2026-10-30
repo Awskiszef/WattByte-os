@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Copy for /about. Every claim about the product is backed by the app, the
  * API or docs/ in this repository; every claim about the organisation comes

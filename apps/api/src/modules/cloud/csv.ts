@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import type { CloudExportDailyUsage } from '@wattbyte/contracts';
 
 export type CsvValue = string | number | boolean;

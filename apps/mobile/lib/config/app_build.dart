@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Which build of the app this is: what the server is told in the `X-WattByte-App` header and what is compared with the

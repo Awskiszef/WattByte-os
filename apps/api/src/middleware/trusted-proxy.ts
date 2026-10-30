@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { BlockList, isIPv4, isIPv6 } from 'node:net';
 
 import type { FastifyRequest } from 'fastify';

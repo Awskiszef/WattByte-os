@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Test hermeticity. The developer's shell may carry variables meant for other
  * tools (ANTHROPIC_BASE_URL, OPENAI_API_KEY, HTTPS_PROXY, ...). None of them may

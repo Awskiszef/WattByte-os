@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { decodeJwt } from 'jose';
 import { describe, expect, it } from 'vitest';
 

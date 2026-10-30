@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // node --test scripts/secret-scan.test.mjs
 //
 // Key-shaped fixtures are assembled at run time from pieces so this file never

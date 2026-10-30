@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { TrendingDown } from 'lucide-react';
 import { ComingSoon } from '@/components/ui/badge';
 import { DemoLabel } from '@/components/ui/demo-label';

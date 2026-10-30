@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /// A tiny XML property-list reader for the native-configuration tests
 /// (`package:xml` is not a dependency of the app and must not become one).
 ///

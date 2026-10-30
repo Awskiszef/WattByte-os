@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Auth screen (create account / sign in): responsive, labelled fields, an
 // announced error, reachable buttons.
 import 'dart:async';

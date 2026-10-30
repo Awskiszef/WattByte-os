@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import OpenAI, { APIConnectionError, APIConnectionTimeoutError, APIError } from 'openai';
 
 import { AI_OUTPUT_JSON_SCHEMA } from '../schemas.js';

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import type { AIGenerationRequest, AIProviderId, ModelConfig } from '../types.js';
 
 function nonBlank(value: string | undefined): string | undefined {

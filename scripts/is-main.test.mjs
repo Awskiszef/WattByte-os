@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // E-13 / C-10: an ESM main-module guard must also fire when the script is started through a symlink.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';

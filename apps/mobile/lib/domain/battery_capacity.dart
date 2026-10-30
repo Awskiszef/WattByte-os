@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /// Battery capacity model: design capacity versus estimated full-charge capacity.
 ///
 /// Two different facts live here and they must never be mixed:

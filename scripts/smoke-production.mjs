@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Production smoke test (audit E-08): the COMPILED API, started the way a deployment starts it.
 //
 //   pnpm build && node scripts/smoke-production.mjs [ADMIN_DATABASE_URL]

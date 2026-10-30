@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import type { Metadata } from 'next';
 import { CTA } from '@/components/sections/cta';
 import { FAQ } from '@/components/sections/faq';

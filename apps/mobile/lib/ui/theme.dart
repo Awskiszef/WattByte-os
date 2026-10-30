@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import 'package:flutter/material.dart';
 
 /// WattByte visual identity: a bolt (energy) and a byte (data).

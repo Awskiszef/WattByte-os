@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // An install can hold no design capacity although its model is in a device
 // database: the old `system` / `estimated` capacity was a charge-counter
 // MEASUREMENT (never a design capacity) and is dropped on load, and an offline

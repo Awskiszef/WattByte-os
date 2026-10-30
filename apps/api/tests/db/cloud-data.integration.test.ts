@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { randomUUID } from 'node:crypto';
 
 import type pg from 'pg';
@@ -104,7 +107,9 @@ describe.skipIf(!postgresAvailable)('cloud data (PostgreSQL specifics)', () => {
     await erase;
     const seen = new Set(await Promise.all(exports));
     for (const s of seen) expect(['[3,2,1,2]', '[0,0,0,0]']).toContain(s);
-    expect(seen.has('[0,0,0,0]'), 'after the delete committed, exports are empty').toBe(true);
+    // Which of the concurrent exports ran after the commit depends on pool scheduling, so none of them is required to be empty.
+    // What is guaranteed is checked once the delete has returned: a new export starts after the commit and sees nothing.
+    expect(shape(await fx.repos.cloud.exportData(a.userId, 100)), 'after the delete committed, an export is empty').toBe('[0,0,0,0]');
   });
 
   it('an export does not write: the account row and its data are unchanged afterwards', async () => {

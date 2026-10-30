@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { AuthResponse, ErrorResponse, LoginRequest, LogoutRequest, RefreshRequest, RegisterRequest } from '@wattbyte/contracts';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';

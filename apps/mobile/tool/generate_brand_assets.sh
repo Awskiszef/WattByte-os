@@ -1,4 +1,7 @@
 #!/bin/sh
+# Copyright 2026 ATLASHC Paweł Dolatowski
+# SPDX-License-Identifier: Apache-2.0
+
 # Regenerates (default) or verifies (--check) the launcher icons, launch logo and Android icon layers
 # from the in-app WattByteMark. Run from anywhere; needs the Flutter SDK on PATH.
 #

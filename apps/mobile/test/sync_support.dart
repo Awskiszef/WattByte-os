@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Shared fixtures for the sync tests (ownership, frequency, retry, e2e).
 //
 // Not a test file (no `_test.dart`): it is imported by test/sync_*.dart.

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * The hero background: a faint grid, a few energy (amber) and data (cyan)
  * flow lines and the points travelling along them. Pure SVG and CSS, no JS;

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import '../calc/energy.dart';
 import '../core/periods.dart';
 import '../domain/models.dart';

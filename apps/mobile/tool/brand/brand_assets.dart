@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Renders WattByte's launcher icons, launch logo and Android vector layers from the SAME gradient and bolt
 // geometry the app draws in `WattByteMark` (lib/ui/widgets/wb_widgets.dart) with the colours of `WbColors`
 // (lib/ui/theme.dart). Nothing here is a new logo: the numbers below are copied from those two files and

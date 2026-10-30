@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // True when the module whose `import.meta.url` is passed in is the entry point of this process.
 //
 // Both sides go through realpath: `process.argv[1]` is the path as typed (a symlink, a relative path, a path

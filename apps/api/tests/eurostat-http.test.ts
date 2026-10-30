@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import type { Server } from 'node:http';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';

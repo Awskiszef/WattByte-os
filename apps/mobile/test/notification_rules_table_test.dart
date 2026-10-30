@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Every optional notification, at the edges of its rule (audit G-15). The rules run in the background isolate, where
 // a wrong one means a message on the lock screen: the boundary values are pinned here.
 import 'package:flutter_test/flutter_test.dart';

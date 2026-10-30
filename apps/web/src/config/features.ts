@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Product facts shown on the site. Every entry is backed by the mobile app,
  * the API or the docs in this repository; anything not yet built is marked
