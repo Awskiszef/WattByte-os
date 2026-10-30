@@ -30,7 +30,7 @@ export const RULES = [
   { re: /^\.github\/(CODEOWNERS|dependabot\.yml|pull_request_template\.md|ISSUE_TEMPLATE\/|rulesets\/|FUNDING\.yml)/, set: ['docs'] },
   { re: /^(\.gitattributes|\.gitignore|\.gitleaks\.toml|\.githooks\/|\.claude\/|\.dockerignore)/, set: ['docs'] },
   // Hygiene runs the unit tests of these scripts on every change, so a change to one needs nothing else.
-  { re: /^scripts\/(secret-scan|check-docs|is-main|github-protect-main|check-public-config|public-config|public-export)[^/]*$/, set: ['docs'] },
+  { re: /^scripts\/(secret-scan|check-docs|is-main|github-protect-main|github-configure-repo|check-public-config|public-config|public-export)[^/]*$/, set: ['docs'] },
   // The public export's overlay (placeholders for private files): the website part is real code, the rest is documentation.
   { re: /^infrastructure\/public-overlay\/(?!apps\/)/, set: ['docs'] },
   { re: /^infrastructure\/public-overlay\/apps\/web\//, set: ['web'] },

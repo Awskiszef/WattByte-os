@@ -21,3 +21,18 @@ else
   gh api -X POST "repos/$repo/rulesets" --input "$file" >/dev/null
 fi
 gh api "repos/$repo/rulesets" --jq '.[] | select(.name=="main") | "ruleset main: enforcement=\(.enforcement)"'
+
+# Read back what GitHub actually enforces on `main` (the effective rules, not the ruleset we sent) and fail if anything is missing.
+gh api "repos/$repo/rules/branches/main" | python3 -c '
+import json, sys
+rules = json.load(sys.stdin)
+types = {r["type"] for r in rules}
+need = {"deletion", "non_fast_forward", "pull_request", "required_status_checks"}
+contexts = {c["context"] for r in rules if r["type"] == "required_status_checks" for c in r["parameters"]["required_status_checks"]}
+missing = sorted(need - types) + sorted({"CI result", "Public Configuration Security Gate"} - contexts)
+print("effective rules on main:", ", ".join(sorted(types)), "| required checks:", ", ".join(sorted(contexts)))
+if missing:
+    print("NOT ENFORCED:", ", ".join(missing), file=sys.stderr)
+    sys.exit(4)
+print("verified: force pushes and deletion are blocked, a pull request and both required checks are enforced on main")
+'

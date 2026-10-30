@@ -29,9 +29,11 @@ request, no production deployment from a pull request.
 
 ## Enforcement
 
-Branch protection (pull request required, `CI result` required, no force push, no deletion) is defined in
-`.github/rulesets/main.json` and applied with `bash scripts/github-protect-main.sh`, which exits non-zero when the ruleset is not
-active. A local `pre-push` hook (`.githooks/pre-push`; enable once per clone with `git config core.hooksPath .githooks`)
+Branch protection (pull request required, squash merges only, `CI result` and `Public Configuration Security Gate` required, no force
+push, no deletion) is defined in `.github/rulesets/main.json` and applied with `bash scripts/github-protect-main.sh`, which reads the
+effective rules of `main` back and exits non-zero when any of them is missing. The other repository settings (read-only Actions token,
+approval for the workflows of outside contributors, private vulnerability reporting, secret scanning with push protection, Dependabot)
+are applied and read back by `bash scripts/github-configure-repo.sh`. A local `pre-push` hook (`.githooks/pre-push`; enable once per clone with `git config core.hooksPath .githooks`)
 refuses a direct push to `main` and force pushes. The current state is recorded in [docs/CI_CD.md](docs/CI_CD.md).
 
 ## Private configuration never enters the repository
