@@ -6,7 +6,10 @@ import 'package:http/testing.dart';
 
 /// One recorded HTTP request.
 class Recorded {
-  Recorded(this.method, this.path, this.headers, this.body);
+  Recorded(this.method, this.path, this.headers, this.body, [this.query = '']);
+
+  /// The raw query string (`devices=true`), empty when there is none.
+  final String query;
 
   final String method;
   final String path;
@@ -31,7 +34,8 @@ class FakeBackend {
     final body = request.body.isEmpty
         ? null
         : jsonDecode(request.body) as Map<String, dynamic>;
-    final r = Recorded(request.method, request.url.path, request.headers, body);
+    final r = Recorded(request.method, request.url.path, request.headers, body,
+        request.url.query);
     requests.add(r);
     final route = routes['${r.method} ${r.path}'];
     if (route == null) return http.Response('{}', 404);

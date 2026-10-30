@@ -13,6 +13,7 @@ import '../../../ui/widgets/wb_widgets.dart';
 import '../domain/auth_models.dart';
 import 'auth_controller.dart';
 import 'auth_form.dart';
+import 'cloud_data_section.dart';
 
 /// Account and cloud sync. Local-first: nothing here is needed to use the app.
 class AccountScreen extends ConsumerStatefulWidget {
@@ -249,6 +250,8 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
             ),
           ),
         ),
+        const SizedBox(height: 16),
+        const CloudDataSection(),
         const SizedBox(height: 16),
         _DestructiveTile(label: l.deleteAccount, onTap: _deleteAccount),
       ],

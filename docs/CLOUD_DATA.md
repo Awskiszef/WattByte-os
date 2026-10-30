@@ -2,8 +2,15 @@
 
 What the server holds about an account, how to erase part of it (`DELETE /api/v1/me/cloud-data`),
 how to take a copy (`GET /api/v1/me/export`), what `DELETE /api/v1/me` removes, and what none of
-them can reach. Status words follow `docs/FIX_REPORT.md`. Both new routes exist in the API; the
-mobile app has no screen for them yet.
+them can reach. Status words follow `docs/FIX_REPORT.md`.
+
+**In the app** (Account screen, "Your data in the cloud"; `lib/features/auth/presentation/cloud_data_section.dart`,
+`lib/sync/cloud_data_service.dart`): *Download a copy* fetches `GET /me/export` and hands the JSON exactly as the server sent it
+(file `wattbyte-cloud-export-YYYY-MM-DD.json`) to the share sheet; *Erase my cloud data* asks, calls `DELETE /me/cloud-data` (devices
+stay) and then switches cloud sync off, so the next pass does not upload the same days again; *Devices in the cloud* lists
+`GET /devices` and removes one with `DELETE /devices/:id` after a confirmation that says the phone's own data is not touched. A failed
+call changes nothing and says so. Not in the app: erasing together with the devices (`?devices=true`), the CSV export, and any
+automatic removal of stale devices (BLOCKERS B-8).
 
 ## What is stored
 

@@ -19,6 +19,7 @@ import 'setup/device_specification.dart';
 import 'setup/electricity_price.dart';
 import 'setup/region_detection.dart';
 import 'setup/setup_controller.dart';
+import 'sync/cloud_data_service.dart';
 import 'sync/sync_models.dart';
 import 'sync/sync_ownership.dart';
 import 'sync/sync_queue.dart';
@@ -33,6 +34,15 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
     sessions: ref.watch(sessionManagerProvider),
     platform: defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
     clock: ref.watch(clockProvider),
+  );
+});
+
+/// Take a copy, erase and remove devices (F-15); like every cloud feature it exists only with an API address.
+final cloudDataServiceProvider = Provider<CloudDataService?>((ref) {
+  if (!ref.watch(apiConfigProvider).isConfigured) return null;
+  return CloudDataService(
+    apis: ref.watch(apiFactoryProvider),
+    sessions: ref.watch(sessionManagerProvider),
   );
 });
 
