@@ -188,10 +188,27 @@ is not passed, so a build made here has no privacy-policy URL compiled in. For a
 `APP_ENV=production` and a privacy-policy URL use `--dart-define-from-file=config/production.json` locally
 (`docs/RELEASE.md`); that is a limitation of the workflow as written.
 
-Both jobs first check that every signing secret exists, **before** anything is downloaded. Only whether a secret
+**Gate (`guard` job, audit E-10).** Every other job `needs` it. It fails unless the run is on the repository's default
+branch **and** the exact commit has a successful `CI` workflow run (read with the run's own `GITHUB_TOKEN`, `actions:
+read`). A dispatch from a feature branch, or of a commit that CI has not passed, builds nothing and reads no secret.
+`scripts/check-workflow-pins.mjs` (in the CI `secret-scan` job) fails the build if a job is added to `release.yml` that does
+not depend on `guard`, if a job other than `android-sign` / `ios-archive` reads `secrets.*`, or if any `uses:` is not
+pinned to a commit SHA (audit E-09; Dependabot's `github-actions` entry opens the update pull requests).
+
+**Android is split in two jobs (audit E-20).** `android-build` has no environment and no secret: it is where the
+whole third-party build graph (pub plugins, Gradle/Maven artifacts) runs, and it uses `WATTBYTE_ALLOW_UNSIGNED_RELEASE=1`
+to produce an **unsigned** bundle (artifact `wattbyte-android-unsigned-aab`, one day). `android-sign` (environment
+`release`) downloads it and signs with the JDK's `jarsigner` (`SHA256withRSA`), then runs the signer-certificate
+comparison below; only first-party `actions/*` and the JDK run next to the keystore. The iOS archive is still signed by
+`xcodebuild` with the App Store Connect key in the job that resolves the Pods, so the key is exposed to that build graph
+(residual risk; it is decoded only after analyze/test and removed at the end). There is no Gradle dependency verification
+or lockfile yet (`gradle/verification-metadata.xml` would need a reviewed first run).
+
+The signing job checks that every signing secret exists. Only whether a secret
 is non-empty reaches that step, never its value. If one is missing the job stops with the annotation and job
-summary **`BLOCKED — RELEASE KEY REQUIRED`**, lists the missing names and fails. It never builds an unsigned or
-debug-signed artifact and never falls back to anything. Both jobs then run `dart run tool/check_backend_config.dart
+summary **`BLOCKED — RELEASE KEY REQUIRED`**, lists the missing names and fails. The unsigned bundle is built first
+and is not published as a release artifact; nothing is ever debug-signed and nothing falls back. The Android build job
+(and the iOS job) run `dart run tool/check_backend_config.dart
 --build-mode=release --dart-define="API_BASE_URL=$API_BASE_URL"` (the rules of the release guard, fed with exactly the
 defines of the build step; a missing or unusable address stops the run, and so would a `LOCAL_ONLY_DEV` define if one
 were ever added to both steps), and then `flutter analyze` and `flutter test`, before touching a key. The build step
@@ -199,12 +216,14 @@ itself would refuse to compile a missing address or a `LOCAL_ONLY_DEV` define (`
 an address that is present but unusable (`http`, a `.invalid` host) compiles, and only this check and the start-up check
 of the app catch it. The check says so earlier and in plain words.
 
-Store the secrets as **environment secrets of an environment named `release`** (Settings → Environments;
-add required reviewers there) or as repository secrets. The jobs declare `environment: release`.
+Store the secrets as **environment secrets of an environment named `release`** (Settings → Environments), and nowhere
+else: required reviewers, deployment branches restricted to the default branch, and **no repository-level secrets with
+these names** (those are readable by every workflow, including one on another branch). The workflow cannot check these
+settings; they are part of the release checklist (`docs/RELEASE.md`). The signing jobs declare `environment: release`.
 
 | Job | Secret | Content |
 |---|---|---|
-| `android-aab` | `ANDROID_KEYSTORE_BASE64` | the upload keystore, base64 (`base64 -i upload.jks`; macOS: pipe to `pbcopy`) |
+| `android-sign` | `ANDROID_KEYSTORE_BASE64` | the upload keystore, base64 (`base64 -i upload.jks`; macOS: pipe to `pbcopy`) |
 | | `ANDROID_KEYSTORE_PASSWORD` | keystore password |
 | | `ANDROID_KEY_ALIAS` | key alias (`upload` in `android/key.properties.example`) |
 | | `ANDROID_KEY_PASSWORD` | key password |
@@ -217,10 +236,9 @@ Create the Android keystore once and keep it (and its passwords) outside the rep
 `keytool -genkey -v -keystore ~/wattbyte-upload.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload`.
 Losing it means losing the ability to update the app unless Play App Signing holds the app signing key.
 
-How the Android job handles the key: the keystore is decoded into `$RUNNER_TEMP` (never into the workspace),
-mode 600, handed to Gradle through the four `WATTBYTE_KEYSTORE_*` / `WATTBYTE_KEY_*` variables that
-`android/app/build.gradle.kts` already reads, never printed, and deleted in an `always()` step. After the build
-the job compares the SHA-256 of the signer certificate inside the `.aab` with the one in the keystore and fails
+How the Android signing job handles the key: the keystore is decoded into `$RUNNER_TEMP` (never into the workspace),
+mode 600, handed to `jarsigner` through `-storepass:env` / `-keypass:env` (the `WATTBYTE_KEYSTORE_*` / `WATTBYTE_KEY_*`
+variables), never printed, and deleted in an `always()` step. After signing the job compares the SHA-256 of the signer certificate inside the `.aab` with the one in the keystore and fails
 if the bundle is unsigned or signed by anything else.
 
 How the iOS job signs: the project uses automatic signing, so the job writes the git-ignored

@@ -1,7 +1,8 @@
 name: Release
 
-# Manual only. Builds SIGNED store artifacts, and only when the signing secrets exist.
-# Without them a job stops immediately with "BLOCKED — RELEASE KEY REQUIRED"; it never falls back to a debug key.
+# Manual only. Builds SIGNED store artifacts, and only when the signing secrets exist, only from the default branch and only
+# for a commit whose CI run passed (job `guard`). Android is built unsigned without any secret and signed in a separate job.
+# Without the secrets a signing job stops with "BLOCKED — RELEASE KEY REQUIRED"; it never falls back to a debug key.
 # Secrets, how to create them and what each job needs: docs/CI.md ("Release workflow").
 # Status: CONFIGURED, NOT REMOTELY VERIFIED (no GitHub remote existed when this was written).
 
@@ -34,56 +35,67 @@ env:
   JAVA_VERSION: '17'
 
 jobs:
-  android-aab:
-    name: Android signed AAB
+  # ------------------------------------------------------------------ gate
+  # Nothing is built, and no secret is read, unless this run is on the default branch AND that exact commit already passed CI.
+  # The signing jobs additionally sit behind the `release` environment (required reviewers, deployment branch = main only;
+  # docs/CI.md "Release workflow"). scripts/check-workflow-pins.mjs fails CI if a job is added that does not depend on this one.
+  guard:
+    name: Release guard (default branch, green CI)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Only the default branch, only a commit whose CI passed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ github.ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ "$REF" != "refs/heads/$DEFAULT_BRANCH" ]; then
+            echo "::error title=Release refused::Release builds run only from $DEFAULT_BRANCH; this run is on $REF."
+            exit 1
+          fi
+          passed="$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$SHA&status=completed&per_page=50" \
+            --jq '[.workflow_runs[] | select(.conclusion == "success" and .head_sha == "'"$SHA"'")] | length')"
+          echo "successful CI runs for $SHA: $passed"
+          if [ "$passed" -lt 1 ]; then
+            echo "::error title=Release refused::Commit $SHA has no successful CI run. Wait for CI (or fix it) and dispatch again."
+            exit 1
+          fi
+
+  # ------------------------------------------------------------------ Android
+  # The build job holds NO secret: the whole third-party build graph (pub plugins, Gradle and Maven artifacts) runs here and
+  # produces an UNSIGNED bundle. The signing job below holds the keystore but runs only the JDK's jarsigner and keytool.
+  android-build:
+    name: Android build (unsigned, no secrets)
+    needs: guard
     if: inputs.platform == 'android' || inputs.platform == 'both'
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    # Secrets may be stored on the repository or on an environment named "release" (recommended: required reviewers).
-    environment: release
     steps:
-      # First, before anything is downloaded: are all four signing secrets there? The secret VALUES never reach this step,
-      # only whether each one is non-empty.
-      - name: Check the release signing secrets
+      - name: Check the API address
         env:
-          HAVE_ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
-          HAVE_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' }}
-          HAVE_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS != '' }}
-          HAVE_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD != '' }}
           API_BASE_URL: ${{ inputs.api_base_url }}
         run: |
-          missing=""
-          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
-            have="HAVE_$name"
-            [ "${!have}" = "true" ] || missing="$missing $name"
-          done
-          if [ -n "$missing" ]; then
-            echo "::error title=BLOCKED — RELEASE KEY REQUIRED::No Android release was built. Missing secrets:$missing. Create the upload keystore and add the four ANDROID_* secrets (docs/CI.md)."
-            {
-              echo "## BLOCKED — RELEASE KEY REQUIRED"
-              echo
-              echo "No signed Android App Bundle was built, and none will be built with a debug key."
-              echo
-              echo "Missing secrets:$missing"
-              echo
-              echo "See docs/CI.md, section Release workflow."
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
           case "$API_BASE_URL" in
             https://*) ;;
             *) echo "::error::api_base_url must start with https://"; exit 1 ;;
           esac
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-java@v6
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
-      - uses: gradle/actions/setup-gradle@v6
-      - uses: subosito/flutter-action@v2
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
@@ -93,20 +105,93 @@ jobs:
         run: flutter pub get
       # The rules the app applies at start-up (lib/config/backend_config.dart), fed with exactly the defines of the build
       # step below. A release build must never compile without a valid API_BASE_URL, and never with LOCAL_ONLY_DEV=true
-      # (that would be an app that skips the account); this stops the run before anything is analysed, tested or signed.
+      # (that would be an app that skips the account); this stops the run before anything is analysed or built.
       - name: Check the release build configuration
         working-directory: apps/mobile
         env:
           API_BASE_URL: ${{ inputs.api_base_url }}
         run: dart run tool/check_backend_config.dart --build-mode=release --dart-define="API_BASE_URL=$API_BASE_URL"
-      - name: Analyze and test before signing anything
+      - name: Analyze and test before building the bundle
         working-directory: apps/mobile
         run: |
           flutter gen-l10n
           flutter analyze
           flutter test
 
-      # The keystore lives in $RUNNER_TEMP (outside the workspace and the Gradle project), mode 600, and is deleted at the end.
+      - name: Build the App Bundle (unsigned)
+        working-directory: apps/mobile
+        env:
+          # Opt-in of apps/mobile/android/app/build.gradle.kts: the bundle comes out unsigned; it is signed by the next job.
+          WATTBYTE_ALLOW_UNSIGNED_RELEASE: '1'
+          API_BASE_URL: ${{ inputs.api_base_url }}
+          PRIVACY_POLICY_URL: ${{ vars.PRIVACY_POLICY_URL }}
+          BUILD_NUMBER: ${{ inputs.build_number || github.run_number }}
+        run: |
+          flutter build appbundle --release \
+            --dart-define="API_BASE_URL=$API_BASE_URL" \
+            --dart-define="PRIVACY_POLICY_URL=$PRIVACY_POLICY_URL" \
+            --build-number="$BUILD_NUMBER"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: wattbyte-android-unsigned-aab
+          path: apps/mobile/build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: wattbyte-android-release-mapping
+          path: apps/mobile/build/app/outputs/mapping/release/mapping.txt
+          if-no-files-found: ignore
+          retention-days: 30
+
+  android-sign:
+    name: Android sign (keystore, no third-party code)
+    needs: [guard, android-build]
+    if: inputs.platform == 'android' || inputs.platform == 'both'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Secrets belong to the environment "release" only (required reviewers, deployment branch main). Repository-level
+    # secrets with these names would be readable by every workflow and must not exist (docs/CI.md).
+    environment: release
+    steps:
+      # The secret VALUES never reach this step, only whether each one is non-empty.
+      - name: Check the release signing secrets
+        env:
+          HAVE_ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+          HAVE_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' }}
+          HAVE_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS != '' }}
+          HAVE_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD != '' }}
+        run: |
+          missing=""
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            have="HAVE_$name"
+            [ "${!have}" = "true" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error title=BLOCKED — RELEASE KEY REQUIRED::No signed Android release was produced. Missing secrets:$missing. Create the upload keystore and add the four ANDROID_* secrets to the release environment (docs/CI.md)."
+            {
+              echo "## BLOCKED — RELEASE KEY REQUIRED"
+              echo
+              echo "No signed Android App Bundle was produced, and none will be signed with a debug key."
+              echo
+              echo "Missing secrets:$missing"
+              echo
+              echo "See docs/CI.md, section Release workflow."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: wattbyte-android-unsigned-aab
+          path: ${{ runner.temp }}/unsigned
+
+      # The keystore lives in $RUNNER_TEMP, mode 600, and is deleted at the end.
       - name: Decode the upload keystore
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -118,31 +203,29 @@ jobs:
           test -s "$keystore"
           echo "WATTBYTE_KEYSTORE_FILE=$keystore" >> "$GITHUB_ENV"
 
-      - name: Build the signed App Bundle
-        working-directory: apps/mobile
+      - name: Sign the App Bundle with the upload key
         env:
-          # apps/mobile/android/app/build.gradle.kts reads exactly these four variables.
           WATTBYTE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           WATTBYTE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           WATTBYTE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          API_BASE_URL: ${{ inputs.api_base_url }}
-          PRIVACY_POLICY_URL: ${{ vars.PRIVACY_POLICY_URL }}
-          BUILD_NUMBER: ${{ inputs.build_number || github.run_number }}
         run: |
-          flutter build appbundle --release \
-            --dart-define="API_BASE_URL=$API_BASE_URL" \
-            --dart-define="PRIVACY_POLICY_URL=$PRIVACY_POLICY_URL" \
-            --build-number="$BUILD_NUMBER"
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/signed"
+          aab="$RUNNER_TEMP/signed/app-release.aab"
+          cp "$RUNNER_TEMP/unsigned/app-release.aab" "$aab"
+          jarsigner -keystore "$WATTBYTE_KEYSTORE_FILE" \
+            -storepass:env WATTBYTE_KEYSTORE_PASSWORD -keypass:env WATTBYTE_KEY_PASSWORD \
+            -sigalg SHA256withRSA -digestalg SHA-256 "$aab" "$WATTBYTE_KEY_ALIAS"
+          jarsigner -verify "$aab"
 
-      # Proves the bundle is signed with the upload key from the secret, and not unsigned or signed with the debug key.
+      # Proves the bundle is signed with the upload key from the secret, and not unsigned or signed with another key.
       - name: Verify the bundle signature
-        working-directory: apps/mobile
         env:
           WATTBYTE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           WATTBYTE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           set -euo pipefail
-          aab=build/app/outputs/bundle/release/app-release.aab
+          aab="$RUNNER_TEMP/signed/app-release.aab"
           test -f "$aab"
           bundle_sha="$(keytool -printcert -jarfile "$aab" | awk '/SHA256:/{print $2; exit}')"
           store_sha="$(keytool -list -v -keystore "$WATTBYTE_KEYSTORE_FILE" -alias "$WATTBYTE_KEY_ALIAS" -storepass:env WATTBYTE_KEYSTORE_PASSWORD | awk '/SHA256:/{print $2; exit}')"
@@ -153,25 +236,23 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: wattbyte-android-release-aab
-          path: apps/mobile/build/app/outputs/bundle/release/app-release.aab
+          path: ${{ runner.temp }}/signed/app-release.aab
           if-no-files-found: error
-          retention-days: 30
-      - uses: actions/upload-artifact@v7
-        with:
-          name: wattbyte-android-release-mapping
-          path: apps/mobile/build/app/outputs/mapping/release/mapping.txt
-          if-no-files-found: ignore
           retention-days: 30
 
       - name: Remove the keystore
         if: always()
         run: rm -f "$RUNNER_TEMP/wattbyte-upload.jks"
 
+  # The iOS archive is signed by xcodebuild with an App Store Connect API key in the same job that resolves the Pods and runs
+  # the plugins' build phases, so, unlike Android, the key is exposed to that build graph (residual risk, docs/CI.md). The key
+  # is decoded only after analyze/test and removed at the end of the job.
   ios-archive:
     name: iOS signed archive (.ipa)
+    needs: guard
     if: inputs.platform == 'ios' || inputs.platform == 'both'
     runs-on: macos-latest
     timeout-minutes: 90
@@ -208,10 +289,10 @@ jobs:
             *) echo "::error::api_base_url must start with https://"; exit 1 ;;
           esac
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
@@ -329,7 +410,7 @@ jobs:
           [ "$team" = "$IOS_TEAM_ID" ]
           echo "IPA_PATH=$ipa" >> "$GITHUB_ENV"
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: wattbyte-ios-release-ipa
           path: ${{ env.IPA_PATH }}

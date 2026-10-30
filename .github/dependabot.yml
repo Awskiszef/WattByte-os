@@ -1,4 +1,4 @@
-# Keeps the pinned GitHub Actions majors, the pnpm workspace and the Flutter app's pub packages current.
+# Keeps the GitHub Actions pinned to commit SHAs (with a version comment), the pnpm workspace and the Flutter app's pub packages current.
 # Updates arrive as pull requests that run the normal CI; nothing is merged automatically.
 version: 2
 updates:
