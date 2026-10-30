@@ -155,8 +155,15 @@ export function loadRetentionConfig(source: NodeJS.ProcessEnv = process.env) {
 /** Serialises concurrent runs (two schedulers, a manual run during the cron job). */
 const ADVISORY_LOCK_KEY = 727_275;
 
+/** The only argument is `--dry-run`. Anything else is refused: a mistyped `--dryrun` must not turn a count into a purge. */
+export function parseRetentionArgs(argv: readonly string[]): { dryRun: boolean } {
+  const unknown = argv.filter((a) => a !== '--dry-run');
+  if (unknown.length > 0) throw new Error(`unknown argument ${unknown.map((a) => JSON.stringify(a)).join(', ')}; the only option is --dry-run`);
+  return { dryRun: argv.includes('--dry-run') };
+}
+
 async function main(): Promise<void> {
-  const dryRun = process.argv.includes('--dry-run');
+  const { dryRun } = parseRetentionArgs(process.argv.slice(2));
   const config = loadRetentionConfig();
   const pool = new pg.Pool({ connectionString: config.databaseUrl, ssl: config.ssl, max: 1, statement_timeout: 120_000 });
   const client = await pool.connect();

@@ -45,8 +45,9 @@ export const cloudRoutes: FastifyPluginAsyncZod<CloudRoutesOptions> = async (app
         tags: ['account'],
         summary: 'Delete the synced cloud data but keep the account',
         description:
-          'Removes, in one transaction, the daily usage, charging and monthly summaries, AI generation log and AI quota counters. ' +
-          'Keeps the account, its sessions, subscriptions, settings and registered devices, so sync can resume. ' +
+          'Removes, in one transaction, the daily usage, charging and monthly summaries and the AI generation log. ' +
+          'Keeps the account, its sessions, subscriptions, settings, registered devices and the per-day AI quota counters ' +
+          '(erasing those would let a user reset the daily allowance), so sync can resume. ' +
           '`?devices=true` also removes the devices. Idempotent: repeating it deletes nothing and answers zeros.',
         security,
         querystring: CloudDataDeleteQuery,

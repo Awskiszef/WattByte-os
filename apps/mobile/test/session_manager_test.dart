@@ -38,6 +38,30 @@ void main() {
     expect((await store.read())?.refreshToken, 'refresh-r1');
   });
 
+  test(
+      'after an account switch the new account refreshes its own session; it is not handed the old account\'s in-flight refresh',
+      () async {
+    final perUser = _PerUserRepo();
+    final m = SessionManager(store: store, repository: perUser);
+    await m.adopt(_sessionOf('a', expiresAt: expired));
+    final a = m.validSession().then<Object?>((s) => s,
+        onError: (Object e) => e); // account A's refresh is on the wire
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    await m.adopt(_sessionOf('b',
+        expiresAt: expired)); // another account signs in meanwhile
+    final b = await m.validSession();
+    expect(b.user.id, 'b');
+    expect(b.accessToken, 'fresh-b');
+    expect(perUser.calls, ['refresh-a', 'refresh-b'],
+        reason: 'one refresh per session, each with its own token');
+    // A's answer belongs to nobody any more.
+    expect(
+        await a,
+        isA<AuthException>()
+            .having((e) => e.error, 'error', AuthError.sessionExpired));
+    expect((await m.current())?.user.id, 'b');
+  });
+
   test('5 requests that all get 401 share one refresh and all succeed on retry',
       () async {
     await store.write(session('old'));
@@ -107,6 +131,27 @@ void main() {
     expect(signedOut, 0);
     expect(await store.read(), isNotNull);
     // Back online: the next call refreshes normally.
+    repo.refreshFailure = null;
+    expect((await manager.validSession()).accessToken, 'access-r1');
+  });
+
+  test(
+      'a 400 or 409 answer to a refresh is not a verdict on the session: the tokens stay',
+      () async {
+    for (final failure in [
+      AuthError.invalidInput,
+      AuthError.emailTaken,
+      AuthError.unavailable
+    ]) {
+      await store.write(session('old', expiresAt: expired));
+      repo.refreshFailure = failure;
+      await expectLater(
+          manager.validSession(),
+          throwsA(
+              isA<AuthException>().having((e) => e.error, 'error', failure)));
+      expect(signedOut, 0, reason: '$failure');
+      expect(await store.read(), isNotNull, reason: '$failure');
+    }
     repo.refreshFailure = null;
     expect((await manager.validSession()).accessToken, 'access-r1');
   });
@@ -446,4 +491,29 @@ void sessionStoreRobustness() {
       expect(await manager.current(), isNull);
     });
   });
+}
+
+AuthSession _sessionOf(String user, {DateTime? expiresAt}) => AuthSession(
+      accessToken: 'access-$user',
+      refreshToken: 'refresh-$user',
+      expiresAt: expiresAt ?? DateTime.now().add(const Duration(minutes: 15)),
+      user: User(id: user, email: '$user@example.test'),
+    );
+
+/// Answers a refresh with a session of the user the refresh token belongs to.
+class _PerUserRepo extends FakeAuthRepository {
+  final List<String> calls = [];
+
+  @override
+  Future<AuthSession> refresh(String refreshToken) async {
+    calls.add(refreshToken);
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    final user = refreshToken.replaceFirst('refresh-', '');
+    return AuthSession(
+      accessToken: 'fresh-$user',
+      refreshToken: 'refresh2-$user',
+      expiresAt: DateTime.now().add(const Duration(minutes: 15)),
+      user: User(id: user, email: '$user@example.test'),
+    );
+  }
 }

@@ -227,6 +227,35 @@ export interface PostJsonOptions {
   readonly fetchImpl?: FetchLike;
 }
 
+/** A success answer of a provider is a few KiB of JSON; anything near this is not an answer. */
+export const MAX_SUCCESS_BODY_BYTES = 1024 * 1024;
+/** An error body is only read for its machine code. */
+export const MAX_ERROR_BODY_BYTES = 16 * 1024;
+
+class BodyTooLarge extends Error {}
+
+/** Reads at most [limit] bytes of the body as text; throws [BodyTooLarge] instead of buffering more. */
+async function readCapped(res: Response, limit: number): Promise<string> {
+  const declared = Number(res.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > limit) throw new BodyTooLarge();
+  if (!res.body) return res.text();
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let received = 0;
+  let text = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    received += value.byteLength;
+    if (received > limit) {
+      await reader.cancel().catch(() => undefined);
+      throw new BodyTooLarge();
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+  return text + decoder.decode();
+}
+
 /** POST JSON with a hard timeout; every failure becomes a classified ProviderError. */
 export async function postJson<T>(o: PostJsonOptions): Promise<T> {
   const { providerId, model } = o;
@@ -241,10 +270,13 @@ export async function postJson<T>(o: PostJsonOptions): Promise<T> {
         method: 'POST',
         headers: { 'content-type': 'application/json', ...o.headers },
         body: JSON.stringify(o.body),
+        // The API key travels in a request header (some providers use a custom one that a runtime does not strip on a
+        // cross-origin redirect): a redirect from a provider endpoint is a failure, never followed.
+        redirect: 'error',
         signal,
       });
       if (!res.ok) {
-        const code = errorCodeFromBody(await res.text().catch(() => ''));
+        const code = errorCodeFromBody(await readCapped(res, MAX_ERROR_BODY_BYTES).catch(() => ''));
         throw new ProviderError(providerId, `HTTP ${res.status}${code ? ` (${code})` : ''}`, res.status, undefined, {
           model,
           code,
@@ -253,7 +285,7 @@ export async function postJson<T>(o: PostJsonOptions): Promise<T> {
         });
       }
       try {
-        return (await res.json()) as T;
+        return JSON.parse(await readCapped(res, MAX_SUCCESS_BODY_BYTES)) as T;
       } catch {
         throw new ProviderError(providerId, 'response body is not valid JSON', res.status, false, { kind: 'invalid_response', model });
       }

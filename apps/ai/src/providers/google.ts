@@ -32,10 +32,12 @@ export class GoogleProvider implements AIProvider {
   async generate(request: AIGenerationRequest): Promise<AIGenerationResult> {
     const started = Date.now();
     const model = resolveModel(this.id, this.models, request);
+    // ListModels names models `models/<id>`; the endpoint below adds the prefix itself.
+    const modelId = model.replace(/^models\//, '');
     const res = await postJson<GenerateContentResponse>({
       providerId: this.id,
       model,
-      url: `${this.baseUrl}/models/${encodeURIComponent(model)}:generateContent`,
+      url: `${this.baseUrl}/models/${encodeURIComponent(modelId)}:generateContent`,
       body: {
         systemInstruction: { parts: [{ text: request.system }] },
         contents: [{ role: 'user', parts: [{ text: request.user }] }],

@@ -53,6 +53,10 @@ class SessionManager {
 
   AuthSession? _session;
   Future<AuthSession>? _refreshing;
+  // What the running refresh is FOR: the refresh token it uses and the account epoch it started in. A caller of another
+  // session (the account changed meanwhile) must not be handed this refresh's result or its failure.
+  String? _refreshingToken;
+  int _refreshingEpoch = -1;
   int _epoch = 0;
 
   /// Bumped (synchronously) by [clear] and by [adopt] of a different user. Capture it
@@ -120,9 +124,26 @@ class SessionManager {
     return s;
   }
 
-  /// Refreshes [used] unless a refresh is already running (single flight).
-  Future<AuthSession> refresh(AuthSession used) =>
-      _refreshing ??= _refreshOnce(used).whenComplete(() => _refreshing = null);
+  /// Refreshes [used] unless a refresh of the same session is already running (single flight per refresh token).
+  Future<AuthSession> refresh(AuthSession used) {
+    final running = _refreshing;
+    if (running != null &&
+        _refreshingToken == used.refreshToken &&
+        _refreshingEpoch == _epoch) {
+      return running;
+    }
+    late final Future<AuthSession> flight;
+    flight = _refreshOnce(used).whenComplete(() {
+      if (identical(_refreshing, flight)) {
+        _refreshing = null;
+        _refreshingToken = null;
+      }
+    });
+    _refreshing = flight;
+    _refreshingToken = used.refreshToken;
+    _refreshingEpoch = _epoch;
+    return flight;
+  }
 
   Future<AuthSession> _refreshOnce(AuthSession used) async {
     refreshCalls++;
@@ -138,11 +159,9 @@ class SessionManager {
     } on _Superseded {
       throw const AuthException(AuthError.sessionExpired);
     } on AuthException catch (e) {
-      if (e.error == AuthError.network ||
-          e.error == AuthError.server ||
-          e.error == AuthError.rateLimited) {
-        rethrow; // not a verdict on the session; try again later
-      }
+      // Only "this session is no longer valid" (a 401) ends the sign-in. A 400, a 409 or anything else the server or a proxy
+      // answers is not a verdict on the refresh token: the tokens stay and the call can be tried again.
+      if (e.error != AuthError.sessionExpired) rethrow;
       // A rejection of an old session must not end the one that replaced it.
       if (_epoch != epoch) {
         throw const AuthException(AuthError.sessionExpired);

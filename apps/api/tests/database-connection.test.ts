@@ -84,3 +84,14 @@ describe('where the helper is enforced', () => {
     expect(s.idle_in_transaction_session_timeout).toBeGreaterThan(0);
   });
 });
+
+describe('retention CLI arguments (audit appendix)', () => {
+  it('accepts no argument or --dry-run and refuses anything else, so a typo cannot turn a count into a purge', async () => {
+    const { parseRetentionArgs } = await import('../src/scripts/retention.js');
+    expect(parseRetentionArgs([])).toEqual({ dryRun: false });
+    expect(parseRetentionArgs(['--dry-run'])).toEqual({ dryRun: true });
+    for (const bad of [['--dryrun'], ['--dry-run', '--force'], ['dry-run'], ['-n']]) {
+      expect(() => parseRetentionArgs(bad), bad.join(' ')).toThrow(/unknown argument/);
+    }
+  });
+});

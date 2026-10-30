@@ -54,10 +54,24 @@ export interface BudgetGuard {
   check(now: Date): Promise<BudgetStatus>;
 }
 
+/**
+ * A limit that is NaN compares false with everything and would silently switch the cap off; a negative or infinite one is a
+ * typo. Zero is legal (it switches the provider, or everything, off).
+ */
+export function assertLimits(limits: BudgetLimits): void {
+  const check = (name: string, value: number | undefined): void => {
+    if (value !== undefined && (!Number.isFinite(value) || value < 0)) throw new RangeError(`${name} must be a finite number >= 0, got ${String(value)}`);
+  };
+  check('dailyUsd', limits.dailyUsd);
+  check('monthlyUsd', limits.monthlyUsd);
+  for (const [provider, value] of Object.entries(limits.providerDailyUsd ?? {})) check(`providerDailyUsd.${provider}`, value);
+}
+
 const NONE: BudgetStatus = { exhaustedProviders: new Set() };
 
 /** Undefined when no limit is configured, so callers skip the check (and its queries) altogether. */
 export function createBudgetGuard(limits: BudgetLimits, reader: SpendReader): BudgetGuard | undefined {
+  assertLimits(limits);
   const perProvider = Object.entries(limits.providerDailyUsd ?? {}).filter((e): e is [AIProviderId, number] => typeof e[1] === 'number');
   if (limits.dailyUsd === undefined && limits.monthlyUsd === undefined && perProvider.length === 0) return undefined;
 

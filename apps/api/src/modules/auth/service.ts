@@ -196,6 +196,10 @@ function secondFloor(d: Date): Date {
 let dummy: Promise<string> | undefined;
 /** A valid scrypt hash of a random secret, computed once, used to equalise login timing. */
 function dummyHash(): Promise<string> {
-  dummy ??= hashPassword(`dummy-${Math.random()}-${Date.now()}`);
+  dummy ??= hashPassword(`dummy-${Math.random()}-${Date.now()}`).catch((e: unknown) => {
+    // A transient failure (an exhausted scrypt queue) must not be cached for the life of the process.
+    dummy = undefined;
+    throw e;
+  });
   return dummy;
 }
