@@ -8,3 +8,18 @@ packages:
 # esbuild's postinstall only validates its platform binary; allow it so vitest/tsx work.
 allowBuilds:
   esbuild: true
+
+# Transitive fast-uri (through fastify's ajv-compiler and @fastify/swagger's json-schema-resolver) below these versions has four
+# advisories (URI scheme spoofing, host confusion, path equivalence, scheme injection). The 3.x and 4.x lines both got fixes.
+overrides:
+  "fast-uri@>=3.0.0 <3.1.9": "^3.1.9"
+  "fast-uri@>=4.0.0 <4.2.3": "^4.2.3"
+
+auditConfig:
+  ignoreGhsas:
+    # zod "memory exhaustion when validating oversized arrays" (fixed in zod 4.6.6). The flaw is in the zod 4 core ($ZodArray) that
+    # the zod 3.25 package also ships under `zod/v4`. This repository imports `zod` (the v3 API) only; the single importer of
+    # `zod/v4` is openai's optional `openai/helpers/zod`, which nothing here uses, and request bodies are capped at 16 KiB.
+    # The real fix is the zod 3 -> 4 migration (fastify-type-provider-zod, contracts, ai, api). Remove this entry when that lands.
+    - GHSA-mrhx-c7xc-m3w5
+
