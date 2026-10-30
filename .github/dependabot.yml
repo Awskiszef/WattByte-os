@@ -23,6 +23,13 @@ updates:
       typescript-tooling:
         patterns: [typescript, typescript-eslint, eslint, vitest, "@types/*"]
 
+  - package-ecosystem: docker
+    directory: /apps/api
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+
   - package-ecosystem: pub
     directory: /apps/mobile
     schedule:

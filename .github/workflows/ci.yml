@@ -42,12 +42,54 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
       - name: Unit tests of the repository scripts
-        run: node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs scripts/is-main.test.mjs scripts/openapi-generator.test.mjs scripts/check-workflow-pins.test.mjs
+        run: node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs scripts/is-main.test.mjs scripts/openapi-generator.test.mjs scripts/check-workflow-pins.test.mjs scripts/smoke-production.test.mjs
       - name: Scan the tree for credentials (masked output)
         run: node scripts/secret-scan.mjs
       # Every action pinned to a commit SHA; the release workflow gated by `guard`, its secrets confined to the signing jobs.
       - name: Check the workflows (pinned actions, release gate)
         run: node scripts/check-workflow-pins.mjs
+
+  # ------------------------------------------------- the COMPILED API, started the way a deployment starts it
+  api-production:
+    name: API production build (compiled output, guards, migrate, Docker image)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: wattbyte
+          POSTGRES_PASSWORD: wattbyte
+          POSTGRES_DB: wattbyte
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U wattbyte -d wattbyte"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+          --health-start-period 10s
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm --filter "@wattbyte/api..." build
+      - name: Wait for PostgreSQL
+        run: node scripts/wait-for-db.mjs "$PG_URL_BASE/wattbyte" --timeout 60
+      # Production guards, `node dist/database/migrate.js`, `node dist/main.js` with NODE_ENV=production, /ready, register/login/refresh,
+      # `node dist/scripts/retention.js`, SIGTERM. It creates (and drops) its own role and database on this server.
+      - name: Smoke test of the compiled API
+        run: node scripts/smoke-production.mjs "$PG_URL_BASE/wattbyte"
+      # The reference image must build from the repository as it is committed.
+      - name: Build the API image
+        run: docker build -f apps/api/Dockerfile -t wattbyte-api:ci .
 
   # ------------------------------------------------- TypeScript: API, AI gateway, contracts
   node:
@@ -452,6 +494,7 @@ jobs:
     needs:
       - secret-scan
       - node
+      - api-production
       - audit
       - contracts
       - flutter-static

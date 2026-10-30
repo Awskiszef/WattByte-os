@@ -176,9 +176,12 @@ As staging with `APP_ENV=production` (or just `NODE_ENV=production`) and **an ex
 repository (`node scripts/secret-scan.mjs` guards that). Terminate TLS at the proxy and set
 `TRUST_PROXY_HOPS` to the number of proxies. Run the retention job daily (below).
 
-Migrations are not applied by the server. Run `pnpm --filter @wattbyte/api migrate` (needs the
-`.sql` files in `src/database/migrations`, which `tsc` does not copy into `dist/`) as a separate
-deploy step before starting the new version.
+Migrations are not applied by the server. From a build run `node apps/api/dist/database/migrate.js`
+(`pnpm --filter @wattbyte/api migrate:prod`; it needs neither `tsx` nor the sources: `pnpm build` copies the `.sql` files
+next to it) as a separate deploy step before starting the new version, and `node apps/api/dist/scripts/retention.js`
+(`retention:prod`) on a schedule. `apps/api/Dockerfile` builds an image that contains exactly that, and
+`node scripts/smoke-production.mjs <admin database url>` proves the compiled output end to end. How to operate it
+(deploy order, backups, restore drill, rollback, scheduling, monitoring): `docs/OPERATIONS.md`.
 
 ## Boot, liveness and readiness (what really happens)
 

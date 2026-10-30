@@ -1,0 +1,19 @@
+# Docker build context for infrastructure/docker/api.Dockerfile (the repository root). Keep it small and keep secrets out.
+.git
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.jks
+**/*.keystore
+**/key.properties
+apps/mobile
+apps/web
+apps/ad-video
+docs
+output
+**/coverage
+**/.next
+**/.DS_Store

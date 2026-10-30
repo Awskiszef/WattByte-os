@@ -22,9 +22,10 @@
     "device-specs:check": "node scripts/check-device-specs.mjs",
     "device-specs:sync": "node scripts/check-device-specs.mjs --sync",
     "secret-scan": "node scripts/secret-scan.mjs",
+    "smoke:prod": "node scripts/smoke-production.mjs",
     "workflows:check": "node scripts/check-workflow-pins.mjs",
-    "test:scripts": "node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs scripts/is-main.test.mjs scripts/check-openapi-compat.test.mjs scripts/openapi-generator.test.mjs scripts/check-workflow-pins.test.mjs",
-    "ci:local": "node scripts/secret-scan.mjs && node scripts/check-workflow-pins.mjs && node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs scripts/is-main.test.mjs scripts/check-openapi-compat.test.mjs scripts/openapi-generator.test.mjs scripts/check-workflow-pins.test.mjs && pnpm -r lint && pnpm -r typecheck && pnpm -r test && pnpm -r build && node scripts/check-device-specs.mjs"
+    "test:scripts": "node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs scripts/is-main.test.mjs scripts/check-openapi-compat.test.mjs scripts/openapi-generator.test.mjs scripts/check-workflow-pins.test.mjs scripts/smoke-production.test.mjs",
+    "ci:local": "node scripts/secret-scan.mjs && node scripts/check-workflow-pins.mjs && node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs scripts/is-main.test.mjs scripts/check-openapi-compat.test.mjs scripts/openapi-generator.test.mjs scripts/check-workflow-pins.test.mjs scripts/smoke-production.test.mjs && pnpm -r lint && pnpm -r typecheck && pnpm -r test && pnpm -r build && node scripts/check-device-specs.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

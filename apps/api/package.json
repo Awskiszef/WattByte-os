@@ -13,6 +13,8 @@
     "test": "vitest run",
     "migrate": "node --import tsx src/database/migrate.ts",
     "retention": "node --import tsx src/scripts/retention.ts",
+    "migrate:prod": "node dist/database/migrate.js",
+    "retention:prod": "node dist/scripts/retention.js",
     "openapi": "node --conditions=development --import tsx src/scripts/export-openapi.ts"
   },
   "dependencies": {
