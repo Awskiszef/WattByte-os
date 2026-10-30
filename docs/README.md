@@ -52,21 +52,12 @@ implemented things "planned".
 |---|---|
 | [privacy.md](privacy.md) | What the app and the API collect, where it goes, retention (technical description, not legal advice) |
 | [security.md](security.md) | Authentication, sessions, limits, retention, threat notes |
-| [security/PUBLIC_RELEASE_AUDIT.md](security/PUBLIC_RELEASE_AUDIT.md) | What was classified, found and scanned before a public release |
-| [security/PUBLIC_RELEASE_REPORT.md](security/PUBLIC_RELEASE_REPORT.md) | Outcome: what is done, what blocks publication, what only the owner can do |
-| [security/WATTBYTE_OS_RELEASE_REPORT.md](security/WATTBYTE_OS_RELEASE_REPORT.md) | Private: the publication to the public repository, with every check and its result |
-| [security/PUBLIC_SYNC_WORKFLOW.md](security/PUBLIC_SYNC_WORKFLOW.md) | Private: how changes move from the private repository to the public one, and what stops them |
 
 ## Verification, audit and history
 
 | Page | What it answers |
 |---|---|
-| [remediation/PROGRESS.md](remediation/PROGRESS.md) | The audit remediation: state, with [PLAN](remediation/PLAN.md), [DECISIONS](remediation/DECISIONS.md), [BLOCKERS](remediation/BLOCKERS.md), [TEST_RESULTS](remediation/TEST_RESULTS.md) and `ISSUES.csv` (one row per finding) |
 | [REGRESSION_TESTS.md](REGRESSION_TESTS.md) | The regression suites and how to run them |
 | [VERIFICATION_STATUS.md](VERIFICATION_STATUS.md) | What the status words (TESTED, BUILD VERIFIED, BLOCKED, ...) mean |
-| [FIX_REPORT.md](FIX_REPORT.md) | An earlier fix round and how each fix was verified |
-| [IOS_SIMULATOR_REPORT.md](IOS_SIMULATOR_REPORT.md) | A run on the iOS simulator |
-| [AUDIT.md](AUDIT.md) | An earlier audit (**Polish**) |
-| [STATUS.md](STATUS.md) | A status report from 2026-10-13 (**Polish, superseded**: parts of it could not be reproduced) |
 
 The mobile app's own notes are in [../apps/mobile/README.md](../apps/mobile/README.md) (**Polish**).

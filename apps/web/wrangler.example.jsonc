@@ -1,0 +1,35 @@
+{
+  // TEMPLATE. Copy this file to wrangler.jsonc (git-ignored: it holds your own deployment) and replace every value that is
+  // marked as yours. Nothing here belongs to a real account. See apps/web/README.md, "Deploying to Cloudflare".
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "my-wattbyte-web",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-13",
+  "compatibility_flags": ["nodejs_compat"],
+  "upload_source_maps": true,
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  // YOUR hostnames. Cloudflare creates the DNS records and the certificate for a custom domain, so the zone must be in the
+  // same account. Remove "routes" to deploy to a workers.dev address instead (set "workers_dev": true then).
+  "routes": [
+    { "pattern": "www.example.com", "custom_domain": true }
+  ],
+  "workers_dev": false,
+  // ISR / fetch cache (open-next.config.ts). Create your own: `npx wrangler kv namespace create my-wattbyte-web-cache`, then put its id below.
+  "kv_namespaces": [
+    { "binding": "NEXT_INC_CACHE_KV", "id": "REPLACE_WITH_YOUR_KV_NAMESPACE_ID" }
+  ],
+  // Must equal "name" above.
+  "services": [
+    { "binding": "WORKER_SELF_REFERENCE", "service": "my-wattbyte-web" }
+  ],
+  // Public, build-time value; the two LAUNCH_LIST_* values are secrets (`wrangler secret put`), never vars.
+  "vars": {
+    "NEXT_PUBLIC_SITE_URL": "https://www.example.com"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
