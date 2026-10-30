@@ -107,12 +107,20 @@ PostgreSQL holds every account, session, device, daily aggregate and AI history 
 
 * `GET /health`: the process is alive (never touches the database). Use it for liveness and the container `HEALTHCHECK`.
 * `GET /ready`: database reachable **and** schema current. Use it for the balancer. `schema: behind` is a deploy mistake.
-* Logs are JSON lines with a `reqId` that is also returned as `x-request-id`; error messages are replaced by `omitted` on
-  purpose (privacy), so correlate by `reqId` and route (see the open item below).
+* Logs are JSON lines with a `reqId` that is also returned as `x-request-id`. An error line carries `type`, `code` (a PostgreSQL
+  SQLSTATE such as `23505` unique violation, `40P01` deadlock, `57014` statement timeout, or a system code such as
+  `ECONNREFUSED`), `severity`, `syscall` and stack frames; the **message is replaced by `omitted` on purpose** (library messages
+  echo user data). Find the cause from the code, the route and the stack; `LOG_ERROR_MESSAGES=1` shows messages and schema
+  object names on a developer machine only (staging and production refuse to start with it).
 * Alert on: sustained 5xx or 503 `service_unavailable`; `/ready` 503 for more than a minute; the retention job (above);
   PostgreSQL disk, connections and replication lag (your provider's metrics); AI spend against `AI_BUDGET_DAILY_USD`
   (at a limit the request is a 503 `ai_unavailable` and the log says `budget_exceeded`; see `docs/ai.md`).
-* There is **no metrics endpoint and no tracing** yet. Counting 5xx per route needs the access log or the proxy's metrics.
+* Metrics (opt-in): set `METRICS_TOKEN` (`openssl rand -hex 32`) and scrape `GET /metrics` with `Authorization: Bearer <token>` from
+  inside your network. `wattbyte_http_requests_total{method,route,status}` (route **templates**, never URLs),
+  `wattbyte_http_request_duration_seconds` (histogram), `wattbyte_db_pool_connections{state}`, `wattbyte_db_pool_waiting_clients`,
+  `wattbyte_uptime_seconds`, `wattbyte_build_info`. Example alerts: 5xx ratio over 5 minutes above 2 %,
+  `wattbyte_db_pool_waiting_clients > 0` for 5 minutes, p95 of a route above its budget. The counters are per process and reset on
+  restart (use `rate()`/`increase()`). There is **no tracing**; correlate with `reqId`.
 
 ## The compiled-output smoke test
 

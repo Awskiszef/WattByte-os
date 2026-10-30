@@ -18,6 +18,7 @@ import { featureFlagsFromEnv } from './features/flags.js';
 import { authenticateUnlessPublic } from './middleware/auth.js';
 import { rejectNulCharacters } from './middleware/input-guards.js';
 import { buildLoggerOptions } from './observability/logging.js';
+import { bearerMatches, Metrics } from './observability/metrics.js';
 import { clientKey } from './middleware/client-key.js';
 import { GroupedLocalStore } from './middleware/rate-limit-store.js';
 import { configurePasswordHashing } from './modules/auth/password.js';
@@ -86,7 +87,7 @@ export async function buildApp(deps: AppDeps): Promise<App> {
   const { env, repos } = deps;
   const loggerOn = deps.logStream !== undefined || (deps.logger ?? env.NODE_ENV !== 'test');
   const app = Fastify({
-    logger: loggerOn ? buildLoggerOptions({ level: env.LOG_LEVEL, stream: deps.logStream }) : false,
+    logger: loggerOn ? buildLoggerOptions({ level: env.LOG_LEVEL, stream: deps.logStream, includeErrorMessages: env.LOG_ERROR_MESSAGES === '1' }) : false,
     // Take the caller's x-request-id only when it is well formed (see generateRequestId); echo it on every response.
     requestIdHeader: false,
     genReqId: generateRequestId,
@@ -229,6 +230,20 @@ export async function buildApp(deps: AppDeps): Promise<App> {
   );
 
   app.get('/openapi.json', { config: { public: true }, schema: { hide: true } }, async () => app.swagger());
+  if (env.METRICS_TOKEN !== undefined) {
+    // Opt-in and authenticated: request counts per route template say a lot about the service and nothing about a user.
+    const metrics = new Metrics({ version: API_VERSION, gauges: () => repos.poolStats?.() ?? [] });
+    const token = env.METRICS_TOKEN;
+    app.addHook('onResponse', async (request, reply) => {
+      metrics.record(request.method, request.routeOptions?.url ?? '[unmatched]', reply.statusCode, reply.elapsedTime / 1000);
+    });
+    app.get('/metrics', { config: { public: true, rateLimit: false }, schema: { hide: true } }, async (request, reply) => {
+      if (!bearerMatches(request.headers.authorization, token)) {
+        return reply.status(401).header('www-authenticate', 'Bearer').send({ error: { code: 'unauthorized', message: 'Metrics need the metrics token.' } });
+      }
+      return reply.header('content-type', 'text/plain; version=0.0.4; charset=utf-8').send(metrics.render());
+    });
+  }
   await app.register(healthRoutes, {
     repos,
     providerIds: deps.providerIds,

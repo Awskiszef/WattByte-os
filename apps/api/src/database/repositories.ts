@@ -431,5 +431,7 @@ export interface Repositories {
   ping(): Promise<boolean>;
   /** Name of the newest applied migration (null = none yet). Absent on stores without a schema (the in-memory one). */
   schemaVersion?(): Promise<string | null>;
+  /** Connection-pool gauges for /metrics. Absent on stores without a pool (the in-memory one). */
+  poolStats?(): Array<{ name: string; help: string; value: number; labels?: Record<string, string> }>;
   close(): Promise<void>;
 }

@@ -802,6 +802,15 @@ export class PostgresRepositories implements Repositories {
     }
   }
 
+  poolStats(): Array<{ name: string; help: string; value: number; labels?: Record<string, string> }> {
+    const help = 'Connections of the PostgreSQL pool, by state.';
+    return [
+      { name: 'wattbyte_db_pool_connections', help, value: this.pool.idleCount, labels: { state: 'idle' } },
+      { name: 'wattbyte_db_pool_connections', help, value: this.pool.totalCount - this.pool.idleCount, labels: { state: 'busy' } },
+      { name: 'wattbyte_db_pool_waiting_clients', help: 'Queries waiting for a free pool connection.', value: this.pool.waitingCount },
+    ];
+  }
+
   private closing?: Promise<void>;
 
   /** Idempotent: a second call returns the first one's promise (pg rejects a second `pool.end()`). */

@@ -115,6 +115,10 @@ const EnvSchema = z
     AI_FREE_DAILY_LIMIT: z.coerce.number().int().nonnegative().default(3),
     AI_PREMIUM_DAILY_LIMIT: z.coerce.number().int().nonnegative().default(50),
     AI_MOCK: Flag('0'),
+    /** Development only: put the message of an error in the log (it can contain user data; refused in staging and production). */
+    LOG_ERROR_MESSAGES: Flag('0'),
+    /** Serves GET /metrics (Prometheus text) to a caller presenting this as a Bearer token. Unset = no such route. */
+    METRICS_TOKEN: z.string().min(24).max(256).optional(),
     /** Server-side feature switches; a disabled feature answers 503 `feature_disabled`. */
     /** Oldest app version served per platform (`1.4.0`); older apps are told to update. Unset = no minimum. */
     MIN_APP_VERSION_ANDROID: z.string().regex(/^\d{1,4}\.\d{1,4}\.\d{1,4}$/).optional(),
@@ -229,6 +233,11 @@ function strictEnvironmentProblems(env: Env, source: NodeJS.ProcessEnv): string[
     problems.push('JWT_SECRET is made of a repeated pattern; generate a real one (openssl rand -base64 48)');
   }
   if (env.AI_MOCK === '1') problems.push(`AI_MOCK=1 is not allowed when APP_ENV=${env.APP_ENV}`);
+  if (env.LOG_ERROR_MESSAGES === '1') problems.push(`LOG_ERROR_MESSAGES=1 is not allowed when APP_ENV=${env.APP_ENV}: error messages can contain user data`);
+  if (env.METRICS_TOKEN !== undefined) {
+    if (PLACEHOLDER_SECRET.test(env.METRICS_TOKEN)) problems.push('METRICS_TOKEN looks like a placeholder; generate a real one');
+    else if (new Set(env.METRICS_TOKEN).size < MIN_DISTINCT_SECRET_CHARS) problems.push('METRICS_TOKEN is made of a repeated pattern; generate a real one (openssl rand -hex 32)');
+  }
   if (!env.DATABASE_URL) problems.push(`DATABASE_URL is required when APP_ENV=${env.APP_ENV}`);
   else if (usesDevelopmentDatabaseCredentials(env.DATABASE_URL)) {
     problems.push('DATABASE_URL uses the development credentials of docker-compose.yml');

@@ -64,6 +64,44 @@ function stackFrames(stack: string | undefined): string {
 type LoggerOptions = Exclude<NonNullable<FastifyServerOptions['logger']>, boolean>;
 type Serializers = NonNullable<LoggerOptions['serializers']>;
 
+/** Identifier-shaped, short: a PostgreSQL schema/table/column/constraint name or a syscall, never a value. */
+const SAFE_IDENTIFIER = /^[A-Za-z0-9_$.]{1,63}$/;
+const safeIdentifier = (v: unknown): string | undefined => (typeof v === 'string' && SAFE_IDENTIFIER.test(v) ? v : undefined);
+
+/**
+ * What identifies a failure without echoing data (B-12). Always: the error type, its `code` (a PostgreSQL SQLSTATE such as
+ * `23505` unique violation, `40P01` deadlock, `57014` statement timeout, or a system code such as `ECONNREFUSED`), PostgreSQL's
+ * `severity` and the failing `syscall`: enough to tell a dead dependency from a constraint from a bug, together with the route
+ * and request id of the same log line. The names of schema objects (`table`, `column`, `constraint`) are NOT logged by default
+ * (the privacy test treats them as schema detail); `verbose` (LOG_ERROR_MESSAGES=1, development only) adds them.
+ * `detail` and `message` hold the offending VALUES and are never logged outside that switch.
+ */
+export function safeErrorFields(err: Error, verbose = false): Record<string, string | undefined> {
+  const e = err as unknown as Record<string, unknown>;
+  const code = e.code;
+  return {
+    type: err.name,
+    code: typeof code === 'string' && /^[A-Za-z0-9_]{1,40}$/.test(code) ? code : undefined,
+    severity: safeIdentifier(e.severity),
+    syscall: safeIdentifier(e.syscall),
+    ...(verbose ? { schema: safeIdentifier(e.schema), table: safeIdentifier(e.table), column: safeIdentifier(e.column), constraint: safeIdentifier(e.constraint) } : {}),
+  };
+}
+
+/**
+ * `verbose` is for local debugging only (LOG_ERROR_MESSAGES=1, refused outside APP_ENV=development): the message of a
+ * library error can contain a user's e-mail address or any other value.
+ */
+export function makeErrSerializer(verbose: boolean): NonNullable<Serializers['err']> {
+  return (err) => ({
+    ...safeErrorFields(err, verbose),
+    type: err.name,
+    // Library errors carry user data in their message and detail fields; the code is enough to find the cause.
+    message: verbose ? err.message : 'omitted',
+    stack: stackFrames(err.stack),
+  });
+}
+
 export const logSerializers: Serializers = {
   req: (request) => ({
     method: request.method,
@@ -74,29 +112,22 @@ export const logSerializers: Serializers = {
     url: request.routeOptions?.url ?? '[unmatched]',
   }),
   res: (reply) => ({ statusCode: reply.statusCode }),
-  err: (err) => {
-    const code = (err as { code?: unknown }).code;
-    return {
-      type: err.name,
-      // Library errors carry user data in their message and detail fields; the code is enough to find the cause.
-      message: 'omitted',
-      code: typeof code === 'string' && /^[A-Za-z0-9_]{1,40}$/.test(code) ? code : undefined,
-      stack: stackFrames(err.stack),
-    };
-  },
+  err: makeErrSerializer(false),
 };
 
 export interface LoggerConfig {
   level: string;
   /** Tests capture the stream; production writes to stdout. */
   stream?: { write(msg: string): void };
+  /** Development only (LOG_ERROR_MESSAGES=1): put the error message in the log. */
+  includeErrorMessages?: boolean;
 }
 
 export function buildLoggerOptions(config: LoggerConfig): LoggerOptions & { redact: { paths: string[]; censor: string } } {
   return {
     level: config.level,
     redact: { paths: REDACT_PATHS, censor: LOG_CENSOR },
-    serializers: logSerializers,
+    serializers: config.includeErrorMessages ? { ...logSerializers, err: makeErrSerializer(true) } : logSerializers,
     ...(config.stream ? { stream: config.stream } : {}),
   };
 }
