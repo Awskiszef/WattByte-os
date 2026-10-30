@@ -25,7 +25,7 @@
     "smoke:ai": "tsc -p tsconfig.smoke.json && node --env-file-if-exists=../api/.env dist-smoke/scripts/smoke.js"
   },
   "dependencies": {
-    "openai": "^7.32.0",
+    "openai": "^7.45.1",
     "zod": "^3.24.1"
   },
   "devDependencies": {
