@@ -74,12 +74,23 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          # The base branch is needed to compare the published contract with it.
+          fetch-depth: 0
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Installed apps keep calling the next server: the /api/v1 contract may only grow (docs/API_COMPATIBILITY.md).
+      - name: OpenAPI backward compatibility (pull requests)
+        if: github.event_name == 'pull_request'
+        run: |
+          git show "origin/${{ github.base_ref }}:packages/contracts/openapi/openapi.json" > "$RUNNER_TEMP/openapi-base.json"
+          node scripts/check-openapi-compat.mjs "$RUNNER_TEMP/openapi-base.json"
+      # The two script suites need no database.
+      - name: Script tests
+        run: node --test scripts/*.test.mjs
       # The service reports "healthy" before the first step runs; this proves a real query works with the URL the tests use.
       - name: Wait for PostgreSQL
         run: node scripts/wait-for-db.mjs "$TEST_DATABASE_URL" --timeout 60

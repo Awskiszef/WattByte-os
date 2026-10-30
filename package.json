@@ -16,13 +16,14 @@
     "dart-client": "node scripts/generate-dart-client.mjs",
     "dart-client:check": "node scripts/check-generated-client.mjs",
     "db:up": "docker compose -f infrastructure/docker/docker-compose.yml up -d --wait",
+    "openapi:compat": "node scripts/check-openapi-compat.mjs",
     "db:wait": "node scripts/wait-for-db.mjs",
     "db:migrate": "pnpm --filter @wattbyte/api migrate",
     "device-specs:check": "node scripts/check-device-specs.mjs",
     "device-specs:sync": "node scripts/check-device-specs.mjs --sync",
     "secret-scan": "node scripts/secret-scan.mjs",
-    "test:scripts": "node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs scripts/is-main.test.mjs",
-    "ci:local": "node scripts/secret-scan.mjs && node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs scripts/is-main.test.mjs && pnpm -r lint && pnpm -r typecheck && pnpm -r test && pnpm -r build && node scripts/check-device-specs.mjs"
+    "test:scripts": "node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs scripts/is-main.test.mjs scripts/check-openapi-compat.test.mjs",
+    "ci:local": "node scripts/secret-scan.mjs && node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs scripts/is-main.test.mjs scripts/check-openapi-compat.test.mjs && pnpm -r lint && pnpm -r typecheck && pnpm -r test && pnpm -r build && node scripts/check-device-specs.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
