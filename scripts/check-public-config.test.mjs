@@ -211,6 +211,15 @@ test('history: --strict-refs allows main and approved tags only', () => {
   assert.equal(run(dir, ['--history', '--strict-refs', '--allow-tag', 'v1.0.0']).code, 0);
 });
 
+test('history: --strict-refs accepts the remote-tracking refs of a plain clone', () => {
+  const origin = repo(CLEAN);
+  const clone = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'wb-clone-')), 'c');
+  const r = spawnSync('git', ['clone', '-q', origin, clone], { encoding: 'utf8', env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null' } });
+  assert.equal(r.status, 0, r.stderr);
+  const res = run(clone, ['--history', '--strict-refs']);
+  assert.equal(res.code, 0, res.out);
+});
+
 test('a file over the size limit fails', () => {
   const dir = repo({ ...CLEAN });
   const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'wb-small-')), 'a.json');

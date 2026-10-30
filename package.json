@@ -30,7 +30,7 @@
     "smoke:image": "node scripts/smoke-image.mjs",
     "workflows:check": "node scripts/check-workflow-pins.mjs",
     "docs:check": "node scripts/check-docs.mjs",
-    "test:scripts": "node --test scripts/secret-scan.test.mjs scripts/wait-for-db.test.mjs scripts/is-main.test.mjs scripts/check-openapi-compat.test.mjs scripts/openapi-generator.test.mjs scripts/check-workflow-pins.test.mjs scripts/smoke-production.test.mjs scripts/check-docs.test.mjs scripts/secret-scan-history.test.mjs",
+    "test:scripts": "node --test scripts/*.test.mjs",
     "ci:local": "node scripts/secret-scan.mjs && node scripts/check-workflow-pins.mjs && node scripts/check-docs.mjs && pnpm test:scripts && pnpm -r lint && pnpm -r typecheck && pnpm openapi:check && pnpm -r test && pnpm -r build && node scripts/check-device-specs.mjs"
   },
   "devDependencies": {

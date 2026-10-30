@@ -262,7 +262,8 @@ export function checkHistory(root, list, { strictRefs = false, allowTags = [], d
   if (strictRefs) {
     const refs = git(root, ['for-each-ref', '--format=%(refname)']).split('\n').filter(Boolean);
     for (const r of refs) {
-      const ok = r === 'refs/heads/main' || allowTags.some((t) => r === `refs/tags/${t}`);
+      // A clone also has remote-tracking refs of what is already published; they are not something a push would add.
+      const ok = r === 'refs/heads/main' || r === 'refs/remotes/origin/main' || r === 'refs/remotes/origin/HEAD' || allowTags.some((t) => r === `refs/tags/${t}`);
       if (!ok) add({ path: r, rule: 'unapproved-ref', line: 0, detail: 'only refs/heads/main and explicitly approved tags may be published' });
     }
   }

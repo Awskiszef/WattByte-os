@@ -104,6 +104,8 @@ updates:
       - dependency-name: home_widget
         update-types: ['version-update:semver-minor']
       # 2.4.5 and later need Dart ^3.12, newer than the Flutter the CI uses (FLUTTER_VERSION 3.41.6): the grouped update failed
-      # at `pub get`. Remove this entry when FLUTTER_VERSION is raised.
+      # at `pub get` ("sqflite 2.4.5 requires SDK version ^3.12.0"). Remove these entries when FLUTTER_VERSION is raised.
       - dependency-name: sqflite_common_ffi
+        versions: ['>=2.4.5']
+      - dependency-name: sqflite
         versions: ['>=2.4.5']
