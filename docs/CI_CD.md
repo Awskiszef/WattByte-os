@@ -46,5 +46,5 @@ No repository or environment secret exists, and none was copied from a local `.e
 
 * Composite actions we use (`subosito/flutter-action`, `gradle/actions/setup-gradle`, `pnpm/action-setup`) reference other actions by tag internally; we pin the composite itself to a commit, not what it calls. Replacing `flutter-action` with a pinned manual install would remove the largest case.
 * The macOS build is not part of the required check (see above); run `iOS` by hand.
-* The CI has run only a few times; its history is in `docs/remediation/FINAL_REPORT.md`.
+* The CI has run a handful of times; the first run was red for the reasons listed in `docs/remediation/FINAL_REPORT.md`, pull request 19 was green. Anything not run on GitHub yet (Release, signed builds) is unverified.
 * `pnpm audit --prod` is green because of one documented exception (zod, `pnpm-workspace.yaml`), not because the advisory is gone.
