@@ -1,6 +1,7 @@
 packages:
   - apps/api
   - apps/ai
+  - apps/web
   - packages/contracts
   - packages/device-specs
 # apps/mobile is a Flutter project and is not part of the pnpm workspace.
@@ -8,6 +9,8 @@ packages:
 # esbuild's postinstall only validates its platform binary; allow it so vitest/tsx work.
 allowBuilds:
   esbuild: true
+  # eslint-config-next's resolver ships prebuilt binaries; its postinstall is only a fallback.
+  unrs-resolver: false
 
 # Transitive fast-uri (through fastify's ajv-compiler and @fastify/swagger's json-schema-resolver) below these versions has four
 # advisories (URI scheme spoofing, host confusion, path equivalence, scheme injection). The 3.x and 4.x lines both got fixes.
