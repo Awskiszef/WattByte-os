@@ -496,6 +496,14 @@ jobs:
       # The widget extension must link system libraries only: no Flutter, no plugin framework (audit H-07).
       - name: The widget extension links no plugin framework
         run: bash tool/check_widget_links.sh
+      # The plugin's pure Swift logic (NET_RT_IFLIST2 parser, backup exclusion) runs on the macOS runner itself: no simulator needed.
+      - name: Swift unit checks of the plugin
+        working-directory: apps/mobile/packages/wattbyte_system/ios
+        run: |
+          swiftc -o "$RUNNER_TEMP/check_ifc" Classes/InterfaceCounterParser.swift Tests/InterfaceCounters/main.swift
+          "$RUNNER_TEMP/check_ifc"
+          swiftc -o "$RUNNER_TEMP/check_backup" Classes/BackupExclusion.swift Tests/BackupExclusion/main.swift
+          "$RUNNER_TEMP/check_backup"
       - run: flutter build ios --debug --no-codesign
 
   # ----------------------------------------------------------- single status for branch protection

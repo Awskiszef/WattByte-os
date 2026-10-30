@@ -19,38 +19,53 @@ const kRefreshTask = 'pl.wattbyte.refresh';
 
 @pragma('vm:entry-point')
 void wattbyteBackgroundDispatcher() {
-  Workmanager().executeTask((task, inputData) async {
-    try {
-      await runBackgroundRefresh();
-      return true;
-    } catch (e, st) {
-      // `false` asks the scheduler to retry; the reason is recorded, not dropped.
-      reportError(e, st, 'background refresh');
-      return false;
-    }
-  });
+  Workmanager().executeTask(
+      (task, inputData) => backgroundTaskResult(runBackgroundRefresh));
+}
+
+/// What the scheduler is told about one run: `true` = done, `false` = retry. The reason a run failed is recorded, not dropped.
+@visibleForTesting
+Future<bool> backgroundTaskResult(Future<void> Function() run) async {
+  try {
+    await run();
+    return true;
+  } catch (e, st) {
+    reportError(e, st, 'background refresh');
+    return false;
+  }
 }
 
 /// Runs the same pipeline as the foreground app, in the background isolate.
-Future<void> runBackgroundRefresh() async {
+///
+/// Every dependency defaults to the real one; the parameters exist so a test can drive the whole path (store, system
+/// channel, widgets, notifications, clock, database file) with fakes (G-15, H-04).
+Future<void> runBackgroundRefresh({
+  SettingsStore? store,
+  WattByteSystem? system,
+  WidgetPublisher? widgets,
+  AppNotifier? notifier,
+  DateTime Function()? clock,
+  String? dbPath,
+}) async {
   WidgetsFlutterBinding.ensureInitialized();
-  final prefs = await SharedPreferences.getInstance();
-  final store = SettingsStore(prefs);
-  final settings = store.load();
-  final text = backgroundText(store.locale, binaryUnits: settings.binaryUnits);
-  await withBackgroundDb((db) async {
+  final settingsStore =
+      store ?? SettingsStore(await SharedPreferences.getInstance());
+  final settings = settingsStore.load();
+  final text =
+      backgroundText(settingsStore.locale, binaryUnits: settings.binaryUnits);
+  await withBackgroundDb(path: dbPath, (db) async {
     final service = RefreshService(
-      collector: Collector(system: WattByteSystem(), db: db),
+      collector: Collector(system: system ?? WattByteSystem(), db: db),
       db: db,
-      widgets: WidgetPublisher(),
-      notifier: AppNotifier(),
+      widgets: widgets ?? WidgetPublisher(),
+      notifier: notifier ?? AppNotifier(),
     );
     await service.run(
       settings: settings,
-      store: store,
+      store: settingsStore,
       l10n: text.l10n,
       units: text.units,
-      now: DateTime.now(),
+      now: (clock ?? DateTime.now)(),
     );
   });
 }

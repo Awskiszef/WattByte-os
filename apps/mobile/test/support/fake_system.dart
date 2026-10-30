@@ -129,7 +129,7 @@ class FakeSystem {
   /// measures zero new bytes); change them between refreshes to simulate usage.
   RawInterfaceCounters? counters;
 
-  /// Android: rows returned by `queryDataDaily` (empty = nothing new).
+  /// Android: rows `queryDataDaily` knows about (`day` = `yyyy-MM-dd`); the call returns the ones inside the requested window.
   List<Map<String, Object?>> dailyRows = [];
 
   /// Android: rows returned by `queryAppData` (defaults to [sampleApps] on
@@ -265,7 +265,17 @@ class FakeSystem {
         ackedTokens.add(token);
         return null;
       case 'queryDataDaily':
-        return dailyRows;
+        // Like NetworkStatsManager: only the local days that start in [from, to).
+        final window = call.arguments as Map;
+        final from =
+            DateTime.fromMillisecondsSinceEpoch(window['fromMs'] as int);
+        final to = DateTime.fromMillisecondsSinceEpoch(window['toMs'] as int);
+        return [
+          for (final r in dailyRows)
+            if (!DateTime.parse(r['day'] as String).isBefore(from) &&
+                DateTime.parse(r['day'] as String).isBefore(to))
+              r,
+        ];
       case 'queryAppData':
         return appRows;
       case 'appGroupId':
