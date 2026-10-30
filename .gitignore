@@ -12,6 +12,11 @@
 !.env.sample
 !.env.template
 !*.env.example
+!.env.*.example
+!.env.*.sample
+!.env.*.template
+!.env.dist
+!.env.*.dist
 /secrets/
 /.secrets/
 *.pem

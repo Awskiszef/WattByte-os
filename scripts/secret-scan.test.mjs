@@ -556,3 +556,18 @@ describe('files that used to be skipped silently (E-12)', () => {
     assert.deepEqual(res.findings.map((f) => [f.file, f.rule]), [['big/data.txt', 'file-not-scanned']]);
   });
 });
+
+describe('the repository .gitignore and the scanner agree on env files', () => {
+  it('template names the scanner calls safe are not ignored, real env files are', async () => {
+    const { readFileSync } = await import('node:fs');
+    const rules = parseGitignore(readFileSync(path.join(path.dirname(cli), '..', '.gitignore'), 'utf8'));
+    for (const template of ['.env.example', '.env.production.example', '.env.staging.example', '.env.sample', '.env.test.sample', '.env.dist', '.env.prod.dist', '.env.template']) {
+      assert.equal(sensitiveKind(template), null, `${template} is a template for the scanner`);
+      assert.equal(isIgnored(rules, template, false), false, `${template} must be trackable`);
+      assert.equal(isIgnored(rules, `apps/api/${template}`, false), false, `apps/api/${template} must be trackable`);
+    }
+    for (const real of ['.env', '.env.production', '.env.local', '.env.production.local', 'apps/api/.env', 'prod.env']) {
+      assert.equal(isIgnored(rules, real, false), true, `${real} must stay ignored`);
+    }
+  });
+});
