@@ -12,7 +12,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   # Pinned transitively by flutter_localizations.
-  intl: any
+  intl: 0.20.3
   flutter_riverpod: ^2.5.1
   flutter_secure_storage: ^9.2.2
   sqflite: ^2.3.3
