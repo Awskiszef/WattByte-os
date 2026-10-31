@@ -61,6 +61,18 @@ describe('scoped (FAST) pull requests', () => {
     assert.equal(d.android, true);
     assert.equal(d.contracts, true);
   });
+  it('the app\'s bundled copy of the device catalog switches the drift check on, like the catalog itself', () => {
+    const d = pr(['apps/mobile/assets/device_specs/devices.json']);
+    assert.equal(d.contracts, true, 'check-device-specs.mjs compares the copy with packages/device-specs');
+    assert.equal(d.flutter_test, true);
+    assert.equal(pr(['apps/mobile/assets/images/logo.png']).contracts, false, 'other assets do not');
+  });
+  it('the root .dockerignore decides the context of the API image, so it is not documentation', () => {
+    const d = pr(['.dockerignore']);
+    assert.equal(d.docs_only, false);
+    assert.equal(d.api_production, true, 'the image build and its smoke test must run');
+    assert.deepEqual(on(pr(['.gitignore', '.gitattributes'])), [], 'the other dotfiles still are');
+  });
   it('an OpenAPI change reaches the generated client and the app', () => {
     const d = pr(['packages/contracts/openapi/openapi.json']);
     assert.equal(d.contracts, true);
