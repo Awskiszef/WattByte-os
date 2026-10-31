@@ -20,10 +20,17 @@ overrides:
   "fast-uri@>=3.0.0 <3.1.9": "^3.1.9"
   "fast-uri@>=4.0.0 <4.2.3": "^4.2.3"
   # Found when apps/web joined the lockfile (2026-10-30): transitive packages of openai (undici) and of the OpenNext deploy
-  # tooling (glob, body-parser). Patch-level raises within the same major line.
+  # tooling (body-parser). Patch-level raises within the same major line.
   "undici@>=7.0.0 <7.30.1": "^7.30.1"
-  "glob@>=10.2.0 <10.5.0": "^10.5.0"
   "body-parser@>=2.0.0 <2.4.0": "^2.4.0"
+  # glob (GHSA-3g3m-2fjr-6pw4, 9.0.0 to 14.0.1) and minimatch (GHSA-g3hv-75wg-m249, every version below 11.0.1) were published on
+  # 2026-10-30; no older line got a patch, and the newest eslint, typescript-eslint and @opennextjs/cloudflare still ask for the old
+  # ones (checked 2026-10-31), so this is a major raise. Reached through ESLint and the OpenNext deploy tooling only. minimatch 11
+  # exports a named function: a rule of eslint-plugin-react, -import or -jsx-a11y that still calls `minimatch(...)` the version 3
+  # way would throw. None of the rules enabled here does (lint covers it). Remove both lines once those packages depend on
+  # minimatch >= 11 and glob >= 14.0.2 themselves.
+  "glob@>=9.0.0 <14.0.2": "^14.0.2"
+  "minimatch@<11.0.1": "^11.0.1"
 
 auditConfig:
   ignoreGhsas:
