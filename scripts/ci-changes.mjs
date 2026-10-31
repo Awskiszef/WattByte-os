@@ -31,7 +31,7 @@ export const RULES = [
   { re: /^apps\/[^/]+\/(README|CHANGELOG)\.md$/, set: ['docs'] },
   { re: /^apps\/[^/]+\/docs\//, set: ['docs'] },
   { re: /^\.github\/(CODEOWNERS|dependabot\.yml|pull_request_template\.md|ISSUE_TEMPLATE\/|rulesets\/|FUNDING\.yml)/, set: ['docs'] },
-  { re: /^(\.gitattributes|\.gitignore|\.gitleaks\.toml|\.githooks\/|\.claude\/|\.dockerignore)/, set: ['docs'] },
+  { re: /^(\.gitattributes|\.gitignore|\.gitleaks\.toml|\.githooks\/|\.claude\/)/, set: ['docs'] },
   // Hygiene runs the unit tests of these scripts on every change, so a change to one needs nothing else.
   { re: /^scripts\/(secret-scan|check-docs|is-main|github-protect-main|github-configure-repo|check-public-config|public-config|public-export)[^/]*$/, set: ['docs'] },
   // The public export's overlay (placeholders for private files): the website part is real code, the rest is documentation.
@@ -52,7 +52,8 @@ export const RULES = [
   { re: /^packages\/contracts\/openapi\//, set: ['contracts', 'mobile'] },
   { re: /^packages\/contracts\//, set: ['contracts'] },
   { re: /^packages\/device-specs\//, set: ['devspecs', 'mobile'] },
-  { re: /^apps\/api\/(Dockerfile|\.dockerignore)$/, set: ['api', 'docker'] },
+  // The API image is built from the repository root (docker build -f apps/api/Dockerfile .), so the root .dockerignore decides what is in its context.
+  { re: /^(\.dockerignore|apps\/api\/(Dockerfile|\.dockerignore))$/, set: ['api', 'docker'] },
   { re: /^apps\/api\//, set: ['api'] },
   { re: /^infrastructure\/(?!public-overlay\/)/, set: ['api'] },
 
@@ -64,6 +65,8 @@ export const RULES = [
   { re: /^apps\/mobile\/(ios\/|packages\/wattbyte_system\/ios\/|tool\/check_widget_links\.sh$)/, set: ['mobile', 'ios'] },
   { re: /^apps\/mobile\/(android\/|packages\/wattbyte_system\/android\/|tool\/check_release_guard\.sh$)/, set: ['mobile', 'android_native'] },
   { re: /^apps\/mobile\/(pubspec\.(yaml|lock)|packages\/[^/]+\/pubspec\.(yaml|lock))$/, set: ['mobile', 'ios', 'android_native'] },
+  // The app bundles a copy of the device catalog; check-device-specs.mjs (the contracts job) requires it to equal packages/device-specs.
+  { re: /^apps\/mobile\/assets\/device_specs\//, set: ['mobile', 'devspecs'] },
   { re: /^apps\/mobile\//, set: ['mobile'] },
 ];
 
