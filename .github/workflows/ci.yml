@@ -134,16 +134,28 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: ${{ env.NODE_VERSION }}
+      # The repository decides which gate applies, never a file of the change under test: a pull request can add or remove a file, and
+      # with it switch the gate off (scripts/check-workflow-pins.mjs keeps hashFiles() out of this job).
       # Public repository: the checkout and every commit reachable from it.
       - name: Configuration files, credentials and account-specific values (working tree and history)
-        if: hashFiles('scripts/public-export.mjs') == ''
+        id: public_gate
+        if: ${{ !github.event.repository.private }}
         run: node scripts/check-public-config.mjs --history
       # Private repository (the only one that has the export tooling): build the public export in a temporary directory and run the
       # same gate on its final tree, i.e. on exactly what would be published. Nothing is pushed. The full-history run needs the private
       # scrub list and happens when the export is built for publication.
       - name: Public export gate (private repository only)
-        if: hashFiles('scripts/public-export.mjs') != ''
+        id: private_gate
+        if: ${{ github.event.repository.private }}
         run: node scripts/public-export.mjs "$RUNNER_TEMP/public-export" --no-scrub --tip-only
+      # A required check must not pass because every gate was skipped.
+      - name: One of the gates ran and passed
+        if: ${{ always() }}
+        run: |
+          if [ "${{ steps.public_gate.outcome }}" != "success" ] && [ "${{ steps.private_gate.outcome }}" != "success" ]; then
+            echo "::error::neither the public gate nor the private export gate ran and passed"
+            exit 1
+          fi
 
   # ------------------------------------------------- TypeScript: API, AI gateway, contracts, device catalog
   ts:

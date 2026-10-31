@@ -8,7 +8,7 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { check, checkRelease, findUnpinned, jobBlocks } from './check-workflow-pins.mjs';
+import { check, checkPublicGate, checkRelease, findUnpinned, jobBlocks } from './check-workflow-pins.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sha = 'a'.repeat(40);
@@ -53,6 +53,56 @@ describe('checkRelease', () => {
 
   it('flags a missing guard', () => {
     assert.ok(checkRelease(workflow('  build:\n    steps: []\n')).includes('release.yml has no `guard` job'));
+  });
+});
+
+describe('checkPublicGate', () => {
+  const ci = (steps) => `name: CI\njobs:\n  public-config:\n    name: Public Configuration Security Gate\n    runs-on: ubuntu-latest\n    steps:\n${steps}`;
+  // The layout before: a file of the change under test chose the gate, and skipping both steps still passed.
+  const OLD_GATE = [
+    '      - name: Configuration files',
+    "        if: hashFiles('scripts/public-export.mjs') == ''",
+    '        run: node scripts/check-public-config.mjs --history',
+    '      - name: Public export gate (private repository only)',
+    "        if: hashFiles('scripts/public-export.mjs') != ''",
+    '        run: node scripts/public-export.mjs out --no-scrub --tip-only',
+  ].join('\n');
+  const NEW_GATE = [
+    '      - name: Configuration files',
+    '        id: public_gate',
+    '        if: ${{ !github.event.repository.private }}',
+    '        run: node scripts/check-public-config.mjs --history',
+    '      - name: Public export gate (private repository only)',
+    '        id: private_gate',
+    '        if: ${{ github.event.repository.private }}',
+    '        run: node scripts/public-export.mjs out --no-scrub --tip-only',
+    '      - name: One of the gates ran and passed',
+    '        if: ${{ always() }}',
+    '        run: test "${{ steps.public_gate.outcome }}" = success || test "${{ steps.private_gate.outcome }}" = success',
+  ].join('\n');
+  const FILE_CHOSEN = 'job public-config uses hashFiles(): a file of the change under test would choose its gate';
+  const SKIP_PASSES = 'job public-config passes when every gate step is skipped (no step checks their outcome)';
+
+  it('accepts steps chosen by the visibility of the repository, with a step that requires one gate to have passed', () => {
+    assert.deepEqual(checkPublicGate(ci(NEW_GATE)), []);
+  });
+
+  it('flags the previous layout: a file of the change chooses the gate and skipping both steps still passes', () => {
+    assert.deepEqual(checkPublicGate(ci(OLD_GATE)), [FILE_CHOSEN, SKIP_PASSES]);
+  });
+
+  it('flags hashFiles() next to a correct outcome check, and a missing outcome check next to a correct selection', () => {
+    assert.deepEqual(checkPublicGate(ci(NEW_GATE.replace('${{ !github.event.repository.private }}', "hashFiles('x') == ''"))), [FILE_CHOSEN]);
+    assert.deepEqual(checkPublicGate(ci(NEW_GATE.split('\n').slice(0, 8).join('\n'))), [SKIP_PASSES]);
+  });
+
+  it('does not count a comment that names hashFiles() or steps.<id>.outcome', () => {
+    assert.deepEqual(checkPublicGate(ci(`      # never hashFiles() here\n${NEW_GATE}`)), []);
+    assert.deepEqual(checkPublicGate(ci(`      # steps.x.outcome is checked below\n${NEW_GATE.split('\n').slice(0, 8).join('\n')}`)), [SKIP_PASSES]);
+  });
+
+  it('flags a missing job', () => {
+    assert.deepEqual(checkPublicGate('name: CI\njobs:\n  other:\n    steps: []\n'), ['ci.yml has no `public-config` job']);
   });
 });
 
