@@ -1,12 +1,17 @@
 // Copyright 2026 ATLASHC Paweł Dolatowski
 // SPDX-License-Identifier: Apache-2.0
 
-import { afterAll, describe } from 'vitest';
+import { afterAll, describe, vi } from 'vitest';
 
 import { PostgresRepositories } from '../../src/database/postgres.js';
 import { defineRefreshEndpointBoundaryTests, defineRotateBoundaryTests } from '../refresh-boundary.shared.js';
 import { buildTestApp } from '../support.js';
 import { closePgApp, DATABASE_URL, makePgApp, type PgContext, uniqueEmail } from './helpers.js';
+
+// Every test builds its app through makePgApp(), which runs migrate() and so queues for the database-wide advisory lock that other files
+// hold or wait for; on a fresh database the first test also pays for the first migration. Like the other PostgreSQL suites that share the
+// database, allow for a loaded machine instead of the 5 s default (3.7 s was measured with two suites running at once).
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 describe.skipIf(!DATABASE_URL)('refresh reuse boundary (PostgreSQL)', () => {
   const contexts: PgContext[] = [];

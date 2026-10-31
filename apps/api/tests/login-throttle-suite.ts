@@ -11,7 +11,9 @@ const at = (base: Date, sec: number): Date => new Date(base.getTime() + sec * 10
 /** The per-account throttle semantics every implementation must share (memory and PostgreSQL). */
 export function defineLoginThrottleRepositoryTests(name: string, make: () => Promise<{ repo: LoginThrottleRepository; key: () => string }>): void {
   describe(`login throttle repository (${name})`, () => {
-    const t0 = new Date('2026-10-29T12:00:00.000Z');
+    // Anchored to the real clock, not to a calendar date: the PostgreSQL run writes these rows into the database whose retention test purges
+    // every login_throttle row older than one day, so a fixed date in the past is deleted in the middle of a test once that day has passed.
+    const t0 = new Date();
 
     it('counts failures; the lock starts at the LOCK_AFTER-th and doubles with each further failure', async () => {
       const { repo, key } = await make();
