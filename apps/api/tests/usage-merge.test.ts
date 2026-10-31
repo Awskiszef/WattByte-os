@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { DailyUsageDto, LIMITS } from '@wattbyte/contracts';
 import { describe, expect, it } from 'vitest';
 

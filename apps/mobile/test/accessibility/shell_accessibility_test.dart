@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // The shell: the bottom NavigationBar at every text size, phone, theme and
 // language, how it reads to a screen reader, and the three data tabs inside the
 // REAL app (theme, l10n, the real text scaling in lib/app.dart).

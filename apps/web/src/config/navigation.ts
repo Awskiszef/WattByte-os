@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 export type NavLink = { label: string; href: string; comingSoon?: false } | { label: string; comingSoon: true };
 
 export const mainNav = [

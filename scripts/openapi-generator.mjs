@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // The pinned OpenAPI generator (audit E-06). One jar, one version, one SHA-256, the same for every machine and for CI:
 //
 //   scripts/openapi-generator.pin.json   version, download URL and SHA-256 of the jar

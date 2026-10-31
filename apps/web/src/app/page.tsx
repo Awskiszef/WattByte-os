@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import type { Metadata } from 'next';
 import { Hero } from '@/components/home/hero';
 import { AIChatPreview } from '@/components/sections/ai-preview';

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Waits until a PostgreSQL database answers a real query (`SELECT 1`), for CI and
 // dev scripts that must not race a database that is still starting.
 //

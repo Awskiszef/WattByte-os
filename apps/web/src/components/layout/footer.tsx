@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { footerColumns } from '@/config/navigation';
 import { site } from '@/config/site';
 import { ComingSoon } from '@/components/ui/badge';

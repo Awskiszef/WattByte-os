@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Generates (WB_BRAND_MODE=write) or verifies (default / WB_BRAND_MODE=check) every launcher-icon and
 // launch-screen asset of the app. Run it through tool/generate_brand_assets.sh from apps/mobile.
 //

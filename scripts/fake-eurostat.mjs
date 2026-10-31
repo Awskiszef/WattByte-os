@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // A tiny stand-in for the Eurostat dissemination API (dataset nrg_pc_204) so the e2e job and local runs do not
 // depend on the public internet. It answers the exact query shape EurostatElectricityPriceProvider sends and
 // serves JSON-stat 2.0 documents like the real service: the last three half-years for a few countries, and an

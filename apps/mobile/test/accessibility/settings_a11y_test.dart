@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Settings: every row readable and reachable at every text scale, the editors
 // (bottom sheets) and dialogs scrollable with the keyboard up, one merged,
 // named node per row for a screen reader.

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { Counter } from '@/components/home/counter';
 import { UsageChart } from '@/components/home/usage-chart';
 import { ComingSoon } from '@/components/ui/badge';

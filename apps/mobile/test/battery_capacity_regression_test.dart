@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Regression: the Android charge counter is NOT the design capacity.
 //
 // The bug these tests keep dead: `BATTERY_PROPERTY_CHARGE_COUNTER` (the charge

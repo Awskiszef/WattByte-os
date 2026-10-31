@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Runs the API test suite WITH the PostgreSQL suites (audit E-16): the local equivalent of the CI `node` job's database part.
 //
 //   pnpm db:up && pnpm test:db          (WB_PG_PORT=55432 pnpm db:up && WB_PG_PORT=55432 pnpm test:db)

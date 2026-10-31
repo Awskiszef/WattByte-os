@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Every refresh tick (a minute) re-reads the data. The screens keep what they show while it is read again: no spinner in
 // place of the content, the scroll position and the answer on screen survive (audit F-02, G-03).
 import 'package:flutter/material.dart';

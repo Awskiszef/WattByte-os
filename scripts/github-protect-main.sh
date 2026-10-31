@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright 2026 ATLASHC Paweł Dolatowski
+# SPDX-License-Identifier: Apache-2.0
+
 # Applies .github/rulesets/main.json to the repository as a ruleset and verifies that it is ACTIVE.
 #
 #   bash scripts/github-protect-main.sh [owner/repo]        (default: the origin repository)

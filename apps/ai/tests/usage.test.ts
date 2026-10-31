@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it } from 'vitest';
 
 import { AI_PROVIDER_IDS, estimateCost, estimateCostUsd, MemoryUsageSink, PRICE_PER_MILLION_USD, type AIProviderId, type UsageRecord } from '../src/index.js';

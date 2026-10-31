@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Public API contracts for /api/v1. The TypeScript API validates with these
  * schemas and publishes an OpenAPI document generated from them; the Flutter

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import type { AIGenerationRequest, AIGenerationResult, AIProvider, ModelConfig, ProviderHealthResult } from '../types.js';
 import { getOk, postJson, ProviderError, type FetchLike } from './http.js';
 import { assertModels, reportedModel, resolveModel, tokenCount } from './models.js';

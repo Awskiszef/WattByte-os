@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { ImageResponse } from 'next/og';
 
 export const size = { width: 180, height: 180 };

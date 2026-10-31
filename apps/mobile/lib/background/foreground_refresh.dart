@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import 'dart:async';
 
 import 'package:flutter/widgets.dart' show AppLifecycleState;

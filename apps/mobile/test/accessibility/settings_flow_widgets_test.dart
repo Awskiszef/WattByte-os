@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // The small layout rules the flow screens are built from (lib/ui/settings/
 // flow_widgets.dart): when a value sits beside its label and when it moves
 // below, how a word that does not fit is treated, and the email break helper.

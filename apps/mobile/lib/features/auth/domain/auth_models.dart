@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /// Account models. No backend exists yet; these define the contract the
 /// Flutter side will program against once `apps/api` is live.
 library;

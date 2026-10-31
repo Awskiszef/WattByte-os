@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 'use client';
 
 import { ThemeProvider as NextThemesProvider } from 'next-themes';

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Shared sweep helpers for the flow-screen accessibility tests (welcome, auth,
 // setup, permissions, settings, account). Not a test file itself.
 //

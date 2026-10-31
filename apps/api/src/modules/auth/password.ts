@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
 
 import { HttpError } from '../../errors/http-error.js';

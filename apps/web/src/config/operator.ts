@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Who operates this deployment of the website: the business behind the legal pages, the footer and the About page.
  *

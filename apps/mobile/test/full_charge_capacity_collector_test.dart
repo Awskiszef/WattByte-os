@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // The estimated full-charge capacity as the Collector keeps it.
 //
 // Driven through the REAL Collector with a scripted native side (FakeSystem) and

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // The device catalog lives in packages/device-specs/src/devices.json; the Flutter
 // app bundles a copy at apps/mobile/assets/device_specs/devices.json. They must
 // be byte-identical (CI runs this after `pnpm device-specs:sync`).

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /// Why a setting has the value it has (see `docs/SETTING_SOURCES.md`).
 ///
 /// One model for every setting that can come from more than one place: the

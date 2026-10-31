@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Regression for an earlier bug: generated Dart clients send an absent optional field as an explicit
  * `null`, and the API answered 400. Every request body of every route is posted here with `null` for

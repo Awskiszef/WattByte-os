@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import type { AIErrorCategory } from './errors.js';
 import type { ProviderErrorKind } from './providers/http.js';
 import type { AIInput, AIOutput } from './schemas.js';

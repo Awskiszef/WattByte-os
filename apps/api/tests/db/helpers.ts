@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { AI_PROVIDER_IDS, AIGateway, MockProvider, ProviderRouter } from '@wattbyte/ai';
 import pg from 'pg';
 

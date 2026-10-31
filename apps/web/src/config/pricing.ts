@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Pricing is edited here and nowhere else. A plan without a `price` renders
  * "Pricing announced at launch"; a plan with `status: 'planned'` is shown as

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /// Shared helpers of the export tests (not a test itself: the name does not end
 /// in `_test.dart`).
 library;

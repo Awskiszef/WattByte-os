@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { defineCloudflareConfig } from '@opennextjs/cloudflare';
 import kvIncrementalCache from '@opennextjs/cloudflare/overrides/incremental-cache/kv-incremental-cache';
 import memoryQueue from '@opennextjs/cloudflare/overrides/queue/memory-queue';

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Contracts for an account's cloud data: erasing it without deleting the account
  * (`DELETE /api/v1/me/cloud-data`) and exporting it (`GET /api/v1/me/export`).

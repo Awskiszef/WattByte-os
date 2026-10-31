@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // The timing equaliser of the login (a hash computed once for unknown e-mail addresses) must not remember a failure: one
 // "server busy" answer used to be cached for the life of the process and broke every later unknown-e-mail login.
 import { afterEach, describe, expect, it } from 'vitest';

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Secret scan over the WHOLE Git history (every commit of every branch), not only the current files:
 //
 //   node scripts/secret-scan-history.mjs [--allow FILE] [--json]

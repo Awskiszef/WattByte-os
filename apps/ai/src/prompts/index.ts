@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import type { AIInput } from '../schemas.js';
 import { AI_SEVERITIES } from '../schemas.js';
 import type { AILocale, AIMode, AITask } from '../types.js';

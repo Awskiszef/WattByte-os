@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Run on a Mac (no simulator needed):
 //   swiftc Classes/InterfaceCounterParser.swift Tests/InterfaceCounters/main.swift -o /tmp/check_ifc && /tmp/check_ifc
 // Exits non-zero on the first failed check. Covers the pure parser with synthetic NET_RT_IFLIST2 buffers and one live read.

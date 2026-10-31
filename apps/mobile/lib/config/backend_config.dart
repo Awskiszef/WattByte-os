@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /// The one place that decides whether a build may start, and how it reaches its
 /// backend. Pure Dart (no Flutter import) so the same function runs in the unit
 /// tests, in `tool/check_backend_config.dart` (CI and the release workflow) and,

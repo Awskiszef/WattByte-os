@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Unknown battery capacity is an unknown energy, not a measured zero (audit G-02): the model, every surface that prints
 // a number, the records, the export and the payload sent to the AI.
 import 'package:flutter_test/flutter_test.dart';

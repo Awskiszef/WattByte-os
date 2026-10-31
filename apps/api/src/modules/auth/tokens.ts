@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { createHash, createHmac, randomBytes } from 'node:crypto';
 
 import { jwtVerify, SignJWT } from 'jose';

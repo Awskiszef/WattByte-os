@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { makeApp, registerUser, sampleInput, type TestContext } from './helpers.js';

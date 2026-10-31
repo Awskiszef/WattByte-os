@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import '../domain/auth_models.dart';
 
 /// Used when no `API_BASE_URL` is configured (only reachable in the debug-only

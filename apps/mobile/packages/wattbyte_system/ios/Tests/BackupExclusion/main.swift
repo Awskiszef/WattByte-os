@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Run on a Mac:
 //   swiftc Classes/BackupExclusion.swift Tests/BackupExclusion/main.swift -o /tmp/check_backup && /tmp/check_backup
 import Foundation

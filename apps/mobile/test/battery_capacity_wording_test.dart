@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // The words the user reads decide whether an estimate is mistaken for the
 // nominal capacity. These tests pin the literal English and Polish wording
 // (other tests build their expectations from the same l10n getters, so they

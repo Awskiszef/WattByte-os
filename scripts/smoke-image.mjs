@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // Container smoke test of the API image (audit E-08, CI job `api-production`): the IMAGE, started the way a deployment starts it.
 //
 //   docker build -f apps/api/Dockerfile -t wattbyte-api:ci .

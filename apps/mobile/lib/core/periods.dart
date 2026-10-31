@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 /// Calendar periods used by the dashboard, statistics and insights.
 enum Period {
   today,

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 // The Dashboard at every text size, on both phones, in both themes and both
 // languages, with every kind of data it can show; what a screen reader says
 // about it; its touch targets; its contrast.

@@ -1,3 +1,6 @@
+// Copyright 2026 ATLASHC Paweł Dolatowski
+// SPDX-License-Identifier: Apache-2.0
+
 import { AI_PROVIDER_IDS, MockProvider, providersFromEnv, type AIProvider } from '@wattbyte/ai';
 import type { FastifyBaseLogger } from 'fastify';
 
