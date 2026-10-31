@@ -103,6 +103,10 @@ updates:
       # device test (docs/DEVICE_TEST_PLAN.md); patch releases still arrive.
       - dependency-name: home_widget
         update-types: ['version-update:semver-minor']
+      # intl is pinned to one exact version by flutter_localizations of the Flutter SDK (0.20.2 in the FLUTTER_VERSION 3.41.6 the CI
+      # uses). Dependabot resolves with the newest Flutter, rewrites `intl: any` to an exact `intl: 0.20.3`, and `pub get` then fails
+      # with "intl is pinned to version 0.20.2 by flutter_localizations". intl moves together with FLUTTER_VERSION, not through here.
+      - dependency-name: intl
       # 2.4.5 and later need Dart ^3.12, newer than the Flutter the CI uses (FLUTTER_VERSION 3.41.6): the grouped update failed
       # at `pub get` ("sqflite 2.4.5 requires SDK version ^3.12.0"). Remove these entries when FLUTTER_VERSION is raised.
       - dependency-name: sqflite_common_ffi

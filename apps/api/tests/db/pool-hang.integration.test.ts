@@ -5,6 +5,7 @@ import net from 'node:net';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { migrate } from '../../src/database/migrate.js';
 import { PostgresRepositories } from '../../src/database/postgres.js';
 import { DATABASE_URL, uniqueEmail } from './helpers.js';
 
@@ -21,6 +22,9 @@ describe.skipIf(!DATABASE_URL)('hung database path (PostgreSQL)', () => {
   const errors: Error[] = [];
 
   beforeAll(async () => {
+    // The queries below read `users`. Prepare the shared database here instead of relying on another test file having done it first:
+    // on a fresh database (every CI run) this file fails with `relation "users" does not exist` when it gets there before them.
+    await migrate(DATABASE_URL!);
     const target = new URL(DATABASE_URL!);
     proxy = net.createServer((client) => {
       const upstream = net.connect(Number(target.port || 5432), target.hostname);

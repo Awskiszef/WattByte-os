@@ -112,6 +112,44 @@ describe.skipIf(!postgresAvailable)('cloud data (PostgreSQL specifics)', () => {
     expect(shape(await fx.repos.cloud.exportData(a.userId, 100)), 'after the delete committed, an export is empty').toBe('[0,0,0,0]');
   });
 
+  it('an export keeps the snapshot it took when it started: a delete that commits while the export waits is not seen by it', async () => {
+    const a = await seedAccount(fx, 'pg-snapshot-start');
+    const shape = (d: Awaited<ReturnType<typeof fx.repos.cloud.exportData>>) =>
+      JSON.stringify([d?.dailyUsage.length, d?.chargingSummaries.length, d?.monthlySummaries.length, d?.aiGenerations.length]);
+    // exportData reads the account, the settings and then `devices` first. A lock on `devices` parks it there: its snapshot was taken by the
+    // first statement and no collection has been read yet. deleteData does not touch `devices` here, so it commits while the export is parked.
+    // Nothing depends on timing: the export is seen queued in pg_locks before the delete starts, and the lock is released after the commit.
+    // A plain BEGIN (READ COMMITTED) or separate queries would read the collections after the commit and return [0,0,0,0].
+    const holder = await sql.connect();
+    let parked: ReturnType<typeof fx.repos.cloud.exportData> | undefined;
+    try {
+      await holder.query('BEGIN');
+      await holder.query('LOCK TABLE devices IN ACCESS EXCLUSIVE MODE');
+      parked = fx.repos.cloud.exportData(a.userId, 100);
+      const queued = async (): Promise<number> =>
+        ((await sql.query("SELECT count(*)::int AS n FROM pg_locks WHERE locktype = 'relation' AND relation = 'devices'::regclass AND NOT granted")).rows[0] as { n: number }).n;
+      // A condition with a bound, not a delay: if the export never queues, the test fails with this message instead of hanging.
+      for (let polls = 0; (await queued()) === 0; polls++) {
+        if (polls >= 1000) throw new Error('the export did not queue for the lock on devices');
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      expect(await fx.repos.cloud.deleteData(a.userId), 'the delete commits while the export is parked').toEqual({
+        dailyUsage: 3,
+        chargingSummaries: 2,
+        monthlySummaries: 1,
+        aiGenerations: 2,
+        devices: 0,
+      });
+      await holder.query('COMMIT');
+      expect(shape(await parked), 'the export still sees what existed when it started').toBe('[3,2,1,2]');
+    } finally {
+      await holder.query('ROLLBACK').catch(() => undefined);
+      holder.release();
+      await parked?.catch(() => undefined);
+    }
+    expect(shape(await fx.repos.cloud.exportData(a.userId, 100)), 'an export that starts after the commit is empty').toBe('[0,0,0,0]');
+  });
+
   it('an export does not write: the account row and its data are unchanged afterwards', async () => {
     const a = await seedAccount(fx, 'pg-readonly');
     const before = await exportBody(fx, a.headers);
