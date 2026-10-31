@@ -31,6 +31,7 @@ implemented things "planned".
 | [CLOUD_DATA.md](CLOUD_DATA.md) | What is uploaded, exported and erased |
 | [PLATFORM_SUPPORT.md](PLATFORM_SUPPORT.md) | What each OS version can and cannot measure |
 | [ACCESSIBILITY_DATA_SCREENS.md](ACCESSIBILITY_DATA_SCREENS.md) | Accessibility of the data screens |
+| [WattByte Brand Assets](brand/README.md) | The logo files with the name (SVG and transparent PNG, light and dark variants), where they come from, how to regenerate them, and that the name and logo are not licensed with the code |
 
 ## Operations and release
 
