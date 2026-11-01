@@ -28,7 +28,7 @@
     "fastify-type-provider-zod": "^4.0.2",
     "jose": "^5.9.6",
     "pg": "^8.13.1",
-    "zod": "^3.24.1"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
